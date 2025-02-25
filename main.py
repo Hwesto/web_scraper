@@ -19,20 +19,51 @@ MAX_ATTEMPTS = 100
 MAX_PAGES = 10
 
 
-# -- Accessing Link --
+# -- Connection Request --
 
-"""Accessing the link via request.get"""
-def Access(URL):
+def fetch_response() -> requests.Response:
+    """Fetches HTTP response or returns None on failure"""
     headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(URL, headers =headers)
-    print(response.status_code)
+    try:
+        response = requests.get(URL, headers)
+        return response
+    except (requests.RequestException):
+        print ("Connection Error")
+        return None
+        
+
+def fetch_status(response: requests.Response) -> int:
+    """fetching the status code"""
+    status = response.status_code
+    return status
+
+
+def fetch_raw(response: requests.Response) -> str:
+     """Checking the raw html of the link"""
+     raw_data = response.text
+     return raw_data
+
+   
+def connection_request():
+    """fetching the connection responses"""
+    response = fetch_response()
+    status = fetch_status(response)
+    raw_data = fetch_raw(response)
+    print (status)
+    return (raw_data)
+    
+
+# -- Data Parsing --
+
+def parse_data(raw_data):
+    """Parsing HTML with bs4"""
+    parsed_data = BeautifulSoup(raw_data, "html.parser")
+    return parsed_data
+
+def locate_titles(parsed_data)
 
 
 
-"""Checking the Status of the Link"""
-
-
-# -- Read Data -- 
 
 # -- Extracting Information --
 
@@ -45,7 +76,10 @@ def Access(URL):
 
 #-- Main function--
 def main():
-    Access(URL)
+    raw_data = connection_request()
+    parsed_data = parse_data(raw_data)
+    locate_titles = 
+
 
 if __name__ == "__main__":
     main()
