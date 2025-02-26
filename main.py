@@ -2,6 +2,20 @@
 Goal: Build a tool to extract data from a website (e.g., quotes, headlines, or product listings).
 Why this matters: Scraping is how you automate data collection—useful for research, market analysis, and competitive intelligence."""
 
+"""
+TO DO
+
+Fix find_data to find data within same block.
+Associate data points ensuring the rest of the code still works.
+Create fully cleaned and associated data
+Write function to print all associated data.
+Use Pandas to save the data and manipulate.
+Add timer to be polite.
+Add pageination to scrape all quotes
+Neaten main
+
+
+"""
 
 
 # -- Imports --
@@ -17,6 +31,14 @@ URL ="http://quotes.toscrape.com"
 TIME_DELAY = 2
 MAX_ATTEMPTS = 100
 MAX_PAGES = 10
+ELEMENTS_TO_FETCH =[
+    ("Quotes", "span", "text"),
+    ("Tags", "div", "tags"),
+    ("Top Ten", "span", "tag-item"),
+    ("Titles H1", "h1", None),
+    ("Titles H2", "h2", None),
+    ("Authors", "small", "author"),
+    ("Author About", "a", None)]
 
 
 # -- Connection Request --
@@ -61,94 +83,64 @@ def parse_data(raw_data):
 
 #-- Find Data --
 
-def fetch_title_h1(parsed_data):
-    """find and parse all h1 titles from html"""
-    title_location = parsed_data.find("h1")
-    title_txt = title_location.get_text()
-    return (title_txt)
+def fetch_elements(parsed_data, tag: str, class_name:str):
+    """Fetches text content from elements with the specified tag and class."""
+    return [element.get_text() for element in parsed_data.find_all(tag, class_=class_name)]
 
-def fetch_quotes(parsed_data):
-    """find and parse all quotes from html"""
-    quotes = []
-    raw_quotes = parsed_data.find_all("span", class_="text")
-    for raw_quote in raw_quotes:
-        quote = raw_quote.get_text()
-        quotes.append(quote) 
-    return quotes
-
-def fetch_authors(parsed_data):
-    """find and parse all authors from html"""
-    authors = []
-    raw_authors = parsed_data.find_all("small", class_="author")
-    for raw_author in raw_authors:
-        author = raw_author.get_text()
-        authors.append(author)
-    return authors
-
-def fetch_author_about(parsed_data):
-    """find and parse all authors from html"""
-    abouts = []
-    raw_abouts = parsed_data.find_all("a",)
-    for raw_about in raw_abouts:
-        about = raw_about["href"]
-        abouts.append(about)
-    return abouts
-
-def fetch_tags(parsed_data):
-    """find and parse all tags from html"""
-    tags = []
-    raw_tags = parsed_data.find_all("div", class_="tags")
-    for raw_tag in raw_tags:
-        tag = raw_tag.get_text()
-        tags.append(tag)
-    return tags #Tags are mashed will need to fix
-
-def fetch_title_h2(parsed_data):
-    """find and parse all h1 titles from html"""
-    title_location = parsed_data.find("h2")
-    title_txt = title_location.get_text()
-    return (title_txt)
-
-def fetch_top_ten(parsed_data):
-    """find and parse all tags from html"""
-    top_ten = []
-    raw_tens = parsed_data.find_all("span", class_="tag-item")
-    for raw_ten in raw_tens:
-        ten = raw_ten.get_text()
-        top_ten.append(ten)
-    return (top_ten)
-
-
-def find_data(parsed_data):
-    h1_title = fetch_title_h1(parsed_data)
-    quotes = fetch_quotes(parsed_data)
-    authors = fetch_authors(parsed_data)
-    tags = fetch_tags(parsed_data)
-    h2_title = fetch_title_h2(parsed_data)
-    abouts = fetch_author_about(parsed_data)
-    top_ten = fetch_top_ten(parsed_data)
-    for quote, author in zip(quotes, authors):
-        print({f"{quote} by {author}"})
-    
+def find_data(parsed_data) -> dict:
+    """Fetches and returns all desired elements as a dictionary."""
+    raw_elements = {
+    name: fetch_elements(parsed_data, tag, class_name) 
+    for name, tag, class_name in ELEMENTS_TO_FETCH}
+    return(raw_elements)
 
 
 # -- Clean Data -- 
 
+def clean_data(raw_elements: dict) -> dict:
+    """Cleans a dictionary of strings by stripping whitespace and removing empty entries."""
+    return {key: [item.strip() for item in value if item.strip()] for key, value in raw_elements.items()}
 
+def clean_text_list(text_list: list) -> list:
+    """Cleans a list of strings by stripping whitespace and removing empty entries."""
+    return [item.strip() for item in text_list if item.strip()]
 
-# -- Concatenate Data --
+def clean_tags(tag_list: list) -> list:
+    cleaned_tags = []
+    for tag_block in tag_list:
+        tags = tag_block.replace("Tags:", "").strip().split('\n')
+        cleaned_tags.extend(clean_text_list(tags))
+    return (cleaned_tags)
 
+def join(clean_elements):
+    ce = clean_elements
+    return (f"{ce["Quotes"]} by {ce["Authors"]}")
 
+# -- Store Data --
 
-# -- Appending --
 
 # -- Polite robot.txt scraping --
+
+
 # Time constraints etc
 
+
+
 #-- Main function--
+
+
 def main():
     raw_data = connection_request()
     parsed_data = parse_data(raw_data)
+    raw_elements = find_data(parsed_data)
+    clean_elements = clean_data(raw_elements)
+    tags = clean_elements["Tags"]
+    cleaned_tags =clean_tags(tags)
+    clean_elements["Tags"] = cleaned_tags
+    
+    trial = join(clean_elements)
+    print (trial)
+    
 
 if __name__ == "__main__":
     main()
