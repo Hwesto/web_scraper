@@ -1,3 +1,4 @@
+
 """Project Overview: Simple Web Scraper
 Goal: Build a tool to extract data from a website (e.g., quotes, headlines, or product listings).
 Why this matters: Scraping is how you automate data collection—useful for research, market analysis, and competitive intelligence."""
@@ -5,15 +6,8 @@ Why this matters: Scraping is how you automate data collection—useful for rese
 """
 TO DO
 
-Fix find_data to find data within same block.
-Associate data points ensuring the rest of the code still works.
-Create fully cleaned and associated data
-Write function to print all associated data.
 Use Pandas to save the data and manipulate.
 Add timer to be polite.
-Add pageination to scrape all quotes
-Neaten main
-
 
 """
 
@@ -57,6 +51,7 @@ def fetch_response() -> requests.Response:
 def fetch_status(response: requests.Response) -> int:
     """fetching the status code"""
     status = response.status_code
+    print (f"Status code = {status}")
     return status
 
 
@@ -66,7 +61,7 @@ def fetch_raw(response: requests.Response) -> str:
      return raw_data
 
    
-def connection_request():
+def connection_request() -> str:
     """fetching the connection responses"""
     response = fetch_response()
     status = fetch_status(response)
@@ -76,48 +71,42 @@ def connection_request():
 
 # -- Data Parsing --
 
-def parse_data(raw_data):
+def parse_data(raw_data: str) -> BeautifulSoup:
     """Parsing HTML with bs4"""
     parsed_data = BeautifulSoup(raw_data, "html.parser")
     return parsed_data
 
 #-- Find Data --
 
-def fetch_elements(parsed_data, tag: str, class_name:str):
-    """Fetches text content from elements with the specified tag and class."""
-    return [element.get_text() for element in parsed_data.find_all(tag, class_=class_name)]
-
-def find_data(parsed_data) -> dict:
-    """Fetches and returns all desired elements as a dictionary."""
-    raw_elements = {
-    name: fetch_elements(parsed_data, tag, class_name) 
-    for name, tag, class_name in ELEMENTS_TO_FETCH}
-    return(raw_elements)
+def get_quote_blocks(parsed_data: BeautifulSoup) -> BeautifulSoup:
+    """Splitting down the data into blocks of quotes, so the data stays consistent"""
+    blocks = parsed_data.find_all("div",class_="quote")
+    return blocks
 
 
-# -- Clean Data -- 
+def quote_data(blocks: BeautifulSoup) -> list:
+    """Extract structured data from each quote block"""
+    all_quotes = []
+    for block in blocks:
+        quote_data={
+            "Quote": block.find("span",class_="text").get_text(strip=True),
+            "Authors":block.find("small", class_="author").get_text(strip=True),
+            "Tags" : [tag.get_text(strip=True) for tag in block.find("div",class_="tags").find_all("a",class_="tag")]
+        }
+        all_quotes.append(quote_data)
+    return all_quotes
 
-def clean_data(raw_elements: dict) -> dict:
-    """Cleans a dictionary of strings by stripping whitespace and removing empty entries."""
-    return {key: [item.strip() for item in value if item.strip()] for key, value in raw_elements.items()}
 
-def clean_text_list(text_list: list) -> list:
-    """Cleans a list of strings by stripping whitespace and removing empty entries."""
-    return [item.strip() for item in text_list if item.strip()]
+def sub_data(parsed_data: BeautifulSoup) -> tuple[str, str, dict[str, str]]:
+    h1_title = parsed_data.find("h1").get_text(strip=True)
+    h2_title = parsed_data.find("h2").get_text(strip=True)
+    top_ten = {f"tag {n}": ten.get_text(strip=True) for n, ten in enumerate(parsed_data.find_all("span",class_="tag-item"), start=1)}
+    print (type(h1_title))
+    return h1_title, h2_title, top_ten
+    
 
-def clean_tags(tag_list: list) -> list:
-    cleaned_tags = []
-    for tag_block in tag_list:
-        tags = tag_block.replace("Tags:", "").strip().split('\n')
-        cleaned_tags.extend(clean_text_list(tags))
-    return (cleaned_tags)
-
-def join(clean_elements):
-    ce = clean_elements
-    return (f"{ce["Quotes"]} by {ce["Authors"]}")
 
 # -- Store Data --
-
 
 # -- Polite robot.txt scraping --
 
@@ -132,15 +121,15 @@ def join(clean_elements):
 def main():
     raw_data = connection_request()
     parsed_data = parse_data(raw_data)
-    raw_elements = find_data(parsed_data)
-    clean_elements = clean_data(raw_elements)
-    tags = clean_elements["Tags"]
-    cleaned_tags =clean_tags(tags)
-    clean_elements["Tags"] = cleaned_tags
-    
-    trial = join(clean_elements)
-    print (trial)
-    
+    blocks = get_quote_blocks(parsed_data)
+    quotes = quote_data(blocks)
+    h1_title, h2_title, top_ten = sub_data(parsed_data)
+    print (f"{h2_title} \n{top_ten}")
+    print (f"\n {h1_title}")
+    print (f"\n {quotes}")
+
 
 if __name__ == "__main__":
     main()
+    
+    
