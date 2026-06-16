@@ -49,7 +49,15 @@ def _ckan(action: str, **params) -> dict:
 
 
 def _resources(year: int) -> list[dict]:
-    return _ckan("package_show", id=f"registro-de-exportaciones-{year}")["resources"]
+    # Annual packages lag (e.g. the current year may not exist yet) -> tolerate 404
+    # so collect() skips missing years instead of crashing.
+    try:
+        return _ckan("package_show", id=f"registro-de-exportaciones-{year}")["resources"]
+    except requests.HTTPError as exc:
+        if exc.response is not None and exc.response.status_code == 404:
+            print(f"no dataset for {year} (404) -- skipping")
+            return []
+        raise
 
 
 def _download(url: str, dest: Path) -> Path:

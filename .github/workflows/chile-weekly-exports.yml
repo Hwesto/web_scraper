@@ -58,7 +58,9 @@ jobs:
           else
             MODE=collect
           fi
-          YEARS="${{ github.event.inputs.years || '2026' }}"
+          # default to a year that exists (annual datasets lag the current year);
+          # inspect uses the first year. collect tolerates missing years.
+          YEARS="${{ github.event.inputs.years || '2024,2025' }}"
           echo "Running mode=$MODE years=$YEARS"
           python scripts/fetch_chile_weekly_exports.py \
             --mode "$MODE" --years "$YEARS" \
