@@ -35,7 +35,8 @@ OUT = Path("data/weekly/chile_uk_blueberry_weekly.csv")
 # --- POSITIONAL layout, pinned from the inspect run log (84 ;-sep cols, no header) ---
 # Anchored by col 20 = GLOSAPAISDESTINO ("PERU" in the sample) matching the metadata
 # dictionary, so header fields are 1:1 with columns 0..60, items follow.
-IDX = {0: "fecha", 14: "region", 19: "pais_code", 20: "pais",
+IDX = {0: "fecha", 4: "exp_rut", 5: "exp_num", 7: "exp_comuna",
+       14: "region", 19: "pais_code", 20: "pais",
        69: "arancel", 70: "unidad", 71: "cantidad"}
 FRESH_PREFIX = "08104"         # fresh blueberry (Vaccinium); frozen 0811 excluded
 UK_GLOSA = "REINO UNIDO"       # GLOSAPAISDESTINO value for the UK
@@ -143,6 +144,7 @@ def inspect(year: int, month_token: str) -> None:
 
 def collect(years: list[int]) -> None:
     weekly: dict[str, float] = {}
+    all_bb = []
     for y in years:
         for r in _iter_month_rars(_resources(y)):
             with tempfile.TemporaryDirectory() as td:
@@ -161,7 +163,28 @@ def collect(years: list[int]) -> None:
             bb = bb.dropna(subset=["d", "qty"])
             for ts, qty in bb.groupby(bb["d"].dt.strftime("%G-W%V"))["qty"].sum().items():
                 weekly[ts] = weekly.get(ts, 0.0) + float(qty)
+            all_bb.append(bb[["exp_num", "exp_rut", "exp_comuna", "region", "qty"]])
             print(f"{r['name']}: +{len(bb)} blueberry-UK rows, {bb['qty'].sum():.0f} kg")
+
+    # --- exporter attribution (traces our UK flow to the declarant + growing region) ---
+    if all_bb:
+        big = pd.concat(all_bb, ignore_index=True)
+        g = (big.groupby(["exp_num", "exp_rut", "exp_comuna"])
+             .agg(net_kg=("qty", "sum"), n_consignments=("qty", "size")).reset_index())
+        reg = big.groupby(["exp_num", "region"])["qty"].sum().reset_index()
+        top_region = reg.sort_values("qty").groupby("exp_num").tail(1).set_index("exp_num")["region"]
+        g["top_region"] = g["exp_num"].map(top_region)
+        g = g.sort_values("net_kg", ascending=False)
+        g["net_kg"] = g["net_kg"].round(1)
+        exp_out = OUT.parent / "chile_uk_blueberry_by_exporter.csv"
+        g.to_csv(exp_out, index=False)
+        total = g["net_kg"].sum()
+        print(f"\nwrote {exp_out}: {len(g)} exporters, {total:.0f} kg")
+        print("TOP EXPORTERS of UK-bound blueberry (id / RUT-code / comuna / top region / kg / share):")
+        for _, row in g.head(12).iterrows():
+            print(f"  num={row['exp_num']} rut={row['exp_rut']} comuna={row['exp_comuna']} "
+                  f"region={row['top_region']} kg={row['net_kg']:.0f} "
+                  f"share={100*row['net_kg']/total:.1f}%")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     new = pd.DataFrame(sorted(weekly.items()), columns=["iso_week", "net_kg"])
