@@ -165,11 +165,21 @@ def inspect(year: int, month_token: str) -> None:
         print(bb[["fecha", "region", "arancel", "unidad", "cantidad"]].head(8).to_string())
 
 
-# Known highbush cultivars that appear in the cargo description (attr2/item_name).
-_CULTIVARS = ["BLUE RIBBON", "TOP SHELF", "LAST CALL", "SUZIBLUE", "SNOWCHASER",
-              "LEGACY", "DUKE", "DRAPER", "VENTURA", "STELLA", "EUREKA", "CARGO",
-              "CRUNCH", "ROCIO", "MAGNOLIA", "BIANCA", "KIRRA", "CAMELLIA",
-              "BRIGITTA", "O'NEAL", "ONEAL", "ELLIOT", "STAR", "EMERALD", "JEWEL"]
+# Known blueberry cultivars seen in Chilean export descriptions (multiword first
+# so 'BLUE RIBBON' matches before any bare token). Expanded to lift variety %.
+_CULTIVARS = [
+    "BLUE RIBBON", "TOP SHELF", "LAST CALL", "STELLA BLUE", "BLUE HORIZON",
+    "SAN JOAQUIN", "MISTY BLUE",
+    "LEGACY", "DUKE", "DRAPER", "LIBERTY", "BLUECROP", "BRIGITTA", "O'NEAL",
+    "ONEAL", "EMERALD", "JEWEL", "SNOWCHASER", "VENTURA", "CARGO", "SUZIBLUE",
+    "ROCIO", "ROCÍO", "MAGNOLIA", "BIANCA", "KIRRA", "CAMELLIA", "AURORA",
+    "ELLIOTT", "ELLIOT", "EUREKA", "SEKOYA", "STELLA", "CRUNCH", "SCINTILLA",
+    "BILOXI", "MISTY", "WINDSOR", "CENTURION", "POWDERBLUE", "OCHLOCKONEE",
+    "OCHCKLONEE", "BRIGHTWELL", "MEGAS", "CABERNET", "BLUEGOLD", "REVEILLE",
+    "CORONA", "ATLASBLUE", "ATLAS", "PARADISE", "FLAMENCO", "MATARANKA",
+    "TWILIGHT", "VICTORIA", "STAR", "GULFCOAST", "FARTHING", "MERIDIAN",
+    "TITANIUM", "PALMETTO", "VERNON", "ALAPAHA", "ROCKET", "VALENZUELA",
+]
 _NOISE = ("CAJA", "NO ESPECIFICAD", "SIN-CODIGO", "SIN CODIGO", "BULK", "KN", "KG",
           "ARANDANO", "FRESCO", "AZUL", "CONVENCIONAL", "ORGANIC", "TRADICIONAL",
           "DIFERENTES", "VARIED")
@@ -231,6 +241,16 @@ def collect(years: list[int]) -> None:
         named = big[big["producer"] != ""]
         total = big["qty"].sum()
         cov = 100 * named["qty"].sum() / total if total else 0
+
+        # VARIETY coverage + what's still unmatched (to keep expanding _CULTIVARS).
+        cult_kg = big.loc[big["cultivar"] != "", "qty"].sum()
+        print(f"\nVARIETY coverage: {100*cult_kg/total:.0f}% of kg has a cultivar "
+              f"({cult_kg:.0f}/{total:.0f} kg)")
+        miss = big[big["cultivar"] == ""]
+        print("  top UNMATCHED item_name:",
+              miss["item_name"].astype(str).str.strip().value_counts().head(12).to_dict())
+        print("  top UNMATCHED attr2:",
+              miss["attr2"].astype(str).str.strip().value_counts().head(12).to_dict())
 
         prod = (named.groupby("producer")
                 .agg(net_kg=("qty", "sum"), n=("qty", "size")).reset_index())
