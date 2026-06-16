@@ -38,7 +38,7 @@ OUT = Path("data/weekly/chile_uk_blueberry_weekly.csv")
 IDX = {0: "fecha", 4: "exp_rut", 5: "exp_num", 7: "exp_comuna",
        14: "region", 19: "pais_code", 20: "pais",
        62: "item_name", 63: "attr1", 64: "attr2",
-       69: "arancel", 70: "unidad", 71: "cantidad"}
+       69: "arancel", 70: "unidad", 71: "cantidad", 72: "fob_unit", 73: "fob_us"}
 FRESH_PREFIX = "08104"         # fresh blueberry (Vaccinium); frozen 0811 excluded
 UK_GLOSA = "REINO UNIDO"       # GLOSAPAISDESTINO value for the UK
 SEP = ";"
@@ -208,6 +208,7 @@ def _cultivar(attr2: str, item_name: str) -> str:
 
 def collect(years: list[int]) -> None:
     weekly: dict[str, float] = {}
+    weekly_fob: dict[str, float] = {}          # sum FOB US$ per ISO week
     all_bb = []
     for y in years:
         for r in _iter_month_rars(_resources(y)):
@@ -224,9 +225,13 @@ def collect(years: list[int]) -> None:
                 continue
             bb["d"] = pd.to_datetime(bb["fecha"], format="%d%m%Y", errors="coerce")
             bb["qty"] = pd.to_numeric(bb["cantidad"].str.replace(",", "."), errors="coerce")
+            bb["fob"] = pd.to_numeric(bb["fob_us"].str.replace(",", "."), errors="coerce")
             bb = bb.dropna(subset=["d", "qty"])
-            for ts, qty in bb.groupby(bb["d"].dt.strftime("%G-W%V"))["qty"].sum().items():
+            wk = bb["d"].dt.strftime("%G-W%V")
+            for ts, qty in bb.groupby(wk)["qty"].sum().items():
                 weekly[ts] = weekly.get(ts, 0.0) + float(qty)
+            for ts, fob in bb.groupby(wk)["fob"].sum().items():
+                weekly_fob[ts] = weekly_fob.get(ts, 0.0) + float(fob if fob == fob else 0.0)
             all_bb.append(bb[["exp_num", "exp_rut", "exp_comuna", "region", "qty",
                               "arancel", "item_name", "attr1", "attr2"]])
             print(f"{r['name']}: +{len(bb)} blueberry-UK rows, {bb['qty'].sum():.0f} kg")
@@ -289,6 +294,24 @@ def collect(years: list[int]) -> None:
     out.to_csv(OUT, index=False)
     print(f"wrote {OUT}: {len(out)} weeks total ({len(new)} refreshed this run), "
           f"{out['net_kg'].sum():.0f} kg")
+
+    # Weekly Chilean FOB US$/kg (declared export price) -- same ~2-week lead as
+    # the volume. This is landed-COST, not the UK sell price (surfaced as such).
+    fob_new = pd.DataFrame(
+        sorted((w, round(weekly_fob.get(w, 0.0) / weekly[w], 4))
+               for w in weekly if weekly[w] > 0),
+        columns=["iso_week", "fob_usd_per_kg"])
+    fob_out = OUT.parent / "chile_uk_blueberry_fob_weekly.csv"
+    if fob_out.exists():
+        old = pd.read_csv(fob_out)
+        old = old[~old["iso_week"].isin(fob_new["iso_week"])]
+        fo = (pd.concat([old, fob_new], ignore_index=True)
+              .drop_duplicates("iso_week", keep="last").sort_values("iso_week"))
+    else:
+        fo = fob_new.sort_values("iso_week")
+    fo.to_csv(fob_out, index=False)
+    print(f"wrote {fob_out}: {len(fo)} weeks; latest FOB "
+          f"{fob_new['fob_usd_per_kg'].iloc[-1] if len(fob_new) else 'n/a'} USD/kg")
 
 
 def main() -> None:
