@@ -64,6 +64,17 @@ DEFRA_PRICE_PAGE = (
     "wholesale-fruit-and-vegetable-prices-weekly-average"
 )
 
+# -- Satellite NDVI (free, no-auth) via NASA/ORNL MODIS MOD13Q1 (250m, 16-day) --
+# Berry-growing centroids per origin. NDVI here is a crude regional proxy: Huelva
+# and Larache berries grow under poly/macro-tunnels that mask the canopy, and a
+# few-km box mixes in other land cover -- so expect a weak, confounded signal.
+MODIS_PRODUCT = "MOD13Q1"
+MODIS_BAND = "250m_16_days_NDVI"
+NDVI_REGIONS = {
+    "Spain":   {"lat": 37.25, "lon": -6.95, "label": "Huelva"},
+    "Morocco": {"lat": 35.18, "lon": -6.15, "label": "Larache"},
+}
+
 # -- Rejected alt-data methods (kept so the rationale is not re-litigated) --
 # Each is a real technique; each fails a hard constraint we already set.
 REJECTED_SIGNALS = {
