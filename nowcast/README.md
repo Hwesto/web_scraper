@@ -15,7 +15,7 @@ The full design and the data-source stress test live in the project discussion.
 | **M2** | Volume-space state-space + Kalman + MLE calibration | **done, real data** |
 | **M3** | Walk-forward backtest vs seasonal-naive / persistence / ARIMA | **done — gate NOT passed** |
 | **M4a** | Retail price fusion (ONS year-round price, 2nd observation) | **done — no gate lift** |
-| M4b | Sentinel-2 NDVI forward signal (optional) | not started |
+| **M4b** | Satellite NDVI leading-signal test (MODIS) | **done — does not lead volume** |
 | M5 | Forward-collect (packhouse hiring + live retail price) | stubs wired |
 
 **M3 is the gate:** ship nothing until it provably beats seasonal-naive at a
@@ -77,6 +77,50 @@ Implication: a price signal worth fusing would need to be a *leading*,
 supply-side price (FOB origin / wholesale-at-origin), which is not free. The
 remaining free lever is the forward forecast (NDVI, M4b) and forward-collected
 leading signals (M5) — neither of which can be validated until a season accrues.
+
+### M4b verdict (honest): satellite NDVI does not lead import volume
+
+NDVI is the only free signal that is *structurally* leading (crop greenness
+precedes shipment), so it got the same lead-correlation diagnostic. Free MODIS
+MOD13Q1 (250m, 16-day) over Huelva and Larache, 2018-2024, vs origin volume
+anomaly (n about 70):
+
+| Region -> origin | contemp | lead-1 | lead-2 | lead-3 |
+|---|---|---|---|---|
+| Huelva -> Spain | -0.05 | -0.03 | -0.11 | **-0.23** |
+| Larache -> Morocco | 0.06 | 0.13 | 0.11 | 0.07 |
+
+No correctly-signed, significant leading relationship. The strongest correlation
+(Huelva lead-3, -0.23) has the **wrong sign** (more greenness -> less volume) and
+is only borderline at n=69 — consistent with the known confound: Huelva/Larache
+berries grow under poly/macro-tunnels that mask the canopy, and a few-km box
+mixes in other land cover. NDVI here does not cleanly track the berry crop, so it
+carries no usable leading signal. Fusion was therefore not built (it would
+reproduce the price null); the NDVI series is still ingested and stored.
+
+## Overall conclusion (free-data tier)
+
+Three independent free signals were tested against the seasonal-naive gate:
+
+| Signal | Role | Result |
+|---|---|---|
+| HMRC structural model (M3) | trend + seasonal | beats ARIMA, **loses to seasonal-naive** |
+| ONS retail price (M4a) | coincident price | fusion lifts gate **~0%** |
+| MODIS NDVI (M4b) | leading crop proxy | **does not lead** volume |
+
+The blueberry import series is dominated by stable seasonality plus Morocco's
+trend — both of which seasonal-naive (per origin) already captures well. Every
+free signal we can obtain is coincident/lagging (price), structurally masked
+(NDVI under tunnels) or already inside HMRC (trend/seasonal). **On free data
+alone, this flow is not nowcastable beyond seasonal-naive.** This is a clean,
+evidenced negative — and it matches the up-front data stress test: the alpha
+requires a genuinely *leading* signal, and every such signal here is paid
+(FOB/at-origin price, historical AIS, Kantar) or only accrues forward (M5).
+
+What would change the verdict: a paid leading supply-side price, or ~1-2 seasons
+of forward-collected packhouse-hiring / live-retail data (clocks started; run
+`ingest` daily). Until then the honest product is the seasonal-naive baseline
+plus the model's directional read, not a gate-beating nowcast.
 
 ## Verified data sources (free)
 
