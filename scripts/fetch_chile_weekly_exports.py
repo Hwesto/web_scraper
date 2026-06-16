@@ -58,9 +58,19 @@ def _blueberry_uk(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _ckan(action: str, **params) -> dict:
-    r = requests.get(f"{CKAN}/{action}", params=params, headers=HEADERS, timeout=120)
-    r.raise_for_status()
-    return r.json()["result"]
+    # datos.gob.cl returns transient 5xx; retry with backoff (404 raises through).
+    delay = 5
+    for attempt in range(5):
+        r = requests.get(f"{CKAN}/{action}", params=params, headers=HEADERS, timeout=120)
+        if r.status_code < 500:
+            r.raise_for_status()
+            return r.json()["result"]
+        if attempt == 4:
+            r.raise_for_status()
+        import time as _t
+        _t.sleep(delay)
+        delay *= 2
+    return {}
 
 
 def _resources(year: int) -> list[dict]:
