@@ -1,0 +1,65 @@
+"""CLI entry point for the nowcast pipeline.
+
+M1 implements `ingest`: pull every registered SignalSource and persist each as a
+dated snapshot in the append-only vintage store. Running it daily is what builds
+the revision history the backtest later replays. `calibrate`, `backtest` and
+`nowcast` land in M2-M3.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as _dt
+
+from .data.defra_price import DefraBlueberryPrice
+from .data.hmrc import HmrcBlueberryImports
+from .data.altdata.job_boards import PackhouseHiringSignal
+from .store import vintage
+
+# Registry of sources. Core signals feed the filter; collect-only signals just
+# accrue forward history and never enter the M3 gate.
+CORE_SOURCES = [HmrcBlueberryImports(), DefraBlueberryPrice()]
+COLLECT_ONLY_SOURCES = [PackhouseHiringSignal()]
+
+
+def cmd_ingest(_args: argparse.Namespace) -> None:
+    today = _dt.date.today()
+    for source in CORE_SOURCES + COLLECT_ONLY_SOURCES:
+        try:
+            frame = source.fetch(today)
+        except Exception as exc:  # network/source failure shouldn't kill the run
+            print(f"  [FAIL] {source.series}: {exc}")
+            continue
+        path = vintage.save(frame)
+        span = (
+            f"{frame['ref_period'].min()}..{frame['ref_period'].max()}"
+            if not frame.empty else "empty"
+        )
+        where = path.name if path else "(nothing to save)"
+        print(f"  [ok]   {source.series}: {len(frame)} rows [{span}] -> {where}")
+
+
+def cmd_show(args: argparse.Namespace) -> None:
+    frame = vintage.latest(args.series)
+    print(f"{args.series}: {len(frame)} rows, vintages={vintage.vintages(args.series)}")
+    if not frame.empty:
+        print(frame.tail(args.n).to_string(index=False))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="nowcast")
+    sub = parser.add_subparsers(required=True)
+
+    p_ingest = sub.add_parser("ingest", help="pull all sources -> vintage store")
+    p_ingest.set_defaults(func=cmd_ingest)
+
+    p_show = sub.add_parser("show", help="show latest stored view of a series")
+    p_show.add_argument("series")
+    p_show.add_argument("-n", type=int, default=12)
+    p_show.set_defaults(func=cmd_show)
+
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()
