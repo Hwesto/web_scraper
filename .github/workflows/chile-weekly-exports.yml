@@ -50,23 +50,21 @@ jobs:
           pip install requests pandas openpyxl
       - name: Run collector
         run: |
-          # push -> inspect (log layout); dispatch -> chosen mode; schedule -> collect
-          if [ "${{ github.event_name }}" = "push" ]; then
-            MODE=inspect
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # Parser validated (run #3): push + schedule -> collect; dispatch -> chosen mode.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             MODE="${{ github.event.inputs.mode }}"
           else
             MODE=collect
           fi
-          # default to a year that exists (annual datasets lag the current year);
-          # inspect uses the first year. collect tolerates missing years.
+          echo "MODE=$MODE" >> "$GITHUB_ENV"
+          # annual datasets lag the current year; collect tolerates missing years.
           YEARS="${{ github.event.inputs.years || '2024,2025' }}"
           echo "Running mode=$MODE years=$YEARS"
           python scripts/fetch_chile_weekly_exports.py \
             --mode "$MODE" --years "$YEARS" \
             --month-token "${{ github.event.inputs.month_token || 'enero' }}"
       - name: Commit weekly series (collect only)
-        if: ${{ github.event_name != 'push' && github.event.inputs.mode != 'inspect' }}
+        if: ${{ env.MODE == 'collect' }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
