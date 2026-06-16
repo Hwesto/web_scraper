@@ -1,0 +1,59 @@
+name: Chile weekly blueberry exports
+
+# Fetches weekly Chile->UK fresh-blueberry exports from the Aduana DUS records on
+# datos.gob.cl. Runs on GitHub-hosted runners (clean egress) because that host is
+# TLS-blocked from the Claude Code sandbox proxy -- this workflow IS the access
+# method for the weekly-resolution origin data.
+#
+# First: run manually with mode=inspect (workflow_dispatch) and read the log to
+# pin column names + the UK country code in scripts/fetch_chile_weekly_exports.py.
+# Then the weekly schedule (collect) keeps the series current; use the years input
+# to backfill history.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "inspect (log layout) or collect (aggregate + commit)"
+        type: choice
+        options: [inspect, collect]
+        default: inspect
+      years:
+        description: "comma-separated years to process (collect/backfill)"
+        default: "2024,2025,2026"
+      month_token:
+        description: "month name for inspect, e.g. enero"
+        default: "enero"
+  schedule:
+    - cron: "17 6 * * 1"   # Mondays 06:17 UTC
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          sudo apt-get update && sudo apt-get install -y unar
+          pip install requests pandas openpyxl
+      - name: Run collector
+        run: |
+          MODE="${{ github.event.inputs.mode || 'collect' }}"
+          YEARS="${{ github.event.inputs.years || '2026' }}"
+          python scripts/fetch_chile_weekly_exports.py \
+            --mode "$MODE" --years "$YEARS" \
+            --month-token "${{ github.event.inputs.month_token || 'enero' }}"
+      - name: Commit weekly series (collect only)
+        if: ${{ github.event.inputs.mode != 'inspect' }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/weekly/ || true
+          git diff --staged --quiet || git commit -m "data: refresh Chile weekly blueberry exports"
+          git push
