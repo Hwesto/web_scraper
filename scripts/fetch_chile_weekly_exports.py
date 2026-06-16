@@ -37,6 +37,7 @@ OUT = Path("data/weekly/chile_uk_blueberry_weekly.csv")
 # dictionary, so header fields are 1:1 with columns 0..60, items follow.
 IDX = {0: "fecha", 4: "exp_rut", 5: "exp_num", 7: "exp_comuna",
        14: "region", 19: "pais_code", 20: "pais",
+       62: "item_name", 63: "attr1", 64: "attr2",
        69: "arancel", 70: "unidad", 71: "cantidad"}
 FRESH_PREFIX = "08104"         # fresh blueberry (Vaccinium); frozen 0811 excluded
 UK_GLOSA = "REINO UNIDO"       # GLOSAPAISDESTINO value for the UK
@@ -163,7 +164,8 @@ def collect(years: list[int]) -> None:
             bb = bb.dropna(subset=["d", "qty"])
             for ts, qty in bb.groupby(bb["d"].dt.strftime("%G-W%V"))["qty"].sum().items():
                 weekly[ts] = weekly.get(ts, 0.0) + float(qty)
-            all_bb.append(bb[["exp_num", "exp_rut", "exp_comuna", "region", "qty"]])
+            all_bb.append(bb[["exp_num", "exp_rut", "exp_comuna", "region", "qty",
+                              "arancel", "item_name", "attr1", "attr2"]])
             print(f"{r['name']}: +{len(bb)} blueberry-UK rows, {bb['qty'].sum():.0f} kg")
 
     # --- exporter attribution (traces our UK flow to the declarant + growing region) ---
@@ -185,6 +187,15 @@ def collect(years: list[int]) -> None:
             print(f"  num={row['exp_num']} rut={row['exp_rut']} comuna={row['exp_comuna']} "
                   f"region={row['top_region']} kg={row['net_kg']:.0f} "
                   f"share={100*row['net_kg']/total:.1f}%")
+
+        # DIAGNOSTIC: does the consignment carry a CULTIVAR (Legacy/Duke/...) or
+        # only the arancel category? Decides if grower-up attribution can use variety.
+        print("\nVARIETY DIAGNOSTIC (do item_name/attr fields carry a cultivar?):")
+        print("  arancel codes:", big["arancel"].str.strip().value_counts().head(6).to_dict())
+        for col in ["item_name", "attr1", "attr2"]:
+            vals = big[col].dropna().astype(str).str.strip()
+            vals = vals[vals != ""]
+            print(f"  {col} top:", vals.value_counts().head(10).to_dict())
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     new = pd.DataFrame(sorted(weekly.items()), columns=["iso_week", "net_kg"])
