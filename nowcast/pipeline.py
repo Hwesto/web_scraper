@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 
+from .backtest.replay import load_origin_series, run_backtest, summarize
 from .data.defra_price import DefraBlueberryPrice
 from .data.hmrc import HmrcBlueberryImports
 from .data.altdata.job_boards import PackhouseHiringSignal
@@ -45,6 +46,19 @@ def cmd_show(args: argparse.Namespace) -> None:
         print(frame.tail(args.n).to_string(index=False))
 
 
+def cmd_backtest(args: argparse.Namespace) -> None:
+    series = load_origin_series(args.origin)
+    print(f"{args.origin}: n={len(series)} "
+          f"[{series.index.min().date()}..{series.index.max().date()}], K={args.k}")
+    summ = summarize(run_backtest(series, k=args.k, min_train=args.min_train))
+    cols = ["h", "n", "model_mae", "seasonal_naive_mae", "skill_vs_seasonal_naive_%",
+            "skill_vs_arima_%", "dir_skill_%", "cov80_%"]
+    print(summ[cols].round(1).to_string(index=False))
+    gate = summ.loc[summ["h"] == 1, "skill_vs_seasonal_naive_%"]
+    verdict = "PASS" if (not gate.empty and gate.iloc[0] > 0) else "FAIL"
+    print(f"\nGate (beat seasonal-naive at h=1): {verdict}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="nowcast")
     sub = parser.add_subparsers(required=True)
@@ -56,6 +70,12 @@ def main() -> None:
     p_show.add_argument("series")
     p_show.add_argument("-n", type=int, default=12)
     p_show.set_defaults(func=cmd_show)
+
+    p_bt = sub.add_parser("backtest", help="walk-forward backtest vs benchmarks")
+    p_bt.add_argument("origin", help="e.g. Morocco, Spain")
+    p_bt.add_argument("-k", type=int, default=3, help="seasonal harmonics")
+    p_bt.add_argument("--min-train", type=int, default=24)
+    p_bt.set_defaults(func=cmd_backtest)
 
     args = parser.parse_args()
     args.func(args)

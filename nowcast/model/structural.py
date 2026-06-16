@@ -45,8 +45,9 @@ class MonthlyForecast:
 
 
 class BlueberryStructuralModel:
-    def __init__(self, k_harmonics: int = 1):
+    def __init__(self, k_harmonics: int = 1, maxiter: int = 2000):
         self.k = k_harmonics
+        self.maxiter = maxiter
         self.params_ = None
         self._grid = None
         self._system = None
@@ -89,7 +90,8 @@ class BlueberryStructuralModel:
         y = self._observation_vector(grid, monthly)
         x0, P0 = self._initial_state(monthly)
 
-        self.params_, self._negll_ = calibrate(y, grid.xi, self.k, x0, P0, init=init)
+        self.params_, self._negll_ = calibrate(
+            y, grid.xi, self.k, x0, P0, init=init, maxiter=self.maxiter)
         self._system = build_system(self.params_, self.k)
         self._grid, self._y, self._x0, self._P0 = grid, y, x0, P0
         return self
