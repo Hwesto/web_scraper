@@ -403,6 +403,24 @@ backfill -- the volume series itself is full 2018-2026). Tying a marca to a
 specific **certified farm** is where free ends: GlobalG.A.P. validates per-GGN
 (needs the GGNs), and orchard polygons are paid CIREN.
 
+### Cert layer (`nowcast/farm/certs.py`) -- and why name->GGN isn't free
+
+Verified dead-ends for a free name->GGN (or name->certified-orchard) crosswalk:
+GlobalG.A.P.'s public DB validates a *known* GGN but has **no name search**;
+phyto certs are per-consignment SAG/APHA docs (not public bulk; carry SAG CSG
+codes, not GGNs); SAG bulk is on the TLS-blocked datos.gob.cl; GACC publishes no
+clean named Chilean-blueberry orchard list (and it'd be the China-export subset);
+CIREN's named directorio is paid. A GGN *is* a GS1 GLN, so GEPIR can ENRICH a
+known GLN->entity -- but cannot discover it from a name.
+
+So the free, defensible cert layer is: (1) `tag_uk_cert_status()` -- UK retail
+mandates GLOBALG.A.P. for imported fresh produce (CBI/retailer policy), so every
+named producer is near-certainly certified, no GGN required; (2) `attach_ggns()`
++ `validate_ggn()`/`gln_to_entity()` -- the plug-in for GGNs obtained out of band
+(an importer's own supplier specs, the product GGN label, retailer disclosure),
+which we then validate + enrich. We can validate a GGN; we just can't find it
+from the name. Tests cover the pure status-inference and GGN-attach logic.
+
 ## Scorecard (updated)
 - Predictive vs seasonal-naive: 5 negatives on monthly/structural signals; **1
   out-of-sample positive** -- the weekly origin within-month nowcast (+12% MAE,
