@@ -18,6 +18,7 @@ import pandas as pd
 
 from .backtest.within_month import _hmrc_chile, origin_implied_monthly
 from .benchmarks import seasonal_naive
+from .price import chile_fob_weekly
 from .store import vintage
 
 _LONG, _SHORT, _NORMAL = "LONG (heavy)", "SHORT (light)", "NORMAL"
@@ -92,6 +93,14 @@ def weekly_call(as_of: _dt.date | None = None, origin: str = "Chile",
                    if len(price) >= 4 else float("nan"))
     total_anom = _total_supply_anomaly(target)
 
+    # --- LEADING landed cost: Chilean FOB USD/kg from the DUS (same ~2wk lead) ---
+    fob = chile_fob_weekly()
+    fob_m = fob[(fob.index >= target) & (fob.index < target + pd.DateOffset(months=1))]
+    fob_prev = fob[(fob.index >= target - pd.DateOffset(months=1)) & (fob.index < target)]
+    fob_now = float(fob_m.mean()) if len(fob_m) else float("nan")
+    fob_trend = (float(fob_now / fob_prev.mean() - 1) * 100
+                 if len(fob_prev) and fob_prev.mean() else float("nan"))
+
     lean = "FLAT"
     if total_anom == total_anom:
         if total_anom > _ANOM:
@@ -110,6 +119,8 @@ def weekly_call(as_of: _dt.date | None = None, origin: str = "Chile",
         "anomaly_pct": round(anomaly * 100, 0) if anomaly == anomaly else None,
         "supply_signal": supply, "confidence": "validated nowcast (~2wk lead, +12% OOS)" if in_season
         else "off-season -- lane not shipping",
+        "fob_usd_kg": round(fob_now, 2) if fob_now == fob_now else None,
+        "fob_trend_pct": round(fob_trend, 0) if fob_trend == fob_trend else None,
         "price_level_gbp_kg": round(price_level, 2) if price_level == price_level else None,
         "price_trend_pct_3m": round(price_trend, 1) if price_trend == price_trend else None,
         "price_lean": lean, "price_confidence": "WEAK -- directional only (~57% backtest, low conf)",
@@ -129,16 +140,21 @@ def render(call: dict) -> str:
     trend_word = ("softening" if trend is not None and trend < -1 else
                   "firming" if trend is not None and trend > 1 else "flat")
     direction = {"DOWN": "soft", "UP": "firm", "FLAT": "flat"}[call["price_lean"]]
+    fob = call["fob_usd_kg"]; fobt = call["fob_trend_pct"]
+    fob_word = ("rising" if fobt is not None and fobt > 2 else
+                "falling" if fobt is not None and fobt < -2 else "steady")
+    fob_line = (f"${fob:.2f}/kg, {fob_word} ({fobt:+.0f}% m/m)" if fob is not None
+                else "n/a (awaiting DUS)")
     return (
         f"THIS WEEK'S CALL  |  {call['origin']} arrivals, {call['landing_month']}\n"
-        f"  SUPPLY (the call): {call['arrivals_nowcast_t']:.0f} t vs {call['seasonal_norm_t']:.0f} t "
-        f"normal = {a:+.0f}%  [{call['supply_signal']}]\n"
-        f"                     {call['confidence']} -- 66% directional in back-test\n"
-        f"  Price (context):   {call['price_level_gbp_kg']} GBP/kg, {trend_word} ({trend:+.0f}% 3m); "
-        f"total-supply lean {direction} [WEAK ~57%, not a forecast]\n"
+        f"  SUPPLY (validated): {call['arrivals_nowcast_t']:.0f} t vs {call['seasonal_norm_t']:.0f} t "
+        f"normal = {a:+.0f}%  [{call['supply_signal']}]  ({call['confidence']}, 66% backtest)\n"
+        f"  COST (FOB, ~2wk lead): {fob_line}  -- declared landed cost of the landing fruit\n"
+        f"  Retail (context): {call['price_level_gbp_kg']} GBP/kg, {trend_word}; "
+        f"price lean {direction} [WEAK ~57%, not a forecast]\n"
         f"  -> ACTION: {call['action']}.\n"
-        f"  (supply nowcast is the validated edge; price direction does not back-test reliably "
-        f"on free data -- treat as context, pair with your own cost read)"
+        f"  (supply nowcast + FOB cost are leading & data-derived; UK sell-price direction does NOT "
+        f"back-test on free data -- pair the cost read with your own demand view)"
     )
 
 

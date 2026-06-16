@@ -450,6 +450,17 @@ confidence elasticity; demand assumed stable) -- magnitudes are deliberately
 small because blueberry price/volume linkage is weak, and that's surfaced rather
 than inflated. Off-season it says so instead of faking a call.
 
+**Price layers** (`nowcast/price.py`), increasing in value, all free:
+1. **HMRC import unit value GBP/kg by origin** (value/volume) -- reconciled,
+   by-origin, monthly. Sane (Peru ~5.8, Spain ~6.9 GBP/kg CIF). Context.
+2. **Weekly Chilean FOB USD/kg from the DUS** (`FOBUS`/kg per consignment) --
+   the declared export price with the SAME ~2-week lead as the volume nowcast
+   ($4-8/kg observed). Panel 1 now pairs *leading volume + leading FOB cost* of
+   the fruit landing in ~2 weeks. Honest: this is landed COST, not the UK sell
+   price.
+3. Consumer retail scrape (demand-side UK price) -- forward-collection stub;
+   sticky and weakly supply-linked.
+
 **Back-test of the call** (`backtest/call_bt.py`) -- both halves, separately:
 - **SUPPLY call: 65.7% directional** (n=35 in-season months, vs 50%). The
   validated nowcast holds up -- this is the product.

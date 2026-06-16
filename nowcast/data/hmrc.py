@@ -125,6 +125,33 @@ class HmrcBlueberryImports(SignalSource):
         return self._tidy(records, vintage_date)
 
 
+class HmrcBlueberryImportValue(SignalSource):
+    """Monthly blueberry import VALUE (GBP) by origin -> with the volume series
+    gives a reconciled import unit value (GBP/kg) per origin, free."""
+
+    series = "hmrc_blueberry_import_value"
+    freq = "M"
+    unit = "gbp"
+
+    def fetch(self, vintage_date: _dt.date | None = None) -> "pd.DataFrame":  # noqa: F821
+        vintage_date = vintage_date or _dt.date.today()
+        _country_name(0)
+        raw: list[dict] = []
+        for flow_id in (FLOW_EU_IMPORTS, FLOW_NONEU_IMPORTS):
+            raw.extend(_page_flow(flow_id))
+            time.sleep(HMRC_PAGE_DELAY_S)
+        agg: dict[tuple[int, int], float] = {}
+        for row in raw:
+            key = (row["MonthId"], row["CountryId"])
+            agg[key] = agg.get(key, 0.0) + (row.get("Value") or 0.0)
+        records = [
+            {"series": self.series, "ref_period": _month_to_iso(mid), "freq": self.freq,
+             "key": _country_name(cid), "value": gbp, "unit": self.unit}
+            for (mid, cid), gbp in agg.items()
+        ]
+        return self._tidy(records, vintage_date)
+
+
 if __name__ == "__main__":
     import pandas as pd
 
