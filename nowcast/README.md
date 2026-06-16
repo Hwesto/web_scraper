@@ -181,6 +181,49 @@ unreachable. The series is a genuine data product — HMRC sets the level, the
 model sets the shape, Denton marries them exactly, and every point says how much
 is observed vs reconstructed vs modelled.
 
+---
+
+# Part 3 — Chile farm structure & capacity forecast (`nowcast/farm/`)
+
+Re-aim of the Part 1 turning-point bet, grounded in real orchard structure
+instead of a price series. `python3 -m nowcast.farm.forecast`.
+
+## Source verification (proposal vs reality)
+The Part 3 proposal's citations were fabricated, so each claim was checked
+against the live Catastro Frutícola (CIREN-ODEPA) open data:
+
+| Proposal claim | Verified reality |
+|---|---|
+| Free per-property **destination** (export/domestic) | ❌ not in the data |
+| Free per-property **yield** | ❌ not in the data |
+| Free **named/georeferenced** (razon social, rol, GIS) | ❌ free tier is anonymised + comuna-level; named/GIS is paid CIREN (contents unverified) |
+| ODEPA customs **by exporter** | ❌ by region only (paid for exporter) |
+| Per-orchard NDVI on Catastro polygons | ❌ no polygons free |
+| Census on a multi-year regional rotation | ✅ true (2019/2022/2024 are the blueberry years) |
+| Planting-year -> forward capacity signal | ✅ true and free — the one real prize |
+| SAG export-orchard registry (free cert layer) | ❌ market-driven only (China/Mexico); **no UK blueberry list**; SAG bulk data on the blocked datos.gob.cl |
+
+What IS free and real: per-block blueberry **area, variety, planting year,
+irrigation, #trees** by comuna (`data/catastro.py`), stitched to each region's
+latest survey -> ~14,000 ha, 9,232 blocks, centred on Maule/Ñuble.
+
+## The model and its honest result
+`capacity.py` applies a blueberry yield-by-vine-age curve to area-by-planting-
+year -> a bearing-capacity trajectory (the season-level forward signal). `forecast.py`
+tilts seasonal-naive by capacity growth and scores turning points against
+realised ODEPA Chile->UK exports.
+
+**Verdict: the capacity tilt does NOT beat seasonal-naive** (MAE 1,337 vs 1,120;
+direction 50%; corr(capacity-growth, export-change) = -0.09). Reason, diagnosed:
+the well-documented Chilean blueberry decline — exports to the UK fell ~10.6k ->
+~6.5k t (2019-2026) while planted area kept maturing, so area-based capacity
+**overpredicts**. The fix would need the per-orchard **yield/harvest-rate** field
+— precisely the field the proposal wrongly claimed was free. It is not, so on
+free data the structural area signal is decoupled from realised export volume.
+
+The capacity map remains a valid **structural data product** (area/variety/age by
+region); it just is not a predictive tilt for Chile in its current decline.
+
 ## Verified data sources (free)
 
 - **HMRC OTS** (`data/hmrc.py`) — anchor + ground truth. Live OData API,
