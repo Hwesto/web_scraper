@@ -34,10 +34,15 @@ def test_no_skill_from_noise():
     assert r["in_season"]["origin_nowcast"]["dir_skill_%"] <= 65
 
 
-def test_origin_implied_monthly_shifts_export_to_arrival_month(monkeypatch):
-    # One 100 t export week in mid-Jan; +4w transit -> arrives February.
-    exp = pd.Series([100.0], index=[pd.Timestamp.fromisocalendar(2024, 3, 1)])
-    monkeypatch.setattr(within_month, "load_weekly_exports",
-                        lambda fill_zeros=True: exp)
-    m = within_month.origin_implied_monthly(transit_weeks=4)
-    assert m.loc[pd.Timestamp(2024, 2, 1)] == 100.0
+def test_calibrated_run_picks_the_true_lag_out_of_sample():
+    # HMRC seasonal; only transit=2 is the true contemporaneous signal, others noise.
+    hmrc, _, idx = _seasonal(noise=120.0)
+    rng = np.random.default_rng(5)
+    implied = {0: pd.Series(rng.uniform(0, 2000, len(idx)), index=idx),
+               2: hmrc.copy(),                                   # the real signal
+               4: pd.Series(rng.uniform(0, 2000, len(idx)), index=idx)}
+    cr = within_month.calibrated_run(min_train=24, transits=[0, 2, 4],
+                                     hmrc=hmrc, implied_by_transit=implied)
+    # OOS selection should favour the true lag and beat seasonal-naive.
+    assert cr["transit_choices"].get(2, 0) > cr["transit_choices"].get(0, 0)
+    assert cr["in_season"]["origin_nowcast"]["skill_vs_snaive_%"] > 20

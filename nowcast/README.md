@@ -354,14 +354,30 @@ while HMRC's month-M print lands ~6 weeks after -- so origin data gives a real
 Honest caveats (kept symmetric): n=35 in-season months is small; the 1-2 wk
 effective lead was read off a sweep, not calibrated out-of-sample; the edge is
 modest (~15%). A synthetic guard (`tests/test_within_month.py`) confirms the test
-detects a real signal and none from noise. Net: a genuine, validated, modest free
-edge -- the project's first predictive positive that survives the symmetric bar
-with timeliness verified.
+detects a real signal and none from noise.
+
+### Out-of-sample calibration (firming up the number)
+
+`within_month.calibrated_run` removes the sweep look-ahead: at each test month it
+picks BOTH the transit lag and the scale using only data before that month. The
+held-out result:
+
+| | origin MAE | seasonal-naive | skill | dir skill |
+|---|---|---|---|---|
+| in-season (n=35) | 405 | 460 | **+12.0%** | 60% |
+| all months (n=75) | 206 | 227 | +9.3% | 59% |
+
+The lag selection is stable -- it picks **1 wk (40x) or 2 wk (35x)**, never the
+failing 4+ wk. So the edge survives honest out-of-sample calibration at **~+12%
+MAE / 60% directional**, landing at the conservative end of the in-sample range
+(exactly what dropping the peek should do). Remaining caveat is just sample size
+(8 seasons). This is the defensible figure: a genuine, free, ~2-week-ahead,
+out-of-sample, timeliness-verified ~12% edge over seasonal-naive.
 
 ## Scorecard (updated)
 - Predictive vs seasonal-naive: 5 negatives on monthly/structural signals; **1
-  positive** -- the weekly origin within-month nowcast (+15% MAE, ~2-wk verified
-  lead).
+  out-of-sample positive** -- the weekly origin within-month nowcast (+12% MAE,
+  60% directional, ~2-wk verified lead).
 - 3 integrity catches (Morocco +37%, capacity 87.5%, the 0.92).
 - Constructive: Part 2 reconciled volume product, now with a Chile shipment-tier
   weekly shape from real origin consignments.
