@@ -374,6 +374,35 @@ MAE / 60% directional**, landing at the conservative end of the in-sample range
 (8 seasons). This is the defensible figure: a genuine, free, ~2-week-ahead,
 out-of-sample, timeliness-verified ~12% edge over seasonal-naive.
 
+# Part 6 — Producer & cultivar trace (de-anonymising the flow)
+
+The masked exporter RUT is not the whole story: the DUS **cargo-description**
+fields leak the producer/marca and the cultivar. `scripts/fetch_chile_weekly_exports.py`
+now parses them, so `data/weekly/chile_uk_blueberry_by_producer.csv` traces our
+UK-bound flow to **named producers**:
+
+- **72 named producers** (~10.0M kg, 2025-26), each with growing region + cultivar:
+  HORTIFRUT (1,524 t, O'Higgins), S&A (1,421 t, Biobío, Legacy), AGROBERRIES
+  (660 t, Duke), SAN RAFAEL, LAS MORAS, ANGUS (Blue Ribbon), DOLE, PATAGONIA
+  (Cargo), PATRON, AGUADA, LAFRUT (Draper), REINA SUR, CUATRO VIENTOS, AGRICOLA
+  CATO (Suziblue)...
+- **Cultivar mix**: Legacy 1.98M kg, Duke 882k, Blue Ribbon 525k, Cargo 385k,
+  Star 245k, Suziblue 243k, Draper 207k, Top Shelf 189k -- Legacy-dominant with
+  the firm renewal varieties behind it (matches the variety-renewal story).
+
+So we name producers + cultivars for free, from data we already pull -- no US
+mirror match (Strategy 1) and the cultivar dimension Strategy 2 wanted, both in-hand.
+
+Honest limits (the last mile): names are messy free-text needing canonicalisation
+(LAFRUT vs "LA FRUT F-"; ANGUS vs ANGUS SOFT; S&A vs COMERCIALIZADORA S&A -- the
+spec's canonical_entities step); a marca is a producer/exporter brand (often a
+grower-group or integrated grower-exporter), **not** a specific orchard;
+coverage is partial (generic "SIN-CODIGO ~ARANDANOS FRESCOS" rows stay unnamed);
+and this reflects the refreshed years (full-history producer attribution needs a
+backfill -- the volume series itself is full 2018-2026). Tying a marca to a
+specific **certified farm** is where free ends: GlobalG.A.P. validates per-GGN
+(needs the GGNs), and orchard polygons are paid CIREN.
+
 ## Scorecard (updated)
 - Predictive vs seasonal-naive: 5 negatives on monthly/structural signals; **1
   out-of-sample positive** -- the weekly origin within-month nowcast (+12% MAE,
