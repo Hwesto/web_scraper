@@ -73,7 +73,62 @@ def turning_point_test(blocks: pd.DataFrame | None = None) -> dict:
     return out
 
 
+def _score(exports: pd.Series, cap: pd.Series, seasons: list[int]) -> dict:
+    """Tilt seasonal-naive by capacity growth; score direction + MAE vs naive."""
+    rows = []
+    for s in seasons:
+        if (s - 1) not in exports.index or (s - 1) not in cap.index or s not in cap.index:
+            continue
+        actual_chg = exports[s] - exports[s - 1]
+        growth = cap[s] / cap[s - 1] - 1.0 if cap[s - 1] else 0.0
+        tilt = exports[s - 1] * (1 + growth)
+        rows.append({"season": s, "actual": exports[s], "actual_chg": actual_chg,
+                     "cap_growth_%": 100 * growth, "tilt": tilt,
+                     "naive": exports[s - 1],
+                     "dir_hit": int(np.sign(tilt - exports[s - 1]) == np.sign(actual_chg))})
+    r = pd.DataFrame(rows)
+    if r.empty:
+        return {"n": 0}
+    return {
+        "n": len(r), "table": r,
+        "dir_hitrate_%": round(100 * r["dir_hit"].mean(), 1),
+        "mae_tilt": round(float(np.mean(np.abs(r["tilt"] - r["actual"]))), 0),
+        "mae_naive": round(float(np.mean(np.abs(r["naive"] - r["actual"]))), 0),
+        "corr_growth_chg": round(float(r["cap_growth_%"].corr(r["actual_chg"]))
+                                 if r["cap_growth_%"].std() > 0 else float("nan"), 2),
+    }
+
+
+def compare_models() -> dict:
+    """v1 (maturation-only from one snapshot) vs v2 (vintage+variety fresh
+    capacity) vs seasonal-naive, on the same seasons."""
+    from .data.catastro import fetch_all_vintages, fetch_stitched
+
+    exports = export_season_totals()
+    seasons = [s for s in exports.index if exports[s] > 0 and (s - 1) in exports.index]
+    rng = range(min(seasons) - 1, max(seasons) + 1)
+
+    snapshot = fetch_stitched()
+    cap_v1 = capacity.capacity_trajectory(snapshot, rng)
+
+    allv = fetch_all_vintages()
+    # Comprehensive-years-only, interpolated (removes the survey-coverage artefact).
+    cap_v2 = capacity.interpolated_capacity(allv, rng, use_variety=True)
+    cap_v2_novar = capacity.interpolated_capacity(allv, rng, use_variety=False)
+
+    return {
+        "comprehensive_years": capacity.comprehensive_years(allv),
+        "v1_maturation_only": _score(exports, cap_v1, seasons),
+        "v2_interp_vintage_only": _score(exports, cap_v2_novar, seasons),
+        "v2_interp_vintage_variety": _score(exports, cap_v2, seasons),
+    }
+
+
 if __name__ == "__main__":
-    r = turning_point_test()
-    print(r["table"].round(1).to_string(index=False))
-    print({k: v for k, v in r.items() if k != "table"})
+    res = compare_models()
+    print("comprehensive survey years:", res.pop("comprehensive_years"))
+    for name, r in res.items():
+        summ = {k: v for k, v in r.items() if k != "table"}
+        print(f"{name}: {summ}")
+    print("\n--- v2 interp (vintage+variety) detail ---")
+    print(res["v2_interp_vintage_variety"]["table"].round(1).to_string(index=False))

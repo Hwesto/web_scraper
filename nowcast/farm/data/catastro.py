@@ -61,6 +61,32 @@ def _fetch_blueberry(resource_id: str) -> list[dict]:
     return rows
 
 
+def fetch_all_vintages(year_min: int = 2015) -> pd.DataFrame:
+    """All blueberry blocks across every survey year (no stitching).
+
+    Keeping every vintage is what lets capacity.py see ORCHARD REMOVALS between
+    surveys (the -21% southern-belt decline 2019->2024) rather than only the
+    maturation of a single snapshot. Columns as fetch_stitched.
+    """
+    resources = _year_resources()
+    frames = []
+    for year, rid in resources.items():
+        if year < year_min:
+            continue
+        for r in _fetch_blueberry(rid):
+            try:
+                py = int(r["Anio plantacion"])
+            except (ValueError, TypeError):
+                py = None
+            frames.append({
+                "survey_year": year, "region": r["Region"],
+                "comuna": r.get("Comuna", ""), "variedad": r.get("Variedad", ""),
+                "planting_year": py, "hectares": _to_float(r["Superficie (ha)"]),
+                "trees": _to_float(r.get("Numero de arboles", 0)),
+            })
+    return pd.DataFrame(frames)
+
+
 def fetch_stitched(year_min: int = 2015) -> pd.DataFrame:
     """One blueberry snapshot: each region from its most recent survey year.
 

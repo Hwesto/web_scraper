@@ -224,6 +224,31 @@ free data the structural area signal is decoupled from realised export volume.
 The capacity map remains a valid **structural data product** (area/variety/age by
 region); it just is not a predictive tilt for Chile in its current decline.
 
+## Plugging the gap (the follow-up): multi-vintage area + variety
+The fix targeted the two free levers we'd underused: **multi-vintage Catastro
+area** (which shows the real -21% decline, 16.7k->13.2k ha 2019-2024) instead of
+aging one snapshot, and a **variety fresh-UK-suitability weight** (old/soft ->
+frozen; new/firm -> fresh, which matters most on long sea-freight to the UK).
+
+Caught artefact (and corrected): a first cut scored 87.5% directional skill --
+but that was spurious. The Catastro vintages have wildly different geographic
+COVERAGE (2019/2022/2024 ~national; 2020/2021/2023/2025 only 1-2 regions), so a
+nearest-survey index oscillated between full and partial files and was measuring
+coverage, not capacity. Restricting to comprehensive years and interpolating
+(`capacity.comprehensive_years` / `interpolated_capacity`, guarded by tests)
+removes it.
+
+Honest corrected result: v2 (multi-vintage + variety) is now well-behaved --
+overprediction gone, MAE 1,162 vs seasonal-naive 1,120 (was 1,337) -- but still
+**50% directional skill: no edge over seasonal-naive**. Reason: only 4 structural
+survey anchors over 2016-2024 yield a smooth capacity curve that tracks the
+multi-year decline LEVEL but cannot call the year-to-year turning points
+(2021^, 2022v, 2024^, 2025v, 2026^), which are driven by weather/demand/harvest
+timing, not orchard structure. Structure != turning points; the genuinely
+leading signal (Committee season forecast, by-exporter weekly) is paid or
+PDF-only (verified). Net Part 3: a real structural data product, not a
+gate-beating forecast.
+
 ## Verified data sources (free)
 
 - **HMRC OTS** (`data/hmrc.py`) — anchor + ground truth. Live OData API,
