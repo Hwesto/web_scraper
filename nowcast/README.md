@@ -430,6 +430,33 @@ named producer is near-certainly certified, no GGN required; (2) `attach_ggns()`
 which we then validate + enrich. We can validate a GGN; we just can't find it
 from the name. Tests cover the pure status-inference and GGN-attach logic.
 
+# Part 7 — "This week's call" (the hero panel) + whole-market
+
+`nowcast/call.py` (`python -m nowcast.pipeline call [--date YYYY-MM-DD]`) answers
+the importer's recurring decision -- **sell now / hold / lock** -- in one read:
+
+```
+THIS WEEK'S CALL  |  Chile arrivals, 2025-01
+  Supply: 1852 t vs 2302 t normal = -20%  [SHORT (light)]   (validated nowcast, ~2wk lead, +12% OOS)
+  Price:  12.46 GBP/kg, flat (-0% 3m)
+  READ:   Light Chile arrivals + flat cost -> UK price likely up ~0% over 2-3 wks -> lock / cover now.
+```
+
+Honest construction: the **supply line is the validated within-month nowcast**
+(arrivals vs seasonal norm, ~2 weeks ahead of HMRC, +12% OOS -- a *probabilistic*
+60%-directional call, not a guarantee). The **price line is a transparent
+inference** (supply-pressure sign + observed price trend + a flagged, low-
+confidence elasticity; demand assumed stable) -- magnitudes are deliberately
+small because blueberry price/volume linkage is weak, and that's surfaced rather
+than inflated. Off-season it says so instead of faking a call.
+
+**Whole-market continuity** (`volume/uk_total.py`, `build_uk_total()`): the
+fused UK supply series sums every HMRC origin year-round (Morocco 28%, Peru 26%,
+South Africa 14%, Chile 12%, ...), so the tool is never blank -- live shipment
+shape on the deep-sea lane in season (Chile), benchmarked elsewhere. Peru verdict:
+its volume is already in the total via HMRC; a Chile-style weekly nowcast + named
+producers for Peru needs paid customs (SUNAT granular data is commercialised).
+
 ## Scorecard (updated)
 - Predictive vs seasonal-naive: 5 negatives on monthly/structural signals; **1
   out-of-sample positive** -- the weekly origin within-month nowcast (+12% MAE,

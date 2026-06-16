@@ -65,6 +65,13 @@ def cmd_backtest(args: argparse.Namespace) -> None:
     print(f"\nGate (beat seasonal-naive at h=1): {verdict}")
 
 
+def cmd_call(args: argparse.Namespace) -> None:
+    import datetime as _dt
+    from .call import weekly_call, render
+    as_of = _dt.date.fromisoformat(args.date) if args.date else _dt.date.today()
+    print(render(weekly_call(as_of)))
+
+
 def cmd_volume(args: argparse.Namespace) -> None:
     vol = build_origin_volume(args.origin, k=args.k)
     if vol.empty:
@@ -90,6 +97,10 @@ def main() -> None:
     p_vol.add_argument("-k", type=int, default=3)
     p_vol.add_argument("-n", type=int, default=10)
     p_vol.set_defaults(func=cmd_volume)
+
+    p_call = sub.add_parser("call", help="this week's call (the hero panel)")
+    p_call.add_argument("--date", default=None, help="as-of date YYYY-MM-DD")
+    p_call.set_defaults(func=cmd_call)
 
     p_ingest = sub.add_parser("ingest", help="pull all sources -> vintage store")
     p_ingest.set_defaults(func=cmd_ingest)
