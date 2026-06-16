@@ -164,9 +164,20 @@ def collect(years: list[int]) -> None:
             print(f"{r['name']}: +{len(bb)} blueberry-UK rows, {bb['qty'].sum():.0f} kg")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    out = pd.DataFrame(sorted(weekly.items()), columns=["iso_week", "net_kg"])
+    new = pd.DataFrame(sorted(weekly.items()), columns=["iso_week", "net_kg"])
+    # MERGE: refresh only the collected years; preserve previously committed
+    # history for other years (a light 2025,2026 run must not drop 2018-2024).
+    collected = {str(y) for y in years}
+    if OUT.exists():
+        old = pd.read_csv(OUT)
+        old = old[~old["iso_week"].str[:4].isin(collected)]
+        out = (pd.concat([old, new], ignore_index=True)
+               .drop_duplicates("iso_week", keep="last").sort_values("iso_week"))
+    else:
+        out = new.sort_values("iso_week")
     out.to_csv(OUT, index=False)
-    print(f"wrote {OUT}: {len(out)} weeks, {out['net_kg'].sum():.0f} kg total")
+    print(f"wrote {OUT}: {len(out)} weeks total ({len(new)} refreshed for {sorted(collected)}), "
+          f"{out['net_kg'].sum():.0f} kg")
 
 
 def main() -> None:
