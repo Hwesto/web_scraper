@@ -295,6 +295,30 @@ paid by-exporter weekly (Veritrade/Agronometrics). So: "needs finer-resolution
 - **1 constructive positive**: Part 2's reconciled, confidence-tiered weekly
   volume product (and ODEPA as a valid cross-check, not a forecast).
 
+## Weekly origin data via GitHub Actions (the resolution upgrade)
+
+The monthly origin series had no turning-point edge because the 3-5 week transit
+lead collapses at monthly resolution. The fix is WEEKLY origin data: the Aduana
+DUS records (day-level FECHAACEPT) on datos.gob.cl -- free, but TLS-blocked from
+this sandbox's proxy. A GitHub Actions cron solves the access problem (runners
+have clean egress):
+
+- `.github/workflows/chile-weekly-exports.yml` + `scripts/fetch_chile_weekly_exports.py`:
+  download the monthly DUS `.rar`s, filter fresh blueberry (08104*) -> REINO
+  UNIDO, aggregate `CANTIDADMERCANCIA` by ISO week, commit
+  `data/weekly/chile_uk_blueberry_weekly.csv`. Weekly schedule keeps it current.
+- Backfilled **2018-W01..2026-W13, 182 weeks** (slug varies by year:
+  `registro-de-exportacion(es)-{y}`). Validated against ODEPA monthly: **median
+  ratio 1.0, 88% of months within +-15%** across 56 months.
+- `nowcast/volume/data/chile_weekly.py` loads it as a weekly series -> the
+  shipment-tier weekly SHAPE for the Chile deep-sea leg of the Part 2 volume
+  product, and the input to a within-month nowcast of the monthly print.
+
+This is the genuine data unlock: a free, weekly, validated origin signal with a
+mechanical voyage lead. Whether it beats seasonal-naive on turning points is the
+next analysis (needs a weekly target or within-month-nowcast framing; HMRC is
+monthly). 8 seasons of weekly data now exist to test it.
+
 ## Verified data sources (free)
 
 - **HMRC OTS** (`data/hmrc.py`) — anchor + ground truth. Live OData API,
