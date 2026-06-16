@@ -152,9 +152,12 @@ tags every point by how much we actually know. Code in `nowcast/volume/`.
   Chile agree strongly (**corr 0.92**, export/import 1.12). The 12% export>import
   gap corroborates the Netherlands-transhipment thesis (Chile fruit arriving via
   Rotterdam booked by HMRC as NL, not Chile).
-- **Origin export LEADS HMRC import by the deep-sea transit time** — the first
-  signal found with genuine leading content (unlike price/NDVI). It is monthly:
-  the daily DUS feed is on datos.gob.cl, which is not reachable here.
+- ODEPA export and HMRC import agree as a **cross-check** (corr 0.92). NOTE: an
+  earlier draft over-claimed this as a "genuine leading signal" -- corrected
+  below (Part 4). At monthly resolution the transit lead collapses to ~0, and the
+  0.92 is largely shared seasonality; put through the turning-point gauntlet the
+  genuine lead does NOT beat seasonal-naive. The 0.92 is valid as validation, not
+  as a forecast edge.
 
 ## Netherlands de-convolution (section 2b)
 `volume/deconvolve.py`: reattributes the re-export share of NL->UK (counter-season
@@ -248,6 +251,49 @@ timing, not orchard structure. Structure != turning points; the genuinely
 leading signal (Committee season forecast, by-exporter weekly) is paid or
 PDF-only (verified). Net Part 3: a real structural data product, not a
 gate-beating forecast.
+
+---
+
+# Part 4 — Symmetric re-test of the origin-export "lead" (correcting our own claim)
+
+We had labelled the Chile origin-export a "genuine positive" on a lagged
+correlation of 0.92 -- without putting it through the same walk-forward
+turning-point gauntlet as the four negatives. That was asymmetric rigor. Fixed
+in `backtest/lead.py`: predict HMRC Chile import month M from ODEPA export, score
+directional skill on the anomaly (deviation from seasonal-naive) + MAE, vs
+seasonal-naive / persistence.
+
+In-season result (n=35):
+| model | MAE | dir skill | vs seasonal-naive |
+|---|---|---|---|
+| seasonal-naive | 460 | (0 by constr.) | 0% |
+| **odepa_lag1** (mechanical voyage lead) | 829 | 57% | **-80%** |
+| odepa_contemp (NOT a lead) | 418 | 63% | +9% |
+
+Verdict: **the genuine, actionable monthly lead does NOT beat seasonal-naive**
+(MAE 80% worse in-season, direction 57% ~ coin flip). The 0.92 was mostly shared
+seasonality, which seasonal-naive already owns. The only positive (contemporaneous
++9% / 63%) is not a lead and is probably not even actionable -- ODEPA monthly
+export carries its own ~1-2 month publish lag, so export-month M is unlikely to be
+known before HMRC prints import-month M. The synthetic guard
+(`tests/test_lead.py`) proves the gauntlet DOES detect a perfect lead (>70% dir),
+so this negative is real, not a broken test.
+
+Precise, earned conclusion (replacing "needs a paid leading signal"): the free
+MONTHLY origin-export carries no turning-point edge, because at monthly resolution
+the 3-5 week transit lead collapses to ~0. A real lead needs WEEKLY origin
+resolution -- the daily Chile DUS feed (free but on the blocked datos.gob.cl) or
+paid by-exporter weekly (Veritrade/Agronometrics). So: "needs finer-resolution
+(weekly) origin data" -- not necessarily paid, but not the free monthly series.
+
+## Scorecard (honest, symmetric)
+- Predictive goal vs seasonal-naive: **5 clean negatives** -- HMRC-only, retail
+  price, NDVI, farm capacity (near-foreordained: structure is a level signal, not
+  a turning-point one), and now origin-export lead. Each diagnosed to a cause.
+- **3 integrity catches** of spurious wins: Morocco +37% (selection bias),
+  capacity 87.5% (survey-coverage artefact), and this asymmetric-rigor 0.92.
+- **1 constructive positive**: Part 2's reconciled, confidence-tiered weekly
+  volume product (and ODEPA as a valid cross-check, not a forecast).
 
 ## Verified data sources (free)
 
