@@ -92,11 +92,23 @@ def _resources(year: int) -> list[dict]:
 
 
 def _download(url: str, dest: Path) -> Path:
-    with requests.get(url, headers=HEADERS, timeout=600, stream=True) as r:
-        r.raise_for_status()
-        with open(dest, "wb") as fh:
-            for chunk in r.iter_content(1 << 20):
-                fh.write(chunk)
+    import time as _t
+    delay = 5
+    for attempt in range(5):
+        try:
+            with requests.get(url, headers=HEADERS, timeout=600, stream=True) as r:
+                if r.status_code >= 500:
+                    raise requests.HTTPError(f"{r.status_code}", response=r)
+                r.raise_for_status()
+                with open(dest, "wb") as fh:
+                    for chunk in r.iter_content(1 << 20):
+                        fh.write(chunk)
+                return dest
+        except requests.RequestException:
+            if attempt == 4:
+                raise
+            _t.sleep(delay)
+            delay *= 2
     return dest
 
 
@@ -153,6 +165,37 @@ def inspect(year: int, month_token: str) -> None:
         print(bb[["fecha", "region", "arancel", "unidad", "cantidad"]].head(8).to_string())
 
 
+# Known highbush cultivars that appear in the cargo description (attr2/item_name).
+_CULTIVARS = ["BLUE RIBBON", "TOP SHELF", "LAST CALL", "SUZIBLUE", "SNOWCHASER",
+              "LEGACY", "DUKE", "DRAPER", "VENTURA", "STELLA", "EUREKA", "CARGO",
+              "CRUNCH", "ROCIO", "MAGNOLIA", "BIANCA", "KIRRA", "CAMELLIA",
+              "BRIGITTA", "O'NEAL", "ONEAL", "ELLIOT", "STAR", "EMERALD", "JEWEL"]
+_NOISE = ("CAJA", "NO ESPECIFICAD", "SIN-CODIGO", "SIN CODIGO", "BULK", "KN", "KG",
+          "ARANDANO", "FRESCO", "AZUL", "CONVENCIONAL", "ORGANIC", "TRADICIONAL",
+          "DIFERENTES", "VARIED")
+
+
+def _clean_producer(attr1: str, item_name: str) -> str:
+    """Extract the producer/marca. attr1 is usually 'NAME-F'; fall back to a
+    '...-F' segment in item_name. Returns '' if only generic/noise text."""
+    for cand in (attr1, *str(item_name).split("~")):
+        s = str(cand).strip().strip("~").strip()
+        if s.endswith("-F"):
+            s = s[:-2].strip()
+        if s and "-F" not in s and not any(n in s.upper() for n in _NOISE) \
+                and not s.replace(".", "").isdigit() and len(s) > 2:
+            return s.upper()
+    return ""
+
+
+def _cultivar(attr2: str, item_name: str) -> str:
+    text = f"{attr2} {item_name}".upper()
+    for cv in _CULTIVARS:
+        if cv in text:
+            return cv
+    return ""
+
+
 def collect(years: list[int]) -> None:
     weekly: dict[str, float] = {}
     all_bb = []
@@ -178,49 +221,53 @@ def collect(years: list[int]) -> None:
                               "arancel", "item_name", "attr1", "attr2"]])
             print(f"{r['name']}: +{len(bb)} blueberry-UK rows, {bb['qty'].sum():.0f} kg")
 
-    # --- exporter attribution (traces our UK flow to the declarant + growing region) ---
+    # --- producer + cultivar attribution: the masked RUT leaks the marca/cultivar
+    # in the cargo description, so we can NAME the producer for a large share ---
     if all_bb:
         big = pd.concat(all_bb, ignore_index=True)
-        g = (big.groupby(["exp_num", "exp_rut", "exp_comuna"])
-             .agg(net_kg=("qty", "sum"), n_consignments=("qty", "size")).reset_index())
-        reg = big.groupby(["exp_num", "region"])["qty"].sum().reset_index()
-        top_region = reg.sort_values("qty").groupby("exp_num").tail(1).set_index("exp_num")["region"]
-        g["top_region"] = g["exp_num"].map(top_region)
-        g = g.sort_values("net_kg", ascending=False)
-        g["net_kg"] = g["net_kg"].round(1)
-        exp_out = OUT.parent / "chile_uk_blueberry_by_exporter.csv"
-        g.to_csv(exp_out, index=False)
-        total = g["net_kg"].sum()
-        print(f"\nwrote {exp_out}: {len(g)} exporters, {total:.0f} kg")
-        print("TOP EXPORTERS of UK-bound blueberry (id / RUT-code / comuna / top region / kg / share):")
-        for _, row in g.head(12).iterrows():
-            print(f"  num={row['exp_num']} rut={row['exp_rut']} comuna={row['exp_comuna']} "
-                  f"region={row['top_region']} kg={row['net_kg']:.0f} "
-                  f"share={100*row['net_kg']/total:.1f}%")
+        big["producer"] = [_clean_producer(a, n) for a, n in zip(big["attr1"], big["item_name"])]
+        big["cultivar"] = [_cultivar(a, n) for a, n in zip(big["attr2"], big["item_name"])]
+        big["organic"] = big["arancel"].str.strip().eq("08104021")
+        named = big[big["producer"] != ""]
+        total = big["qty"].sum()
+        cov = 100 * named["qty"].sum() / total if total else 0
 
-        # DIAGNOSTIC: does the consignment carry a CULTIVAR (Legacy/Duke/...) or
-        # only the arancel category? Decides if grower-up attribution can use variety.
-        print("\nVARIETY DIAGNOSTIC (do item_name/attr fields carry a cultivar?):")
-        print("  arancel codes:", big["arancel"].str.strip().value_counts().head(6).to_dict())
-        for col in ["item_name", "attr1", "attr2"]:
-            vals = big[col].dropna().astype(str).str.strip()
-            vals = vals[vals != ""]
-            print(f"  {col} top:", vals.value_counts().head(10).to_dict())
+        prod = (named.groupby("producer")
+                .agg(net_kg=("qty", "sum"), n=("qty", "size")).reset_index())
+        reg = named.groupby(["producer", "region"])["qty"].sum().reset_index()
+        prod["top_region"] = prod["producer"].map(
+            reg.sort_values("qty").groupby("producer").tail(1).set_index("producer")["region"])
+        cv = named[named["cultivar"] != ""].groupby(["producer", "cultivar"])["qty"].sum().reset_index()
+        prod["top_cultivar"] = prod["producer"].map(
+            cv.sort_values("qty").groupby("producer").tail(1).set_index("producer")["cultivar"])
+        prod = prod.sort_values("net_kg", ascending=False)
+        prod["net_kg"] = prod["net_kg"].round(1)
+        prod_out = OUT.parent / "chile_uk_blueberry_by_producer.csv"
+        prod[["producer", "net_kg", "n", "top_region", "top_cultivar"]].to_csv(prod_out, index=False)
+
+        print(f"\nwrote {prod_out}: {len(prod)} NAMED producers "
+              f"({cov:.0f}% of kg named), total {total:.0f} kg")
+        print("TOP NAMED PRODUCERS of UK-bound blueberry (name / kg / share / region / cultivar):")
+        for _, r in prod.head(15).iterrows():
+            print(f"  {r['producer']:24s} {r['net_kg']:>10.0f} kg  {100*r['net_kg']/total:4.1f}%  "
+                  f"region={r['top_region']}  cv={r['top_cultivar']}")
+        print("cultivar mix (kg):",
+              named[named["cultivar"] != ""].groupby("cultivar")["qty"].sum()
+              .sort_values(ascending=False).head(8).round(0).to_dict())
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     new = pd.DataFrame(sorted(weekly.items()), columns=["iso_week", "net_kg"])
-    # MERGE: refresh only the collected years; preserve previously committed
-    # history for other years (a light 2025,2026 run must not drop 2018-2024).
-    collected = {str(y) for y in years}
+    # WEEK-LEVEL merge: only weeks we recomputed are replaced; every other week is
+    # preserved. A failed/empty download can never wipe committed history.
     if OUT.exists():
         old = pd.read_csv(OUT)
-        old = old[~old["iso_week"].str[:4].isin(collected)]
+        old = old[~old["iso_week"].isin(new["iso_week"])]
         out = (pd.concat([old, new], ignore_index=True)
                .drop_duplicates("iso_week", keep="last").sort_values("iso_week"))
     else:
         out = new.sort_values("iso_week")
     out.to_csv(OUT, index=False)
-    print(f"wrote {OUT}: {len(out)} weeks total ({len(new)} refreshed for {sorted(collected)}), "
+    print(f"wrote {OUT}: {len(out)} weeks total ({len(new)} refreshed this run), "
           f"{out['net_kg'].sum():.0f} kg")
 
 
