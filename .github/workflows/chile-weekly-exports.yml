@@ -11,6 +11,12 @@ name: Chile weekly blueberry exports
 # to backfill history.
 
 on:
+  # Pushing this workflow/script to the branch auto-runs it in INSPECT mode --
+  # the quickest way to get the first sample/layout without touching main.
+  push:
+    paths:
+      - ".github/workflows/chile-weekly-exports.yml"
+      - "scripts/fetch_chile_weekly_exports.py"
   workflow_dispatch:
     inputs:
       mode:
@@ -44,13 +50,21 @@ jobs:
           pip install requests pandas openpyxl
       - name: Run collector
         run: |
-          MODE="${{ github.event.inputs.mode || 'collect' }}"
+          # push -> inspect (log layout); dispatch -> chosen mode; schedule -> collect
+          if [ "${{ github.event_name }}" = "push" ]; then
+            MODE=inspect
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MODE="${{ github.event.inputs.mode }}"
+          else
+            MODE=collect
+          fi
           YEARS="${{ github.event.inputs.years || '2026' }}"
+          echo "Running mode=$MODE years=$YEARS"
           python scripts/fetch_chile_weekly_exports.py \
             --mode "$MODE" --years "$YEARS" \
             --month-token "${{ github.event.inputs.month_token || 'enero' }}"
       - name: Commit weekly series (collect only)
-        if: ${{ github.event.inputs.mode != 'inspect' }}
+        if: ${{ github.event_name != 'push' && github.event.inputs.mode != 'inspect' }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
