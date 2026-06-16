@@ -393,6 +393,15 @@ UK-bound flow to **named producers**:
 So we name producers + cultivars for free, from data we already pull -- no US
 mirror match (Strategy 1) and the cultivar dimension Strategy 2 wanted, both in-hand.
 
+Coverage (2025-26 flow): producer **named on ~91%** of kg; growing **region ~100%**;
+**specific cultivar ~46%**. The 46% is a near-CEILING, not a parser gap: the
+unmatched ~54% declares no single cultivar in the source -- "ARANDANOS FRESCOS",
+"TRADICIONALES", "AZULES", or explicitly "DIFERENTES VARIEDADES" (mixed). An
+expanded cultivar dictionary lifted it 42%->46%; the rest is unrecoverable
+(cultivar simply not stated), so do not expect ~65%. Specific named+located
+*orchard* stays ~5% free (USDA organic) unless matched to SAG's China list or
+paid CIREN.
+
 Honest limits (the last mile): names are messy free-text needing canonicalisation
 (LAFRUT vs "LA FRUT F-"; ANGUS vs ANGUS SOFT; S&A vs COMERCIALIZADORA S&A -- the
 spec's canonical_entities step); a marca is a producer/exporter brand (often a
