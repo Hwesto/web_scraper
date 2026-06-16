@@ -20,7 +20,9 @@ def test_off_season_is_honest_not_a_fake_call():
     assert "off-season" in call.render(c)
 
 
-def test_action_matches_lean():
+def test_action_follows_validated_supply_not_price():
     c = call.weekly_call(_dt.date(2025, 2, 18))
-    lean_to_word = {"DOWN": "move volume", "UP": "lock", "FLAT": "hold"}
-    assert lean_to_word[c["price_lean"]] in c["action"]
+    word = {call._SHORT: "lock", call._LONG: "no urgency", call._NORMAL: "hold"}
+    assert word[c["supply_signal"]] in c["action"]
+    # price is demoted to weak context, not a forecast
+    assert "WEAK" in c["price_confidence"]

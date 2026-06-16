@@ -33,6 +33,16 @@ def _ons_price_monthly() -> pd.Series:
     return f.set_index("d")["value"].sort_index()
 
 
+def _total_supply_anomaly(target: pd.Timestamp) -> float:
+    """YoY anomaly of TOTAL UK blueberry supply (all origins) for the month --
+    the basis price weakly tracks (vs Chile-only, which doesn't)."""
+    f = vintage.latest("hmrc_blueberry_imports").copy()
+    f["d"] = pd.to_datetime(f["ref_period"])
+    tot = f.groupby("d")["value"].sum().sort_index()
+    cur, prior = tot.get(target, np.nan), tot.get(target - pd.DateOffset(months=12), np.nan)
+    return (cur - prior) / prior if (prior == prior and prior) else float("nan")
+
+
 def _supply_price_elasticity(hmrc: pd.Series, price: pd.Series) -> float:
     """Rough %price per %volume from history (log-log YoY). LOW confidence --
     blueberry price/volume link is weak; used only for a directional magnitude."""
@@ -70,24 +80,28 @@ def weekly_call(as_of: _dt.date | None = None, origin: str = "Chile",
     if anomaly == anomaly:
         supply = _LONG if anomaly > _ANOM else _SHORT if anomaly < -_ANOM else _NORMAL
 
-    # --- price: observed recent trend + supply-implied pressure ---
+    # --- price: observed trend + a WEAK total-supply lean ---
+    # Back-test (backtest/call_bt.py): the Chile-only price call is coin-flip
+    # (48%); whole-market total supply is only marginally directional (~57%,
+    # corr -0.17 at 2m). So price is a low-confidence DIRECTIONAL lean, not a
+    # forecast, and it is driven by TOTAL UK supply (what price actually tracks).
     price = _ons_price_monthly()
     price = price[price.index <= target]
     price_level = float(price.iloc[-1]) if len(price) else float("nan")
     price_trend = (float(price.iloc[-1] / price.iloc[-4] - 1) * 100
                    if len(price) >= 4 else float("nan"))
-    elast = _supply_price_elasticity(hmrc, _ons_price_monthly())
-    implied_move = elast * anomaly * 100 if anomaly == anomaly else float("nan")  # %
+    total_anom = _total_supply_anomaly(target)
 
     lean = "FLAT"
-    if anomaly == anomaly:
-        if anomaly > _ANOM:
+    if total_anom == total_anom:
+        if total_anom > _ANOM:
             lean = "DOWN"
-        elif anomaly < -_ANOM:
+        elif total_anom < -_ANOM:
             lean = "UP"
-    action = {"DOWN": "move volume now (sell ahead of the dip)",
-              "UP": "lock price / cover now (before it firms)",
-              "FLAT": "hold -- no clear supply edge this period"}[lean]
+    # Action is led by the VALIDATED supply signal (not the weak price lean).
+    action = {_SHORT: "tight Chilean arrivals -- secure cover / lock supply now",
+              _LONG: "ample Chilean arrivals -- no urgency; negotiate / delay buying",
+              _NORMAL: "arrivals in line with normal -- hold"}[supply]
 
     return {
         "as_of": as_of.isoformat(), "origin": origin, "landing_month": f"{target.year}-{target.month:02d}",
@@ -98,8 +112,9 @@ def weekly_call(as_of: _dt.date | None = None, origin: str = "Chile",
         else "off-season -- lane not shipping",
         "price_level_gbp_kg": round(price_level, 2) if price_level == price_level else None,
         "price_trend_pct_3m": round(price_trend, 1) if price_trend == price_trend else None,
-        "price_lean": lean, "implied_price_move_pct": round(implied_move, 1) if implied_move == implied_move else None,
-        "elasticity_used": round(elast, 2), "action": action,
+        "price_lean": lean, "price_confidence": "WEAK -- directional only (~57% backtest, low conf)",
+        "total_supply_anom_pct": round(total_anom * 100, 0) if total_anom == total_anom else None,
+        "action": action,
     }
 
 
@@ -113,17 +128,17 @@ def render(call: dict) -> str:
     trend = call["price_trend_pct_3m"]
     trend_word = ("softening" if trend is not None and trend < -1 else
                   "firming" if trend is not None and trend > 1 else "flat")
-    mv = call["implied_price_move_pct"]
-    mag = (f"~{abs(mv):.0f}%" if mv is not None else "modestly")
-    direction = {"DOWN": "down", "UP": "up", "FLAT": "broadly flat"}[call["price_lean"]]
+    direction = {"DOWN": "soft", "UP": "firm", "FLAT": "flat"}[call["price_lean"]]
     return (
         f"THIS WEEK'S CALL  |  {call['origin']} arrivals, {call['landing_month']}\n"
-        f"  Supply: {call['arrivals_nowcast_t']:.0f} t vs {call['seasonal_norm_t']:.0f} t normal "
-        f"= {a:+.0f}%  [{call['supply_signal']}]   ({call['confidence']})\n"
-        f"  Price:  {call['price_level_gbp_kg']} GBP/kg, {trend_word} ({trend:+.0f}% 3m)\n"
-        f"  READ:   {heavy} {call['origin']} arrivals + {trend_word} cost -> UK price likely "
-        f"{direction} {mag} over 2-3 wks -> {call['action']}.\n"
-        f"  (supply = validated nowcast; price magnitude = rough elasticity, demand assumed stable)"
+        f"  SUPPLY (the call): {call['arrivals_nowcast_t']:.0f} t vs {call['seasonal_norm_t']:.0f} t "
+        f"normal = {a:+.0f}%  [{call['supply_signal']}]\n"
+        f"                     {call['confidence']} -- 66% directional in back-test\n"
+        f"  Price (context):   {call['price_level_gbp_kg']} GBP/kg, {trend_word} ({trend:+.0f}% 3m); "
+        f"total-supply lean {direction} [WEAK ~57%, not a forecast]\n"
+        f"  -> ACTION: {call['action']}.\n"
+        f"  (supply nowcast is the validated edge; price direction does not back-test reliably "
+        f"on free data -- treat as context, pair with your own cost read)"
     )
 
 

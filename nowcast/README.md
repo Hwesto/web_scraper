@@ -450,6 +450,17 @@ confidence elasticity; demand assumed stable) -- magnitudes are deliberately
 small because blueberry price/volume linkage is weak, and that's surfaced rather
 than inflated. Off-season it says so instead of faking a call.
 
+**Back-test of the call** (`backtest/call_bt.py`) -- both halves, separately:
+- **SUPPLY call: 65.7% directional** (n=35 in-season months, vs 50%). The
+  validated nowcast holds up -- this is the product.
+- **PRICE call: 47.8%** Chile-only (coin-flip); even whole-market total supply is
+  only ~57% (corr -0.17 at 2m). So UK retail price does NOT reliably follow
+  arrival anomalies on free data. The panel was therefore **repositioned**: supply
+  is the hero, price is demoted to a WEAK, low-confidence directional context
+  (never a "price down X%" forecast), and the action is supply-led. A credible
+  price half would need a live WHOLESALE feed + demand control -- the sticky
+  monthly ONS retail series can't support it.
+
 **Whole-market continuity** (`volume/uk_total.py`, `build_uk_total()`): the
 fused UK supply series sums every HMRC origin year-round (Morocco 28%, Peru 26%,
 South Africa 14%, Chile 12%, ...), so the tool is never blank -- live shipment
