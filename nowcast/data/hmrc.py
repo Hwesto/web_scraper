@@ -23,7 +23,8 @@ from ..config import (
     HMRC_MAX_RETRIES,
     HMRC_PAGE_DELAY_S,
     KG_PER_TONNE,
-    ORIGINS,
+    FLOW_EU_IMPORTS,
+    FLOW_NONEU_IMPORTS,
 )
 
 _HEADERS = {"User-Agent": "uk-blueberry-nowcast/0.1 (research)", "Accept": "application/json"}
@@ -48,22 +49,12 @@ def _get(url: str, params: dict | None = None) -> dict:
     return {}
 
 
-def _page_all(country_ids: list[int], flow_id: int) -> list[dict]:
-    """Fetch every OTS row for the given origins+flow, following nextLink paging.
-
-    $orderby is rejected by the API, so we filter by commodity, flow, country set
-    and MonthId range only, then page via @odata.nextLink.
-    """
-    country_filter = " or ".join(f"CountryId eq {cid}" for cid in country_ids)
-    flt = (
-        f"CommodityId eq {COMMODITY_ID} and FlowTypeId eq {flow_id} "
-        f"and MonthId ge {HISTORY_START_MONTH} and ({country_filter})"
-    )
-    params = {
-        "$filter": flt,
-        "$select": "MonthId,CountryId,Value,NetMass",
-        "$top": "1000",
-    }
+def _page_flow(flow_id: int) -> list[dict]:
+    """Fetch every OTS blueberry row for a flow (ALL origins), paging nextLink.
+    No country filter -> whole-market coverage, not just a curated few."""
+    flt = (f"CommodityId eq {COMMODITY_ID} and FlowTypeId eq {flow_id} "
+           f"and MonthId ge {HISTORY_START_MONTH}")
+    params = {"$filter": flt, "$select": "MonthId,CountryId,Value,NetMass", "$top": "5000"}
     rows: list[dict] = []
     payload = _get(f"{HMRC_API_BASE}/OTS", params=params)
     rows.extend(payload.get("value", []))
@@ -74,6 +65,22 @@ def _page_all(country_ids: list[int], flow_id: int) -> list[dict]:
     return rows
 
 
+_COUNTRY_CACHE: dict[int, str] = {}
+
+
+def _country_name(cid: int) -> str:
+    if not _COUNTRY_CACHE:
+        url = f"{HMRC_API_BASE}/Country?$select=CountryId,CountryName"
+        while url:
+            j = _get(url)
+            for c in j.get("value", []):
+                _COUNTRY_CACHE[c["CountryId"]] = c["CountryName"]
+            url = j.get("@odata.nextLink")
+            if url:
+                time.sleep(HMRC_PAGE_DELAY_S)
+    return _COUNTRY_CACHE.get(cid, f"country_{cid}")
+
+
 def _month_to_iso(month_id: int) -> str:
     """200103 -> '2001-03-01' (period start, ISO)."""
     year, month = divmod(month_id, 100)
@@ -81,7 +88,7 @@ def _month_to_iso(month_id: int) -> str:
 
 
 class HmrcBlueberryImports(SignalSource):
-    """Monthly blueberry import tonnage by origin from HMRC OTS."""
+    """Monthly blueberry import tonnage by origin from HMRC OTS (ALL origins)."""
 
     series = "hmrc_blueberry_imports"
     freq = "M"
@@ -89,15 +96,11 @@ class HmrcBlueberryImports(SignalSource):
 
     def fetch(self, vintage_date: _dt.date | None = None) -> "pd.DataFrame":  # noqa: F821
         vintage_date = vintage_date or _dt.date.today()
-
-        # Group origins by flow type so each API query is a single flow.
-        by_flow: dict[int, list[int]] = {}
-        for cid, meta in ORIGINS.items():
-            by_flow.setdefault(meta["flow"], []).append(cid)
+        _country_name(0)                       # warm the country map
 
         raw: list[dict] = []
-        for flow_id, cids in by_flow.items():
-            raw.extend(_page_all(cids, flow_id))
+        for flow_id in (FLOW_EU_IMPORTS, FLOW_NONEU_IMPORTS):
+            raw.extend(_page_flow(flow_id))
             time.sleep(HMRC_PAGE_DELAY_S)
 
         # Aggregate the per-port rows -> one tonnage per (month, country).
@@ -113,7 +116,7 @@ class HmrcBlueberryImports(SignalSource):
                 "series": self.series,
                 "ref_period": _month_to_iso(mid),
                 "freq": self.freq,
-                "key": ORIGINS[cid]["name"],
+                "key": _country_name(cid),
                 "value": net_kg / KG_PER_TONNE,
                 "unit": self.unit,
             }
