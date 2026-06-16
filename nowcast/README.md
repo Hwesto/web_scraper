@@ -310,14 +310,23 @@ have clean egress):
 - Backfilled **2018-W01..2026-W13, 182 weeks** (slug varies by year:
   `registro-de-exportacion(es)-{y}`). Validated against ODEPA monthly: **median
   ratio 1.0, 88% of months within +-15%** across 56 months.
-- `nowcast/volume/data/chile_weekly.py` loads it as a weekly series -> the
-  shipment-tier weekly SHAPE for the Chile deep-sea leg of the Part 2 volume
-  product, and the input to a within-month nowcast of the monthly print.
+- `nowcast/volume/data/chile_weekly.py` loads it as a weekly series.
+
+**Wired into Part 2 (done):** `volume/series.py` now uses the weekly origin
+export, shifted by the deep-sea transit time (~4 weeks) to approximate UK
+arrival, as the within-month SHAPE for Chile -- still Denton-reconciled to the
+HMRC monthly control (max error 0.1 kg), but tagged **`shipment`** tier
+(`shipment_recon`, source `HMRC-OTS;ODEPA-DUS-weekly`) instead of model-implied
+`aggregate_benchmarked`. 222 of 234 Chile weeks are now shipment-shaped from real
+consignments; the ragged edge stays `nowcast`. Origins without a feed (Morocco,
+Spain) are unchanged (model shape). `_EXPORT_FEEDS` registers which origins have
+a weekly feed and their transit lag.
 
 This is the genuine data unlock: a free, weekly, validated origin signal with a
-mechanical voyage lead. Whether it beats seasonal-naive on turning points is the
-next analysis (needs a weekly target or within-month-nowcast framing; HMRC is
-monthly). 8 seasons of weekly data now exist to test it.
+mechanical voyage lead, now driving the deep-sea volume shape. Whether it beats
+seasonal-naive on turning points is the remaining analysis (needs a weekly target
+or within-month-nowcast framing; HMRC is monthly). 8 seasons of weekly data exist
+to test it.
 
 ## Verified data sources (free)
 
