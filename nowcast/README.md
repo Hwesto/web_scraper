@@ -14,8 +14,9 @@ The full design and the data-source stress test live in the project discussion.
 | **M1** | Real data ingest + append-only vintage store | **done, real data** |
 | **M2** | Volume-space state-space + Kalman + MLE calibration | **done, real data** |
 | **M3** | Walk-forward backtest vs seasonal-naive / persistence / ARIMA | **done — gate NOT passed** |
-| M4 | Sentinel-2 NDVI forward signal (optional) | not started |
-| M5 | Forward-collect alt-data (packhouse hiring; clock started in M1) | stub wired |
+| **M4a** | Retail price fusion (ONS year-round price, 2nd observation) | **done — no gate lift** |
+| M4b | Sentinel-2 NDVI forward signal (optional) | not started |
+| M5 | Forward-collect (packhouse hiring + live retail price) | stubs wired |
 
 **M3 is the gate:** ship nothing until it provably beats seasonal-naive at a
 useful lead. Alt-data (M5) never counts toward this gate — it has no history.
@@ -46,6 +47,36 @@ Findings:
   alt-data clock was started in M1.
 - Secondary positive: directional skill ~74% and the model decisively beats
   ARIMA, so the structure is informative — just not enough to clear seasonal-naive.
+
+### M4a verdict (honest): retail price fusion does NOT lift the gate
+
+We found a genuinely free, *year-round* historical retail blueberry price (ONS
+Shopping Prices Comparison Tool, item 212733, monthly GBP/kg, 2018-01..2025-01)
+— unlike DEFRA wholesale, it exists in the Dec-May import season. We fused it as
+a second observation (`price = alpha + beta*volume + eps`, beta calibrated on the
+training window) via a generalised multi-observation Kalman update, and added a
+nowcast mode that uses HMRC through month t-1 plus the contemporaneous price for
+month t (modelling HMRC's ~6-week lag).
+
+Result, real-data nowcast backtest (`run_nowcast_backtest`):
+- Adding price changes nowcast MAE by **~0%** (Morocco -0.2%, Spain -0.0%).
+- Both still lose to seasonal-naive (Morocco -76%, Spain -144%).
+
+Why (diagnosed, not assumed): the ONS price anomaly correlates with the import
+volume anomaly only weakly and contemporaneously (r about -0.13 to -0.21, correct
+sign) and **does not lead it** (lead correlations are noise). Retail consumer
+prices are sticky, marked up and demand-driven, so they carry little timely
+information about import supply.
+
+Proof the null is real, not a broken pipe: `tests/test_price_fusion.py` injects a
+*strong* synthetic price signal and confirms the same fusion code then cuts
+nowcast error by >20% and recovers the negative beta. The mechanism works; the
+free retail price simply isn't informative enough.
+
+Implication: a price signal worth fusing would need to be a *leading*,
+supply-side price (FOB origin / wholesale-at-origin), which is not free. The
+remaining free lever is the forward forecast (NDVI, M4b) and forward-collected
+leading signals (M5) — neither of which can be validated until a season accrues.
 
 ## Verified data sources (free)
 

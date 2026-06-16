@@ -26,6 +26,54 @@ class FilterResult:
     P_pred: np.ndarray      # (T, n, n) predicted covariances
 
 
+def _scalar_update(x, P, h, value, var, offset, n):
+    """One scalar Kalman update for obs value = h.x + offset + N(0,var). Returns
+    (x, P, loglik_contribution)."""
+    z = float(h @ x) + offset
+    Ph = P @ h                          # (n,)
+    s = float(h @ Ph) + var
+    innov = value - z
+    K = Ph / s                          # (n,)
+    x = x + K * innov
+    ImKH = np.eye(n) - np.outer(K, h)
+    P = ImKH @ P @ ImKH.T + np.outer(K, K) * var
+    P = 0.5 * (P + P.T)
+    ll = -0.5 * (_LOG2PI + np.log(s) + innov * innov / s)
+    return x, P, ll
+
+
+def kalman_filter_multi(
+    obs_seq: list[list[tuple]],   # per t: list of (h (n,), value, var, offset)
+    F_seq: list[np.ndarray],
+    Q: np.ndarray,
+    x0: np.ndarray,
+    P0: np.ndarray,
+) -> FilterResult:
+    """Filter with an arbitrary set of scalar observations each step, applied
+    sequentially. Missing streams simply contribute no tuple that step."""
+    T = len(F_seq)
+    n = x0.shape[0]
+    x_filt = np.zeros((T, n)); P_filt = np.zeros((T, n, n))
+    x_pred = np.zeros((T, n)); P_pred = np.zeros((T, n, n))
+    loglik = 0.0
+
+    x, P = x0.copy(), P0.copy()
+    for t in range(T):
+        F = F_seq[t]
+        x = F @ x
+        P = F @ P @ F.T + Q
+        P = 0.5 * (P + P.T)
+        x_pred[t] = x; P_pred[t] = P
+
+        for h, value, var, offset in obs_seq[t]:
+            x, P, ll = _scalar_update(x, P, np.asarray(h, float), value, var, offset, n)
+            loglik += ll
+
+        x_filt[t] = x; P_filt[t] = P
+
+    return FilterResult(loglik, x_filt, P_filt, x_pred, P_pred)
+
+
 def kalman_filter(
     y: np.ndarray,          # (T,) observations, np.nan where missing
     F_seq: list[np.ndarray],
@@ -35,38 +83,13 @@ def kalman_filter(
     x0: np.ndarray,
     P0: np.ndarray,
 ) -> FilterResult:
-    T = len(y)
-    n = x0.shape[0]
-    x_filt = np.zeros((T, n)); P_filt = np.zeros((T, n, n))
-    x_pred = np.zeros((T, n)); P_pred = np.zeros((T, n, n))
-    loglik = 0.0
-
-    x, P = x0.copy(), P0.copy()
-    for t in range(T):
-        # --- predict ---
-        F = F_seq[t]
-        x = F @ x
-        P = F @ P @ F.T + Q
-        P = 0.5 * (P + P.T)
-        x_pred[t] = x; P_pred[t] = P
-
-        # --- update (only if observed) ---
-        if not np.isnan(y[t]):
-            z = H @ x                       # (1,)
-            S = H @ P @ H.T + var_obs       # (1,1)
-            s = float(S[0, 0])
-            innov = y[t] - float(z[0])
-            K = (P @ H.T) / s               # (n,1)
-            x = x + (K[:, 0] * innov)
-            KH = K @ H
-            ImKH = np.eye(n) - KH
-            P = ImKH @ P @ ImKH.T + (K * var_obs) @ K.T
-            P = 0.5 * (P + P.T)
-            loglik += -0.5 * (_LOG2PI + np.log(s) + innov * innov / s)
-
-        x_filt[t] = x; P_filt[t] = P
-
-    return FilterResult(loglik, x_filt, P_filt, x_pred, P_pred)
+    """Single-stream convenience wrapper over kalman_filter_multi."""
+    h = np.asarray(H, float).ravel()
+    obs_seq = [
+        ([] if np.isnan(y[t]) else [(h, float(y[t]), var_obs, 0.0)])
+        for t in range(len(y))
+    ]
+    return kalman_filter_multi(obs_seq, F_seq, Q, x0, P0)
 
 
 def rts_smoother(res: FilterResult, F_seq: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:

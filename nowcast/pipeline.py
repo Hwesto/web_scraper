@@ -13,13 +13,15 @@ import datetime as _dt
 from .backtest.replay import load_origin_series, run_backtest, summarize
 from .data.defra_price import DefraBlueberryPrice
 from .data.hmrc import HmrcBlueberryImports
+from .data.ons_price import OnsRetailBlueberryPrice
+from .data.retail_price import RetailBlueberryPrice
 from .data.altdata.job_boards import PackhouseHiringSignal
 from .store import vintage
 
 # Registry of sources. Core signals feed the filter; collect-only signals just
 # accrue forward history and never enter the M3 gate.
-CORE_SOURCES = [HmrcBlueberryImports(), DefraBlueberryPrice()]
-COLLECT_ONLY_SOURCES = [PackhouseHiringSignal()]
+CORE_SOURCES = [HmrcBlueberryImports(), DefraBlueberryPrice(), OnsRetailBlueberryPrice()]
+COLLECT_ONLY_SOURCES = [PackhouseHiringSignal(), RetailBlueberryPrice()]
 
 
 def cmd_ingest(_args: argparse.Namespace) -> None:

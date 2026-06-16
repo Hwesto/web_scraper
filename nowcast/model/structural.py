@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 from .calendar import build_week_grid
-from .kalman import kalman_filter, rts_smoother
+from .kalman import kalman_filter, kalman_filter_multi, rts_smoother
 from .mle import calibrate
 from .ssm import build_system, state_dim
 
@@ -52,6 +52,8 @@ class BlueberryStructuralModel:
         self._grid = None
         self._system = None
         self._monthly = None
+        self._price = None          # full price series (pd.Series, monthly)
+        self._price_cal = None      # (alpha, beta, var_price) or None
 
     # -- internal: lay observations on the weekly grid --
     def _observation_vector(self, grid, monthly: pd.Series) -> np.ndarray:
@@ -81,7 +83,23 @@ class BlueberryStructuralModel:
         P0[n - 1, n - 1] = (20 * sc) ** 2  # accum
         return x0, P0
 
-    def fit(self, monthly: pd.Series, init=None) -> "BlueberryStructuralModel":
+    def _calibrate_price(self, monthly: pd.Series, price: pd.Series):
+        """OLS of price on contemporaneous monthly volume over the TRAINING
+        window: price = alpha + beta*volume + eps. beta is expected negative
+        (more supply -> lower price). Returns (alpha, beta, var_resid) or None
+        if too little overlap. Uses only training months (no look-ahead)."""
+        joined = pd.concat([monthly.rename("v"), price.rename("p")], axis=1).dropna()
+        if len(joined) < 12:
+            return None
+        v = joined["v"].values.astype(float)
+        p = joined["p"].values.astype(float)
+        beta, alpha = np.polyfit(v, p, 1)
+        resid = p - (alpha + beta * v)
+        var_resid = float(np.var(resid)) or 1.0
+        return float(alpha), float(beta), var_resid
+
+    def fit(self, monthly: pd.Series, price: pd.Series | None = None, init=None
+            ) -> "BlueberryStructuralModel":
         monthly = monthly.sort_index()
         self._monthly = monthly
         start = monthly.index.min().date()
@@ -94,7 +112,50 @@ class BlueberryStructuralModel:
             y, grid.xi, self.k, x0, P0, init=init, maxiter=self.maxiter)
         self._system = build_system(self.params_, self.k)
         self._grid, self._y, self._x0, self._P0 = grid, y, x0, P0
+
+        if price is not None:
+            self._price = price.sort_index()
+            self._price_cal = self._calibrate_price(monthly, self._price)
         return self
+
+    def nowcast(self, target_key: str, use_price: bool = True) -> tuple[float, float]:
+        """Nowcast the monthly volume for 'YYYY-MM' from HMRC through the prior
+        month plus (optionally) the contemporaneous price for the target month.
+
+        Models HMRC's publication lag: the target month's HMRC print is NOT yet
+        available, but its retail price IS. Returns (mean, sd) of accum_target.
+        """
+        target = pd.Timestamp(int(target_key[:4]), int(target_key[5:7]), 1)
+        grid = build_week_grid(self._monthly.index.min().date(),
+                               (target + pd.DateOffset(days=7)).date())
+        S = self._system
+        obs_seq: list[list[tuple]] = [[] for _ in range(len(grid))]
+
+        # HMRC observations: only months strictly before the target (lagged).
+        for period, value in self._monthly.items():
+            if period >= target:
+                continue
+            idx = grid.index_of_month_end(f"{period.year:04d}-{period.month:02d}")
+            if idx is not None:
+                obs_seq[idx].append((S.H_hmrc.ravel(), float(value), S.var_hmrc, 0.0))
+
+        # Price observations on accum (affine), up to and INCLUDING the target.
+        if use_price and self._price is not None and self._price_cal is not None:
+            alpha, beta, var_price = self._price_cal
+            h_price = beta * S.H_hmrc.ravel()
+            for period, pval in self._price.items():
+                if period > target:
+                    continue
+                idx = grid.index_of_month_end(f"{period.year:04d}-{period.month:02d}")
+                if idx is not None:
+                    obs_seq[idx].append((h_price, float(pval), var_price, alpha))
+
+        F_seq = [S.F(xi) for xi in grid.xi]
+        res = kalman_filter_multi(obs_seq, F_seq, S.Q, self._x0, self._P0)
+        idx = grid.index_of_month_end(target_key)
+        mean = float((S.H_hmrc @ res.x_filt[idx])[0])
+        var = float((S.H_hmrc @ res.P_filt[idx] @ S.H_hmrc.T)[0, 0])
+        return max(mean, 0.0), float(np.sqrt(max(var, 0.0)))
 
     def _run(self, grid, y):
         F_seq = [self._system.F(xi) for xi in grid.xi]

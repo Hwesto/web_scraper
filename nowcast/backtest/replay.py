@@ -80,6 +80,35 @@ def run_backtest(series: pd.Series, k: int = 2, horizons=(1, 2, 3),
     return pd.DataFrame(rows)
 
 
+def run_nowcast_backtest(series: pd.Series, price: pd.Series, k: int = 3,
+                         min_train: int = 24, maxiter: int = 700) -> pd.DataFrame:
+    """Nowcast test: for each target month, use HMRC through the prior month +
+    contemporaneous retail price, comparing model-with-price vs model-without
+    vs seasonal-naive. Isolates whether the price signal adds nowcast value."""
+    series = series.sort_index()
+    months = list(series.index)
+    rows = []
+    for i in range(min_train, len(months)):
+        target = months[i]
+        train = series.iloc[:i]            # HMRC strictly before target (lagged)
+        if len(train) < min_train:
+            continue
+        key = f"{target.year:04d}-{target.month:02d}"
+        try:
+            model = BlueberryStructuralModel(k, maxiter=maxiter).fit(train, price=price)
+            mp, _ = model.nowcast(key, use_price=True)
+            mn, _ = model.nowcast(key, use_price=False)
+        except Exception:
+            continue
+        rows.append({
+            "target": key, "actual": float(series.loc[target]),
+            "model_price": mp, "model_noprice": mn,
+            "seasonal_naive": seasonal_naive(train, 1),
+            "has_price": bool((price.index == target).any()),
+        })
+    return pd.DataFrame(rows)
+
+
 def summarize(preds: pd.DataFrame) -> pd.DataFrame:
     """Per-horizon accuracy, directional skill, coverage and skill vs benchmarks."""
     out = []
