@@ -32,14 +32,27 @@ CKAN = "https://datos.gob.cl/api/3/action"
 HEADERS = {"User-Agent": "Mozilla/5.0 (uk-blueberry-nowcast weekly-collector)"}
 OUT = Path("data/weekly/chile_uk_blueberry_weekly.csv")
 
-# --- pin from the inspect-mode log ---
-COL_DATE = "FECHAACEPT"        # day-level DUS acceptance date
-COL_TARIFF = "CODIGOARANCEL"   # tariff/arancel code column
-COL_DEST = "PAIS_DESTINO"      # destination country code or name column
-COL_QTY = "CANTIDADMERCANCIA"  # net quantity (kg)
+# --- POSITIONAL layout, pinned from the inspect run log (84 ;-sep cols, no header) ---
+# Anchored by col 20 = GLOSAPAISDESTINO ("PERU" in the sample) matching the metadata
+# dictionary, so header fields are 1:1 with columns 0..60, items follow.
+IDX = {0: "fecha", 14: "region", 19: "pais_code", 20: "pais",
+       69: "arancel", 70: "unidad", 71: "cantidad"}
 FRESH_PREFIX = "08104"         # fresh blueberry (Vaccinium); frozen 0811 excluded
-UK_VALUES = {"224", "Reino Unido", "REINO UNIDO", "GBR", "GB"}  # widen after inspect
+UK_GLOSA = "REINO UNIDO"       # GLOSAPAISDESTINO value for the UK
 SEP = ";"
+ENC = "latin-1"
+
+
+def _read_cols(flat: Path) -> pd.DataFrame:
+    df = pd.read_csv(flat, sep=SEP, header=None, usecols=list(IDX), dtype=str,
+                     encoding=ENC, on_bad_lines="skip")
+    return df.rename(columns=IDX)
+
+
+def _blueberry_uk(df: pd.DataFrame) -> pd.DataFrame:
+    m = (df["arancel"].astype(str).str.strip().str.startswith(FRESH_PREFIX)
+         & df["pais"].astype(str).str.strip().str.upper().eq(UK_GLOSA))
+    return df[m].copy()
 
 
 def _ckan(action: str, **params) -> dict:
@@ -80,18 +93,6 @@ def _extract_flatfile(rar: Path, workdir: Path) -> Path:
     return max(candidates, key=lambda p: p.stat().st_size)
 
 
-def _read_metadata_columns(resources: list[dict]) -> list[str] | None:
-    meta = next((r for r in resources if "metadata" in (r.get("name") or "").lower()
-                 and (r.get("format") or "").lower() in ("xlsx", "xls")), None)
-    if not meta:
-        return None
-    raw = requests.get(meta["url"], headers=HEADERS, timeout=120).content
-    df = pd.read_excel(io.BytesIO(raw))
-    # The metadata sheet lists field names (and order/description). Return its
-    # first text column's values as the candidate column order.
-    return [str(v) for v in df.iloc[:, 0].dropna().tolist()]
-
-
 def _month_rar(resources: list[dict], month_token: str) -> dict | None:
     for r in resources:
         name = (r.get("name") or "").lower()
@@ -101,71 +102,65 @@ def _month_rar(resources: list[dict], month_token: str) -> dict | None:
     return None
 
 
+def _iter_month_rars(resources: list[dict]):
+    for r in resources:
+        name = (r.get("name") or "").lower()
+        if (r.get("format") or "").lower() != "rar" or "exportaciones" not in name:
+            continue
+        if "bulto" in name or "transporte" in name:
+            continue
+        yield r
+
+
 def inspect(year: int, month_token: str) -> None:
     res = _resources(year)
     print("RESOURCES:", [(r["name"], r["format"]) for r in res][:8])
-    cols = _read_metadata_columns(res)
-    print("METADATA COLUMN CANDIDATES:", cols)
     rar = _month_rar(res, month_token)
     print("MONTH RAR:", rar and rar["name"], rar and rar["url"])
     if not rar:
         return
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
-        flat = _extract_flatfile(_download(rar["url"], td / "m.rar"), td)
-        head = pd.read_csv(flat, sep=SEP, nrows=5, header=None, dtype=str,
-                           encoding="latin-1")
-        print("FIRST ROWS (positional):")
-        print(head.to_string())
-        # If column names known, show blueberry destinations:
-        try:
-            df = pd.read_csv(flat, sep=SEP, header=None, names=cols, dtype=str,
-                             encoding="latin-1") if cols else None
-            if df is not None and COL_TARIFF in df.columns:
-                bb = df[df[COL_TARIFF].astype(str).str.startswith(FRESH_PREFIX)]
-                print("BLUEBERRY ROWS:", len(bb))
-                if COL_DEST in bb.columns:
-                    print("DISTINCT DESTINATIONS (blueberry):",
-                          bb[COL_DEST].value_counts().head(20).to_dict())
-        except Exception as exc:
-            print("named-read failed (pin columns from positional rows):", exc)
+        df = _read_cols(_extract_flatfile(_download(rar["url"], td / "m.rar"), td))
+    print("rows:", len(df), "| sample destinations:",
+          df["pais"].astype(str).str.strip().str.upper().value_counts().head(8).to_dict())
+    fresh = df[df["arancel"].astype(str).str.strip().str.startswith(FRESH_PREFIX)]
+    print("FRESH-BLUEBERRY rows (08104*):", len(fresh))
+    print("  blueberry destinations:",
+          fresh["pais"].astype(str).str.strip().str.upper().value_counts().head(10).to_dict())
+    print("  arancel codes:", fresh["arancel"].str.strip().value_counts().head().to_dict())
+    bb = _blueberry_uk(df)
+    print(f"BLUEBERRY -> {UK_GLOSA}: {len(bb)} rows")
+    if len(bb):
+        print(bb[["fecha", "region", "arancel", "unidad", "cantidad"]].head(8).to_string())
 
 
 def collect(years: list[int]) -> None:
-    res_cache = {y: _resources(y) for y in years}
     weekly: dict[str, float] = {}
     for y in years:
-        cols = _read_metadata_columns(res_cache[y])
-        for r in res_cache[y]:
-            name = (r.get("name") or "").lower()
-            if (r.get("format") or "").lower() != "rar" or "exportaciones" not in name:
-                continue
-            if "bulto" in name or "transporte" in name:
-                continue
+        for r in _iter_month_rars(_resources(y)):
             with tempfile.TemporaryDirectory() as td:
                 td = Path(td)
                 try:
-                    flat = _extract_flatfile(_download(r["url"], td / "m.rar"), td)
-                    df = pd.read_csv(flat, sep=SEP, header=None, names=cols,
-                                     dtype=str, encoding="latin-1")
+                    df = _read_cols(_extract_flatfile(_download(r["url"], td / "m.rar"), td))
                 except Exception as exc:
                     print(f"skip {r['name']}: {exc}")
                     continue
-            bb = df[df[COL_TARIFF].astype(str).str.startswith(FRESH_PREFIX)
-                    & df[COL_DEST].astype(str).isin(UK_VALUES)].copy()
+            bb = _blueberry_uk(df)
             if bb.empty:
+                print(f"{r['name']}: 0 blueberry-UK rows")
                 continue
-            bb["d"] = pd.to_datetime(bb[COL_DATE], errors="coerce", dayfirst=True)
-            bb["qty"] = pd.to_numeric(bb[COL_QTY].str.replace(",", "."), errors="coerce")
+            bb["d"] = pd.to_datetime(bb["fecha"], format="%d%m%Y", errors="coerce")
+            bb["qty"] = pd.to_numeric(bb["cantidad"].str.replace(",", "."), errors="coerce")
             bb = bb.dropna(subset=["d", "qty"])
             for ts, qty in bb.groupby(bb["d"].dt.strftime("%G-W%V"))["qty"].sum().items():
                 weekly[ts] = weekly.get(ts, 0.0) + float(qty)
-            print(f"{r['name']}: +{len(bb)} blueberry-UK rows")
+            print(f"{r['name']}: +{len(bb)} blueberry-UK rows, {bb['qty'].sum():.0f} kg")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     out = pd.DataFrame(sorted(weekly.items()), columns=["iso_week", "net_kg"])
     out.to_csv(OUT, index=False)
-    print(f"wrote {OUT}: {len(out)} weeks")
+    print(f"wrote {OUT}: {len(out)} weeks, {out['net_kg'].sum():.0f} kg total")
 
 
 def main() -> None:
