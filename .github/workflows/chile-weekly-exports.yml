@@ -60,7 +60,7 @@ jobs:
           # Full history (2018-2026) is backfilled + committed; the weekly run
           # only refreshes the active + prior season. Re-backfill via the years
           # input or by temporarily widening this default.
-          YEARS="${{ github.event.inputs.years || '2018,2019,2020,2021,2022,2023,2024,2025,2026' }}"
+          YEARS="${{ github.event.inputs.years || '2025,2026' }}"
           echo "Running mode=$MODE years=$YEARS"
           python scripts/fetch_chile_weekly_exports.py \
             --mode "$MODE" --years "$YEARS" \
