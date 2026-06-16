@@ -17,10 +17,14 @@ from .data.ons_price import OnsRetailBlueberryPrice
 from .data.retail_price import RetailBlueberryPrice
 from .data.altdata.job_boards import PackhouseHiringSignal
 from .store import vintage
+from .volume.data.odepa_chile import OdepaChileExports
+from .volume.series import build_origin_volume, reconcile_error
+from .volume.validate import two_sided_crosscheck
 
 # Registry of sources. Core signals feed the filter; collect-only signals just
 # accrue forward history and never enter the M3 gate.
-CORE_SOURCES = [HmrcBlueberryImports(), DefraBlueberryPrice(), OnsRetailBlueberryPrice()]
+CORE_SOURCES = [HmrcBlueberryImports(), DefraBlueberryPrice(),
+                OnsRetailBlueberryPrice(), OdepaChileExports()]
 COLLECT_ONLY_SOURCES = [PackhouseHiringSignal(), RetailBlueberryPrice()]
 
 
@@ -61,9 +65,31 @@ def cmd_backtest(args: argparse.Namespace) -> None:
     print(f"\nGate (beat seasonal-naive at h=1): {verdict}")
 
 
+def cmd_volume(args: argparse.Namespace) -> None:
+    vol = build_origin_volume(args.origin, k=args.k)
+    if vol.empty:
+        print(f"{args.origin}: no data")
+        return
+    tiers = vol["confidence_tier"].value_counts().to_dict()
+    print(f"{args.origin}: {len(vol)} weekly points, tiers={tiers}")
+    cols = ["iso_week", "volume_kg", "confidence_tier",
+            "control_total_month_kg", "band_low_kg", "band_high_kg"]
+    print(vol[cols].tail(args.n).to_string(index=False))
+    rec = reconcile_error(vol)
+    print(f"\nmax reconciliation error: {rec['abs_err_kg'].max():.2f} kg (should be ~0)")
+    if args.origin in ("Chile",):
+        print("two-sided cross-check:", two_sided_crosscheck(args.origin))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="nowcast")
     sub = parser.add_subparsers(required=True)
+
+    p_vol = sub.add_parser("volume", help="build reconciled weekly volume series")
+    p_vol.add_argument("origin")
+    p_vol.add_argument("-k", type=int, default=3)
+    p_vol.add_argument("-n", type=int, default=10)
+    p_vol.set_defaults(func=cmd_volume)
 
     p_ingest = sub.add_parser("ingest", help="pull all sources -> vintage store")
     p_ingest.set_defaults(func=cmd_ingest)

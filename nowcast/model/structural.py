@@ -193,6 +193,22 @@ class BlueberryStructuralModel:
             lo95=np.clip(mean - _Z95 * sd, 0, None), hi95=mean + _Z95 * sd,
         )
 
+    def weekly_volume_path(self, end_date: _dt.date) -> pd.DataFrame:
+        """Smoothed weekly volume (level+seasonal) and its sd from the fit start
+        through end_date. History weeks are HMRC-informed; weeks past the last
+        print are model-predicted (wider sd) -- the ragged-edge shape Denton and
+        the nowcast tier consume. Columns: week, volume, sd."""
+        if self._system is None:
+            raise RuntimeError("call fit() first")
+        grid = build_week_grid(self._monthly.index.min().date(), end_date)
+        y = self._observation_vector(grid, self._monthly)
+        res, F_seq = self._run(grid, y)
+        xs, Ps = rts_smoother(res, F_seq)
+        hv = self._system.h_vol
+        vol = xs @ hv
+        sd = np.sqrt(np.clip(np.einsum("i,tij,j->t", hv, Ps, hv), 0, None))
+        return pd.DataFrame({"week": grid.weeks, "volume": vol, "sd": sd})
+
     def decompose(self) -> pd.DataFrame:
         """Smoothed weekly level, seasonal and volume over the fit window."""
         res, F_seq = self._run(self._grid, self._y)

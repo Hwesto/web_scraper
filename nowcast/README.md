@@ -122,6 +122,65 @@ of forward-collected packhouse-hiring / live-retail data (clocks started; run
 `ingest` daily). Until then the honest product is the seasonal-naive baseline
 plus the model's directional read, not a gate-beating nowcast.
 
+---
+
+# Part 2 — Volume construction (reconciled weekly series)
+
+A different, *achievable* deliverable: not beating a benchmark, but building one
+coherent weekly by-origin volume series (kg) that reconciles exactly to HMRC and
+tags every point by how much we actually know. Code in `nowcast/volume/`.
+
+`python3 -m nowcast.pipeline volume Morocco` (or Chile, Spain, ...).
+
+## How it works (spec sections 1, 4, 5)
+- **Control total**: HMRC monthly by origin (`data/hmrc.py`, reused).
+- **Shape**: the Part 1 structural model's weekly volume path (`model/structural.py
+  .weekly_volume_path`).
+- **Benchmark**: proportional Denton (`volume/benchmark.py`) marries shape to
+  control so weekly sums equal the HMRC month **exactly** (verified: max
+  reconciliation error 0.1 kg).
+- **Ragged edge**: weeks past the last HMRC print are the model nowcast with 80%
+  bands (`nowcast` tier); older weeks are `aggregate_benchmarked`.
+- **Output** (`volume/series.py`): the spec-section-8 record — origin, iso_week,
+  volume_kg, confidence_tier, method, control_total_month_kg, band_low/high,
+  vintage_date.
+
+## Deep-sea shipment tier + validation (sections 2a, 6) — real data win
+- `volume/data/odepa_chile.py`: Chile -> UK fresh-blueberry monthly exports from
+  **ODEPA open data** (Servicio Nacional de Aduanas, free CKAN), net kg, 2018-2026.
+- Two-sided cross-check (`volume/validate.py`): ODEPA export vs HMRC import for
+  Chile agree strongly (**corr 0.92**, export/import 1.12). The 12% export>import
+  gap corroborates the Netherlands-transhipment thesis (Chile fruit arriving via
+  Rotterdam booked by HMRC as NL, not Chile).
+- **Origin export LEADS HMRC import by the deep-sea transit time** — the first
+  signal found with genuine leading content (unlike price/NDVI). It is monthly:
+  the daily DUS feed is on datos.gob.cl, which is not reachable here.
+
+## Netherlands de-convolution (section 2b)
+`volume/deconvolve.py`: reattributes the re-export share of NL->UK (counter-season
+months) to Peru/Chile pro-rata, conserving mass. An explicit, configurable
+*heuristic* (no consignee data to measure it) — tagged so it is never shown as
+observed.
+
+## Data feasibility (free-only, verified)
+| Segment | Source | Status |
+|---|---|---|
+| Control totals | HMRC OTS | free, done |
+| Deep-sea Chile `shipment` | ODEPA (Aduanas) | free, **done** (monthly) |
+| Deep-sea Peru `shipment` | SUNAT | paid (Agronometrics/Veritrade) — stub |
+| Daily Chile DUS (weekly shape) | datos.gob.cl | not reachable here (503/TLS) |
+| AIS arrivals | reefer AIS | paid history — stub |
+| Short-sea weekly shape | Freshuelva/Foodex | not free — model shape used |
+| Mirror (named consignee) | Volza/ImportGenius | paid — stub |
+
+## Honest scope
+A complete, reconciled, provenance-tagged weekly series for every origin. Tiers
+are mostly `aggregate_benchmarked` + `nowcast`; the `shipment` tier is real for
+**Chile** (ODEPA, monthly cross-check) but Peru/weekly-DUS/AIS remain paid or
+unreachable. The series is a genuine data product — HMRC sets the level, the
+model sets the shape, Denton marries them exactly, and every point says how much
+is observed vs reconstructed vs modelled.
+
 ## Verified data sources (free)
 
 - **HMRC OTS** (`data/hmrc.py`) — anchor + ground truth. Live OData API,
