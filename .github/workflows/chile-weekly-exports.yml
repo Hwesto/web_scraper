@@ -59,7 +59,7 @@ jobs:
           echo "MODE=$MODE" >> "$GITHUB_ENV"
           # annual datasets lag the current year; collect tolerates missing years.
           # (Temporarily widened to backfill full history; reverted after.)
-          YEARS="${{ github.event.inputs.years || '2018,2019,2020,2021,2022,2023,2024,2025' }}"
+          YEARS="${{ github.event.inputs.years || '2018,2019,2020,2021,2022,2023,2024,2025,2026' }}"
           echo "Running mode=$MODE years=$YEARS"
           python scripts/fetch_chile_weekly_exports.py \
             --mode "$MODE" --years "$YEARS" \

@@ -62,15 +62,21 @@ def _ckan(action: str, **params) -> dict:
 
 
 def _resources(year: int) -> list[dict]:
-    # Annual packages lag (e.g. the current year may not exist yet) -> tolerate 404
-    # so collect() skips missing years instead of crashing.
-    try:
-        return _ckan("package_show", id=f"registro-de-exportaciones-{year}")["resources"]
-    except requests.HTTPError as exc:
-        if exc.response is not None and exc.response.status_code == 404:
-            print(f"no dataset for {year} (404) -- skipping")
-            return []
-        raise
+    # Dataset slugs are INCONSISTENT across years: 2024-25 use
+    # "registro-de-exportaciones-{y}" (plural), 2018-23 + 2026 use
+    # "registro-de-exportacion-{y}" (singular), older years "registros-...".
+    # Try the variants; tolerate 404 so collect() skips genuinely missing years.
+    for slug in (f"registro-de-exportaciones-{year}",
+                 f"registro-de-exportacion-{year}",
+                 f"registros-de-exportacion-{year}"):
+        try:
+            return _ckan("package_show", id=slug)["resources"]
+        except requests.HTTPError as exc:
+            if exc.response is not None and exc.response.status_code == 404:
+                continue
+            raise
+    print(f"no dataset for {year} (tried slug variants) -- skipping")
+    return []
 
 
 def _download(url: str, dest: Path) -> Path:
