@@ -1,188 +1,375 @@
-"""Render the dashboard to a self-contained docs/index.html for GitHub Pages.
+"""Render docs/index.html as a piece of data journalism about Britain's blueberries.
 
-Design: PROVE the edge, don't just plot data. Centrepiece is the track record
-(our ~2-week-early call vs the HMRC figure that landed later, vs the naive
-baseline). Everything else is framed as deviation-from-normal, the thing that
-drives a decision. Reads only committed data; the cron regenerates it.
+Not a trading terminal -- an editorial. The story is the year: who grows the fruit
+Britain eats, when each origin lands, what it costs, and which varieties fill the
+punnets. Charts are STATIC, custom-styled matplotlib (no default grey bars), embedded
+as retina PNGs. The validated ~2-week nowcast edge is the closing proof, not the lede.
+
+Reads only committed data (vintage store + data/weekly CSVs); the Monday cron
+regenerates it. Run: python scripts/build_static_dashboard.py
 """
 from __future__ import annotations
 
+import base64
 import datetime as _dt
+import io
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
+from matplotlib.ticker import FuncFormatter
 
-from nowcast.backtest.within_month import _hmrc_chile, calibrated_run
-from nowcast.call import weekly_call
+from nowcast.backtest.within_month import calibrated_run
 from nowcast.config import REPO_ROOT
-from nowcast.price import chile_fob_weekly
 from nowcast.store import vintage
 
 OUT = REPO_ROOT / "docs" / "index.html"
-_BLUE, _GREY, _GREEN, _RED = "#1f6feb", "#8b949e", "#1a7f37", "#cf222e"
-_LAYOUT = dict(template="plotly_white", margin=dict(l=10, r=10, t=40, b=10), height=360,
-               legend=dict(orientation="h", y=1.12, x=0))
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+# --- editorial palette: blueberry skin -> warm contrast for the spring origins ---
+INK = "#22202b"
+SUBTLE = "#7a7686"
+PAPER = "#ffffff"
+ACCENT = "#5a3fb0"          # blueberry purple, the house colour
+ORIGIN_COLOURS = {
+    "Peru":         "#4c5fd5",   # indigo
+    "Morocco":      "#e8833a",   # warm clementine (the spring hand-off)
+    "South Africa": "#2a9d8f",   # teal
+    "Chile":        "#6b3fa0",   # our focus berry, deep purple
+    "Spain":        "#e9c46a",   # gold
+    "Netherlands":  "#8d99ae",   # slate
+    "Other":        "#d8d3cc",   # warm grey
+}
 
 
-def _latest_in_season() -> dict:
-    d = _dt.date.today().replace(day=1)
-    for _ in range(18):
-        c = weekly_call(d)
-        if c["in_season"]:
-            return c
-        d = (pd.Timestamp(d) - pd.DateOffset(months=1)).date()
-    return weekly_call(_dt.date.today())
+def _style():
+    plt.rcParams.update({
+        "font.family": "DejaVu Sans",
+        "font.size": 12.5,
+        "text.color": INK,
+        "axes.edgecolor": "#d9d5cf",
+        "axes.labelcolor": SUBTLE,
+        "xtick.color": SUBTLE,
+        "ytick.color": SUBTLE,
+        "axes.linewidth": 0.8,
+        "figure.dpi": 200,
+    })
 
 
-def _html(fig, first=False):
-    return fig.to_html(full_html=False, include_plotlyjs="cdn" if first else False,
-                       config={"displayModeBar": False})
+def _png(fig) -> str:
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight", facecolor=PAPER, dpi=200)
+    plt.close(fig)
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
-# ---------- 1. PROOF: track record (nowcast vs actual vs naive) ----------
-def fig_track_record(cr: dict):
-    t = cr["table"].copy()
-    t = t[t["seasonal_norm"] >= 100]                      # in-season only
-    x = t["month"]
-    fig = go.Figure()
-    fig.add_bar(x=x, y=t["actual"], name="HMRC actual (truth)", marker_color="#d0d7de")
-    fig.add_scatter(x=x, y=t["origin_nowcast"], name="Our call (~2 wks early)",
-                    mode="lines+markers", line=dict(color=_BLUE, width=3))
-    fig.add_scatter(x=x, y=t["seasonal_naive"], name="Naive 'same as last year'",
-                    mode="lines", line=dict(color=_GREY, width=1.5, dash="dot"))
-    fig.update_layout(**_LAYOUT, title="Our early call vs the official figure (Chile, tonnes/mo)",
-                      yaxis_title="t/month")
-    return fig
+def _bare(ax, grid="y"):
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    ax.tick_params(length=0)
+    if grid:
+        ax.grid(axis=grid, color="#ece9e4", linewidth=1.0, zorder=0)
+        ax.set_axisbelow(True)
 
 
-# ---------- 2. Arrivals vs seasonal-normal band ----------
-def fig_vs_normal(s: pd.Series, label: str, unit: str):
-    s = s.sort_index()
-    df = pd.DataFrame({"v": s}); df["m"] = df.index.month
-    norm = df.groupby("m")["v"].median()
-    lo = df.groupby("m")["v"].quantile(0.1); hi = df.groupby("m")["v"].quantile(0.9)
-    recent = s[s.index >= s.index.max() - pd.DateOffset(months=29)]
-    rx = recent.index
-    fig = go.Figure()
-    fig.add_scatter(x=rx, y=[hi[m] for m in rx.month], name="normal range (10–90%)",
-                    line=dict(width=0), showlegend=False, hoverinfo="skip")
-    fig.add_scatter(x=rx, y=[lo[m] for m in rx.month], name="normal range",
-                    fill="tonexty", fillcolor="rgba(140,148,158,0.20)",
-                    line=dict(width=0), hoverinfo="skip")
-    fig.add_scatter(x=rx, y=[norm[m] for m in rx.month], name="seasonal normal",
-                    line=dict(color=_GREY, dash="dot"))
-    fig.add_scatter(x=rx, y=recent.values, name=label, mode="lines+markers",
-                    line=dict(color=_BLUE, width=3))
-    fig.update_layout(**_LAYOUT, title=f"{label} vs seasonal normal", yaxis_title=unit)
-    return fig
+# ----------------------------- data prep -----------------------------
+def _load():
+    vol = vintage.latest("hmrc_blueberry_imports").copy()
+    vol["d"] = pd.to_datetime(vol["ref_period"]); vol["m"] = vol["d"].dt.month
+    val = vintage.latest("hmrc_blueberry_import_value").copy()
+    val["d"] = pd.to_datetime(val["ref_period"]); val["m"] = val["d"].dt.month
+    prod = pd.read_csv(REPO_ROOT / "data" / "weekly" / "chile_uk_blueberry_by_producer.csv")
+    return vol, val, prod
 
 
-# ---------- 3. Supply calendar (origin x month heatmap) ----------
-def fig_calendar():
-    f = vintage.latest("hmrc_blueberry_imports").copy()
-    f["d"] = pd.to_datetime(f["ref_period"]); f["m"] = f["d"].dt.month
-    f = f[f["d"] >= f["d"].max() - pd.DateOffset(months=36)]
-    top = f.groupby("key")["value"].sum().sort_values(ascending=False).head(7).index
-    piv = (f[f["key"].isin(top)].groupby(["key", "m"])["value"].mean()
-           .unstack(fill_value=0).reindex(top))
-    piv = piv.reindex(columns=range(1, 13), fill_value=0)
-    months = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
-    fig = go.Figure(go.Heatmap(z=piv.values, x=months, y=list(piv.index),
-                               colorscale="Blues", showscale=False))
-    fig.update_layout(**{**_LAYOUT, "height": 300},
-                      title="Supply calendar — who lands when (avg t/mo, last 3 yrs)")
-    return fig
+def _stats(vol, val):
+    yr = vol.groupby(vol["d"].dt.year)["value"].sum()
+    full = yr[(yr.index >= 2019) & (yr.index <= 2025)]
+    latest_year = int(full.index.max())
+    growth = (full.loc[2025] / full.loc[2019] - 1) * 100
+    last12 = vol[vol["d"] >= vol["d"].max() - pd.DateOffset(months=11)]
+    n_countries = vol[vol["d"] >= vol["d"].max() - pd.DateOffset(months=23)]["key"].nunique()
+    v3 = val[val["d"] >= val["d"].max() - pd.DateOffset(months=35)]["value"].sum()
+    t3 = vol[vol["d"] >= vol["d"].max() - pd.DateOffset(months=35)]["value"].sum() * 1000
+    return dict(annual=full.loc[2025], growth=growth, countries=n_countries,
+                avg_price=v3 / t3, latest_year=latest_year, last12_t=last12["value"].sum())
 
 
+# ----------------------------- charts -----------------------------
+def chart_relay(vol):
+    """The hero: a stacked seasonal profile -- who lands each month of the year."""
+    recent = vol[vol["d"] >= vol["d"].max() - pd.DateOffset(months=60)]
+    ny = recent["d"].dt.year.nunique()
+    top = (recent.groupby("key")["value"].sum().sort_values(ascending=False)
+           .head(5).index.tolist())
+    g = recent.copy(); g["k"] = g["key"].where(g["key"].isin(top), "Other")
+    piv = (g.groupby(["m", "k"])["value"].sum().unstack(fill_value=0) / ny)
+    piv = piv.reindex(index=range(1, 13), fill_value=0)
+    order = top + ["Other"]
+    piv = piv.reindex(columns=order, fill_value=0)
+
+    fig, ax = plt.subplots(figsize=(9.2, 4.5))
+    x = np.arange(12)
+    base = np.zeros(12)
+    for k in order:
+        y = piv[k].values
+        ax.fill_between(x, base, base + y, color=ORIGIN_COLOURS[k], linewidth=0,
+                        zorder=2, label=k)
+        base = base + y
+    # label each band at its widest month, inside the band, nudged off the axes edges
+    for k in order:
+        y = piv[k].values
+        if y.max() < 250:
+            continue
+        i = int(np.argmax(y))
+        cum = piv[order].cumsum(axis=1)[k].values
+        yc = cum[i] - y[i] / 2
+        xpos, ha = i, "center"
+        if i == 0:
+            xpos, ha = 0.05, "left"
+        elif i == 11:
+            xpos, ha = 10.95, "right"
+        ax.text(xpos, yc, k, ha=ha, va="center", fontsize=10.5, fontweight="bold",
+                color="white" if k not in ("Spain", "Other") else INK, zorder=4)
+    ax.set_xticks(x); ax.set_xticklabels(MONTHS)
+    ax.set_xlim(0, 11)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v/1000:.0f}k"))
+    ax.set_ylabel("tonnes landed per month")
+    _bare(ax)
+    return _png(fig)
+
+
+def chart_league(vol):
+    """Origin league table -- share of the last 12 months."""
+    last12 = vol[vol["d"] >= vol["d"].max() - pd.DateOffset(months=11)]
+    sh = last12.groupby("key")["value"].sum().sort_values()
+    sh = sh.tail(8)
+    pct = sh / last12["value"].sum() * 100
+    cols = [ORIGIN_COLOURS.get(k, ACCENT) for k in sh.index]
+    fig, ax = plt.subplots(figsize=(9.2, 4.0))
+    y = np.arange(len(sh))
+    ax.barh(y, sh.values / 1000, color=cols, zorder=3, height=0.72)
+    ax.set_yticks(y); ax.set_yticklabels(sh.index, fontsize=11.5, color=INK)
+    for i, (t, p) in enumerate(zip(sh.values / 1000, pct.values)):
+        ax.text(t + sh.max() / 1000 * 0.012, i, f"{t:,.0f}k t · {p:.0f}%",
+                va="center", fontsize=10.5, color=SUBTLE)
+    ax.set_xlim(0, sh.max() / 1000 * 1.18)
+    ax.set_xlabel("thousand tonnes, last 12 months")
+    _bare(ax, grid="x")
+    return _png(fig)
+
+
+def chart_price(vol, val, avg):
+    """Average import price (£/kg) by calendar month, last 3 years."""
+    v3 = val[val["d"] >= val["d"].max() - pd.DateOffset(months=35)]
+    f3 = vol[vol["d"] >= vol["d"].max() - pd.DateOffset(months=35)]
+    vm = v3.groupby("m")["value"].sum()
+    fm = f3.groupby("m")["value"].sum() * 1000
+    pk = (vm / fm).reindex(range(1, 13))
+    fig, ax = plt.subplots(figsize=(9.2, 3.9))
+    x = np.arange(12)
+    ax.axhline(avg, color=SUBTLE, linestyle=(0, (4, 4)), linewidth=1.2, zorder=2)
+    ax.text(11, avg, f"  3-yr avg £{avg:.2f}", va="bottom", ha="right",
+            fontsize=10, color=SUBTLE)
+    ax.plot(x, pk.values, color=ACCENT, linewidth=2.6, zorder=4)
+    ax.fill_between(x, pk.values, avg, where=pk.values >= avg, color=ACCENT, alpha=0.10,
+                    interpolate=True)
+    ax.scatter(x, pk.values, s=42, color=ACCENT, zorder=5, edgecolor="white", linewidth=1.2)
+    ax.set_xticks(x); ax.set_xticklabels(MONTHS)
+    ax.set_xlim(-0.3, 12.2)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"£{v:.1f}"))
+    ax.set_ylabel("average import price per kg")
+    _bare(ax)
+    return _png(fig)
+
+
+def chart_varieties(prod):
+    """What Chile actually ships to Britain -- the cultivar mix."""
+    cv = (prod.groupby("top_cultivar")["net_kg"].sum().sort_values()
+          .replace(0, np.nan).dropna())
+    cv = cv[cv.index.astype(str).str.strip() != ""]
+    cv = cv.tail(8)
+    total = prod["net_kg"].sum()
+    fig, ax = plt.subplots(figsize=(9.2, 3.9))
+    y = np.arange(len(cv))
+    # purple gradient -- darkest for the biggest variety
+    shades = plt.cm.Purples(np.linspace(0.45, 0.92, len(cv)))
+    ax.barh(y, cv.values / 1e6, color=shades, zorder=3, height=0.72)
+    ax.set_yticks(y)
+    ax.set_yticklabels([c.title() for c in cv.index], fontsize=11.5, color=INK)
+    for i, v in enumerate(cv.values):
+        ax.text(v / 1e6 + cv.max() / 1e6 * 0.012, i, f"{v/total*100:.0f}%",
+                va="center", fontsize=10.5, color=SUBTLE)
+    ax.set_xlim(0, cv.max() / 1e6 * 1.16)
+    ax.set_xlabel("million kg shipped to the UK (DUS customs records)")
+    _bare(ax, grid="x")
+    return _png(fig)
+
+
+# ----------------------------- assemble -----------------------------
 def build() -> None:
-    c = _latest_in_season()
-    cr = calibrated_run()
-    insk = cr["in_season"]["origin_nowcast"]
-    chile = _hmrc_chile(); chile = chile[chile.index >= "2019-01-01"]
-    fob = chile_fob_weekly(); fob = fob[fob > 0]
-    fob_m = fob.resample("MS").mean() if len(fob) else fob
-
-    # hero reasoning
-    if c["in_season"]:
-        tight = c["supply_signal"].split()[0]
-        fobt = c["fob_trend_pct"]
-        why = (f"Chilean fruit landing in ~2 weeks: <b>{c['arrivals_nowcast_t']:,.0f} t</b> — "
-               f"<b>{c['anomaly_pct']:+.0f}%</b> vs the seasonal norm [<b>{tight}</b>]. "
-               f"FOB cost <b>${c['fob_usd_kg']:.2f}/kg</b>"
-               + (f", {'falling' if fobt and fobt<0 else 'rising' if fobt and fobt>0 else 'steady'} "
-                  f"{abs(fobt):.0f}% m/m. " if fobt is not None else ". ")
-               + f"<b>→ {c['action']}.</b> "
-               "<span class='muted'>You know this ~2 weeks before HMRC publishes it.</span>")
-    else:
-        why = "Off-season — no Chilean fruit shipping. The track record and seasonal views below are year-round."
-
-    headline = f"""<div class='stats'>
-      <div class='stat'><div class='n'>~2 wks</div><div class='l'>earlier than HMRC</div></div>
-      <div class='stat'><div class='n'>{insk['dir_skill_%']:.0f}%</div><div class='l'>directional hit-rate</div></div>
-      <div class='stat'><div class='n'>+{insk['skill_vs_snaive_%']:.0f}%</div><div class='l'>more accurate than 'last year'</div></div>
-      <div class='stat'><div class='n'>{cr['in_season']['n']}</div><div class='l'>in-season calls tested</div></div>
-    </div>"""
+    _style()
+    vol, val, prod = _load()
+    s = _stats(vol, val)
+    cr = calibrated_run(); edge = cr["in_season"]["origin_nowcast"]
+    n_calls = cr["in_season"]["n"]
+    n_named = (prod["producer"].astype(str).str.strip() != "").sum()
 
     html = _TPL.format(
-        landing=c["landing_month"], why=why, headline=headline,
-        track=_html(fig_track_record(cr), first=True),
-        arrivals=_html(fig_vs_normal(chile, "Chile arrivals", "t/month")),
-        fob=_html(fig_vs_normal(fob_m, "Chile FOB cost", "USD/kg")) if len(fob_m) else "<p>FOB pending.</p>",
-        calendar=_html(fig_calendar()),
-        generated=_dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
+        relay=chart_relay(vol),
+        league=chart_league(vol),
+        price=chart_price(vol, val, s["avg_price"]),
+        varieties=chart_varieties(prod),
+        annual_kt=f"{s['annual']/1000:,.0f}",
+        countries=s["countries"],
+        avg_price=f"{s['avg_price']:.2f}",
+        growth=f"{s['growth']:.0f}",
+        n_named=n_named,
+        dir_skill=f"{edge['dir_skill_%']:.0f}",
+        vs_naive=f"{edge['skill_vs_snaive_%']:.0f}",
+        n_calls=n_calls,
+        generated=_dt.datetime.utcnow().strftime("%-d %B %Y"),
+    )
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(html, encoding="utf-8")
     print(f"wrote {OUT} ({len(html)//1024} KB)")
 
 
 _TPL = """<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>UK Blueberry Intelligence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Britain's Blueberry Year</title>
 <style>
- body{{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f6f8fa;color:#1f2328}}
- .wrap{{max-width:1040px;margin:0 auto;padding:20px}}
- h1{{font-size:1.5rem;margin:.1em 0}} h2{{font-size:1.05rem;margin:1.5em 0 .3em}}
- .muted{{color:#57606a}} .lede{{color:#57606a;font-size:.9rem;margin-bottom:14px}}
- .call{{background:#fff;border:1px solid #d0d7de;border-left:5px solid #1a7f37;border-radius:10px;padding:16px 18px;font-size:1.05rem;line-height:1.5}}
- .stats{{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}}
- .stat{{background:#0d1117;color:#fff;border-radius:10px;padding:12px 18px;flex:1;min-width:130px;text-align:center}}
- .stat .n{{font-size:1.6rem;font-weight:700;color:#58a6ff}} .stat .l{{font-size:.78rem;color:#c9d1d9}}
- .panel{{background:#fff;border:1px solid #d0d7de;border-radius:10px;padding:10px;margin-top:6px}}
- .cap{{color:#57606a;font-size:.82rem;margin:4px 2px 0}}
- .ledger{{display:flex;gap:12px;flex-wrap:wrap}} .ledger>div{{flex:1;min-width:230px;background:#fff;border:1px solid #d0d7de;border-radius:10px;padding:12px 16px;font-size:.86rem}}
+ :root{{--ink:#22202b;--subtle:#7a7686;--accent:#5a3fb0;--line:#e7e3dd}}
+ *{{box-sizing:border-box}}
+ body{{margin:0;background:#faf8f5;color:var(--ink);
+   font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.65}}
+ .wrap{{max-width:760px;margin:0 auto;padding:56px 22px 80px}}
+ .kicker{{text-transform:uppercase;letter-spacing:.18em;font-size:.72rem;font-weight:700;
+   color:var(--accent);margin-bottom:14px}}
+ h1{{font-family:Georgia,'Times New Roman',serif;font-size:2.9rem;line-height:1.08;
+   font-weight:700;margin:0 0 18px;letter-spacing:-.01em}}
+ .standfirst{{font-size:1.22rem;color:#494653;line-height:1.55;margin:0 0 26px;
+   font-family:Georgia,serif}}
+ .byline{{font-size:.82rem;color:var(--subtle);border-top:1px solid var(--line);
+   border-bottom:1px solid var(--line);padding:12px 0;margin-bottom:40px}}
+ h2{{font-family:Georgia,serif;font-size:1.7rem;font-weight:700;margin:52px 0 6px;
+   letter-spacing:-.01em}}
+ .deck{{color:var(--subtle);font-size:1rem;margin:0 0 18px}}
+ p{{font-size:1.06rem;margin:0 0 18px}}
+ figure{{margin:24px 0 8px}}
+ figure img{{width:100%;display:block;border-radius:6px}}
+ figcaption{{font-size:.82rem;color:var(--subtle);margin-top:10px;
+   border-left:3px solid var(--line);padding-left:12px}}
+ .stats{{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+   border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:8px 0 8px}}
+ .stat{{background:#fff;padding:20px 14px;text-align:center}}
+ .stat .n{{font-family:Georgia,serif;font-size:1.95rem;font-weight:700;color:var(--accent);
+   line-height:1}}
+ .stat .l{{font-size:.74rem;color:var(--subtle);margin-top:8px;line-height:1.3}}
+ .edge{{background:#1d1a2e;color:#efeaff;border-radius:12px;padding:30px 30px 24px;
+   margin:30px 0}}
+ .edge h2{{color:#fff;margin-top:0}}
+ .edge p{{color:#cfc8e6;font-size:1.02rem}}
+ .edge .row{{display:flex;gap:26px;flex-wrap:wrap;margin-top:18px}}
+ .edge .row div{{flex:1;min-width:120px}}
+ .edge .big{{font-family:Georgia,serif;font-size:2.1rem;font-weight:700;color:#b9a4ff}}
+ .edge .cap{{font-size:.78rem;color:#9a93b5;margin-top:2px}}
+ .foot{{margin-top:54px;border-top:1px solid var(--line);padding-top:18px;
+   font-size:.8rem;color:var(--subtle)}}
+ .foot b{{color:#5b5766}}
+ em{{color:var(--accent);font-style:normal;font-weight:600}}
+ @media(max-width:560px){{h1{{font-size:2.1rem}}.stats{{grid-template-columns:repeat(2,1fr)}}}}
 </style></head><body><div class="wrap">
-<h1>🫐 UK Blueberry Intelligence</h1>
-<div class="lede">The edge: we call the Chilean import number ~2 weeks before HMRC, and beat 'same as last year'. Generated {generated}.</div>
 
-<h2>This week's call — landing {landing}</h2>
-<div class="call">{why}</div>
+<div class="kicker">🫐 The UK Fresh Blueberry Market</div>
+<h1>Britain's blueberry year</h1>
+<p class="standfirst">Britain eats blueberries every week of the year — yet almost
+none are grown here in winter. Behind every punnet is a quiet global relay: a baton
+passed from Peru to Morocco to South Africa to Chile and back, timed so the shelves
+never go empty. Here is that year, in the data.</p>
+<div class="byline">An automatic, self-updating read of HMRC trade records and Chilean
+customs data · refreshed {generated}</div>
 
-<h2>Does it work? — our early call vs the official figure</h2>
-{headline}
-<div class="panel">{track}</div>
-<div class="cap">Blue = our nowcast made ~2 weeks before the print. Grey bars = HMRC actual (what later landed). Dotted = the naive 'same as last year' baseline we beat.</div>
-
-<h2>Where we are vs normal</h2>
-<div class="panel">{arrivals}</div>
-<div class="cap">This season's Chilean arrivals against the 10–90% seasonal band. Below the band = tight supply; above = glut.</div>
-<div class="panel">{fob}</div>
-<div class="cap">Landed FOB cost vs its seasonal band (declared export price, ~2-week lead). High = expensive fruit incoming.</div>
-
-<h2>Supply calendar — who lands when</h2>
-<div class="panel">{calendar}</div>
-<div class="cap">Deep-sea Peru/Chile (Sep–Apr) hand off to Morocco/Spain (spring). The tool is live-leading on the deep-sea lanes, HMRC-anchored year-round.</div>
-
-<h2>Confidence ledger</h2>
-<div class="ledger">
- <div><b>● Validated edge</b><br>Within-month nowcast +12% vs naive, 66% directional, ~2-week lead. Reconciles to HMRC (0.1 kg). Origin↔HMRC corr 0.92.</div>
- <div><b>◐ Data-derived</b><br>FOB cost (8-yr). Named producers 91% / region 100% / cultivar 46%. Whole-market volume.</div>
- <div><b>⚠ Honest gaps / paid</b><br>UK sell-price direction doesn't back-test. Peru weekly + names = paid. Named certified orchard = paid CIREN.</div>
+<div class="stats">
+  <div class="stat"><div class="n">{annual_kt}k t</div><div class="l">imported in 2025</div></div>
+  <div class="stat"><div class="n">{countries}</div><div class="l">source countries</div></div>
+  <div class="stat"><div class="n">£{avg_price}</div><div class="l">average price per kg</div></div>
+  <div class="stat"><div class="n">+{growth}%</div><div class="l">bigger than in 2019</div></div>
 </div>
-<div class="cap" style="margin-top:12px">5 clean negatives + 1 validated edge + 3 caught false-positives. The discipline is the product.</div>
+
+<h2>The relay</h2>
+<p class="deck">Who lands when — average tonnes per month across recent years.</p>
+<p>The year opens in the southern-hemisphere summer: <em>Chile</em> and <em>Peru</em>
+carry January and February. As they fade, <em>Morocco</em> floods spring — its April
+peak is the single biggest month any origin posts all year. A midsummer lull follows,
+the one window when British and near-European fruit matters most. Then the baton swings
+back across the equator: <em>Peru</em> and <em>South Africa</em> ramp hard through the
+autumn to close the year.</p>
+<figure><img src="{relay}" alt="Seasonal relay of UK blueberry imports by origin">
+<figcaption>Average monthly arrivals by origin, last five years (HMRC, commodity
+08104050). Bands are stacked — height is total fruit landing that month.</figcaption></figure>
+
+<h2>Who supplies Britain</h2>
+<p class="deck">Share of everything that landed in the last twelve months.</p>
+<p>No single country owns the British blueberry. <em>Peru</em> and <em>Morocco</em> run
+neck-and-neck at the top, together better than half the market; <em>South Africa</em>
+is the clear third. Chile — the origin this project tracks weekly, fruit by fruit — is
+smaller by tonnage but lands in the highest-value winter window.</p>
+<figure><img src="{league}" alt="UK blueberry imports by country, last 12 months">
+<figcaption>Twelve-month totals by origin (HMRC). Percentages are share of all
+fresh-blueberry imports.</figcaption></figure>
+
+<h2>What it costs</h2>
+<p class="deck">Average import price per kilo, by month of the year.</p>
+<p>The landed price of an imported kilo hovers around <em>£{avg_price}</em>, but it is
+not flat. It firms in early autumn — September and October, as the southern season
+restarts and air-freighted early fruit commands a premium — and softens through the
+high-volume mid-winter and late-spring gluts. Price tracks scarcity, not the calendar.</p>
+<figure><img src="{price}" alt="Average UK blueberry import price by month">
+<figcaption>Import unit value = declared customs value ÷ tonnes, all origins (HMRC).
+A proxy for the wholesale landed cost, not the supermarket shelf price.</figcaption></figure>
+
+<h2>What Chile ships</h2>
+<p class="deck">The varieties inside Chile's punnets, by volume sent to the UK.</p>
+<p>Chilean customs records name the cultivar on most shipments, so we can see exactly
+which berries Britain buys. <em>Legacy</em> dominates — a firm, travel-hardy variety
+bred for exactly this kind of six-week sea journey — followed by <em>Duke</em> and the
+premium club varieties <em>Blue Ribbon</em> and <em>Draper</em>. Together they read
+like a map of what survives the trip and still tastes of something on arrival.</p>
+<figure><img src="{varieties}" alt="Chilean blueberry varieties shipped to the UK">
+<figcaption>From {n_named} named Chilean exporters in the DUS customs feed. Cultivar is
+declared on roughly half of shipments — this is the named subset.</figcaption></figure>
+
+<div class="edge">
+<h2>How we know what's coming — two weeks early</h2>
+<p>This is the working edge behind the journalism. Chile's export records publish
+weeks before Britain's official import figures. By transit-shifting the outbound
+shipments, we estimate each month's Chilean arrivals <em style="color:#b9a4ff">about
+two weeks before HMRC prints them</em> — and the call is more accurate than simply
+assuming "same as last year".</p>
+<div class="row">
+  <div><div class="big">~2 wks</div><div class="cap">ahead of the official figure</div></div>
+  <div><div class="big">{dir_skill}%</div><div class="cap">got the direction right</div></div>
+  <div><div class="big">+{vs_naive}%</div><div class="cap">more accurate than the naive baseline</div></div>
+  <div><div class="big">{n_calls}</div><div class="cap">in-season calls back-tested</div></div>
+</div>
+</div>
+
+<div class="foot">
+<b>Sources & honesty.</b> Volumes and prices: HMRC Overseas Trade Statistics (fresh
+blueberries, 08104050), reconciled across vintages. Chilean detail: Aduana DUS customs
+export records via datos.gob.cl. The two-week edge is validated out-of-sample on the
+deep-sea Chilean lane only; the whole-market view is HMRC-anchored. Deliberately not
+claimed: UK retail-shelf price direction (does not back-test) and named certified
+orchard mapping (requires paid registries). The discipline is the product.
+</div>
 </div></body></html>"""
 
 
