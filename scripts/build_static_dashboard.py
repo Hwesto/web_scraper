@@ -1,8 +1,9 @@
 """Render the dashboard to a self-contained docs/index.html for GitHub Pages.
 
-Reads only committed data (vintage store + weekly CSVs) + the model functions, so
-the cron can regenerate it and GitHub Pages serves it free, auto-updating weekly.
-Run: python scripts/build_static_dashboard.py
+Design: PROVE the edge, don't just plot data. Centrepiece is the track record
+(our ~2-week-early call vs the HMRC figure that landed later, vs the naive
+baseline). Everything else is framed as deviation-from-normal, the thing that
+drives a decision. Reads only committed data; the cron regenerates it.
 """
 from __future__ import annotations
 
@@ -10,20 +11,22 @@ import datetime as _dt
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))   # repo root -> import nowcast
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import numpy as np
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go
 
+from nowcast.backtest.within_month import _hmrc_chile, calibrated_run
 from nowcast.call import weekly_call
 from nowcast.config import REPO_ROOT
 from nowcast.price import chile_fob_weekly
-from nowcast.volume.uk_total import build_uk_total
+from nowcast.store import vintage
 
 OUT = REPO_ROOT / "docs" / "index.html"
-_REGION = {5: "Valparaíso", 6: "O'Higgins", 7: "Maule", 8: "Biobío", 9: "Araucanía",
-           10: "Los Lagos", 13: "Metropolitana", 14: "Los Ríos", 16: "Ñuble"}
-_PLOT = dict(template="plotly_white", margin=dict(l=10, r=10, t=30, b=10), height=340)
+_BLUE, _GREY, _GREEN, _RED = "#1f6feb", "#8b949e", "#1a7f37", "#cf222e"
+_LAYOUT = dict(template="plotly_white", margin=dict(l=10, r=10, t=40, b=10), height=360,
+               legend=dict(orientation="h", y=1.12, x=0))
 
 
 def _latest_in_season() -> dict:
@@ -36,125 +39,150 @@ def _latest_in_season() -> dict:
     return weekly_call(_dt.date.today())
 
 
-def _iso_to_date(w: str) -> pd.Timestamp:
-    return pd.Timestamp.fromisocalendar(int(w[:4]), int(w.split("-W")[1]), 1)
-
-
-def _chip(label: str, kind: str) -> str:
-    col = {"ok": "#1a7f37", "warn": "#9a6700", "ctx": "#57606a", "gap": "#cf222e"}[kind]
-    return f"<span class='chip' style='background:{col}'>{label}</span>"
-
-
-def _fig_html(fig, first: bool) -> str:
+def _html(fig, first=False):
     return fig.to_html(full_html=False, include_plotlyjs="cdn" if first else False,
                        config={"displayModeBar": False})
 
 
+# ---------- 1. PROOF: track record (nowcast vs actual vs naive) ----------
+def fig_track_record(cr: dict):
+    t = cr["table"].copy()
+    t = t[t["seasonal_norm"] >= 100]                      # in-season only
+    x = t["month"]
+    fig = go.Figure()
+    fig.add_bar(x=x, y=t["actual"], name="HMRC actual (truth)", marker_color="#d0d7de")
+    fig.add_scatter(x=x, y=t["origin_nowcast"], name="Our call (~2 wks early)",
+                    mode="lines+markers", line=dict(color=_BLUE, width=3))
+    fig.add_scatter(x=x, y=t["seasonal_naive"], name="Naive 'same as last year'",
+                    mode="lines", line=dict(color=_GREY, width=1.5, dash="dot"))
+    fig.update_layout(**_LAYOUT, title="Our early call vs the official figure (Chile, tonnes/mo)",
+                      yaxis_title="t/month")
+    return fig
+
+
+# ---------- 2. Arrivals vs seasonal-normal band ----------
+def fig_vs_normal(s: pd.Series, label: str, unit: str):
+    s = s.sort_index()
+    df = pd.DataFrame({"v": s}); df["m"] = df.index.month
+    norm = df.groupby("m")["v"].median()
+    lo = df.groupby("m")["v"].quantile(0.1); hi = df.groupby("m")["v"].quantile(0.9)
+    recent = s[s.index >= s.index.max() - pd.DateOffset(months=29)]
+    rx = recent.index
+    fig = go.Figure()
+    fig.add_scatter(x=rx, y=[hi[m] for m in rx.month], name="normal range (10–90%)",
+                    line=dict(width=0), showlegend=False, hoverinfo="skip")
+    fig.add_scatter(x=rx, y=[lo[m] for m in rx.month], name="normal range",
+                    fill="tonexty", fillcolor="rgba(140,148,158,0.20)",
+                    line=dict(width=0), hoverinfo="skip")
+    fig.add_scatter(x=rx, y=[norm[m] for m in rx.month], name="seasonal normal",
+                    line=dict(color=_GREY, dash="dot"))
+    fig.add_scatter(x=rx, y=recent.values, name=label, mode="lines+markers",
+                    line=dict(color=_BLUE, width=3))
+    fig.update_layout(**_LAYOUT, title=f"{label} vs seasonal normal", yaxis_title=unit)
+    return fig
+
+
+# ---------- 3. Supply calendar (origin x month heatmap) ----------
+def fig_calendar():
+    f = vintage.latest("hmrc_blueberry_imports").copy()
+    f["d"] = pd.to_datetime(f["ref_period"]); f["m"] = f["d"].dt.month
+    f = f[f["d"] >= f["d"].max() - pd.DateOffset(months=36)]
+    top = f.groupby("key")["value"].sum().sort_values(ascending=False).head(7).index
+    piv = (f[f["key"].isin(top)].groupby(["key", "m"])["value"].mean()
+           .unstack(fill_value=0).reindex(top))
+    piv = piv.reindex(columns=range(1, 13), fill_value=0)
+    months = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]
+    fig = go.Figure(go.Heatmap(z=piv.values, x=months, y=list(piv.index),
+                               colorscale="Blues", showscale=False))
+    fig.update_layout(**{**_LAYOUT, "height": 300},
+                      title="Supply calendar — who lands when (avg t/mo, last 3 yrs)")
+    return fig
+
+
 def build() -> None:
-    call = _latest_in_season()
-    ut = build_uk_total()
-
-    # 1. relay (stacked area, last 104 wks, tonnes)
-    w = ut["weekly"].copy(); w["date"] = w["iso_week"].map(_iso_to_date)
-    cols = [c for c in ut["origin_cols"] if c in w.columns]
-    area = (w.set_index("date")[cols].clip(lower=0) / 1000)
-    area = area[area.index >= area.index.max() - pd.Timedelta(weeks=104)]
-    relay = px.area(area, labels={"value": "tonnes/wk", "date": "", "variable": "origin"})
-    relay.update_layout(**_PLOT, legend=dict(orientation="h", y=-0.15))
-
-    # 2. FOB history
+    c = _latest_in_season()
+    cr = calibrated_run()
+    insk = cr["in_season"]["origin_nowcast"]
+    chile = _hmrc_chile(); chile = chile[chile.index >= "2019-01-01"]
     fob = chile_fob_weekly(); fob = fob[fob > 0]
-    fob = fob[fob.index >= fob.index.max() - pd.Timedelta(weeks=170)]
-    fobfig = px.line(fob, labels={"value": "FOB USD/kg", "index": "", "d": ""})
-    fobfig.update_layout(**_PLOT, showlegend=False)
+    fob_m = fob.resample("MS").mean() if len(fob) else fob
 
-    # 3. producers
-    pcsv = REPO_ROOT / "data" / "weekly" / "chile_uk_blueberry_by_producer.csv"
-    pbar = ""
-    if pcsv.exists():
-        p = pd.read_csv(pcsv).sort_values("net_kg", ascending=False).head(15)
-        p["t"] = p["net_kg"] / 1000
-        fig = px.bar(p[::-1], x="t", y="producer", orientation="h",
-                     hover_data=["top_cultivar", "top_region"],
-                     labels={"t": "tonnes (cumulative)", "producer": ""})
-        fig.update_layout(**{**_PLOT, "height": 420})
-        pbar = _fig_html(fig, False)
-
-    c = call
-    metrics = ""
+    # hero reasoning
     if c["in_season"]:
-        fobt = f"{c['fob_trend_pct']:+.0f}% m/m" if c["fob_trend_pct"] is not None else ""
-        metrics = f"""
-        <div class='cards'>
-          <div class='card'><div class='big'>{c['arrivals_nowcast_t']:,.0f} t</div>
-            <div class='sub'>arrivals nowcast <b>{c['anomaly_pct']:+.0f}%</b> vs normal</div></div>
-          <div class='card'><div class='big'>{c['seasonal_norm_t']:,.0f} t</div>
-            <div class='sub'>seasonal norm</div></div>
-          <div class='card'><div class='big'>{c['supply_signal'].split()[0]}</div>
-            <div class='sub'>supply signal</div></div>
-          <div class='card'><div class='big'>${c['fob_usd_kg']:.2f}/kg</div>
-            <div class='sub'>FOB cost (~2wk lead) {fobt}</div></div>
-        </div>
-        <div class='action'>ACTION: {c['action']}</div>
-        <div>{_chip('supply: validated nowcast · 66% backtest · ~2wk lead','ok')}
-             {_chip('FOB cost: declared, data-derived','warn')}
-             {_chip('UK sell-price direction: weak, NOT a forecast','ctx')}</div>"""
+        tight = c["supply_signal"].split()[0]
+        fobt = c["fob_trend_pct"]
+        why = (f"Chilean fruit landing in ~2 weeks: <b>{c['arrivals_nowcast_t']:,.0f} t</b> — "
+               f"<b>{c['anomaly_pct']:+.0f}%</b> vs the seasonal norm [<b>{tight}</b>]. "
+               f"FOB cost <b>${c['fob_usd_kg']:.2f}/kg</b>"
+               + (f", {'falling' if fobt and fobt<0 else 'rising' if fobt and fobt>0 else 'steady'} "
+                  f"{abs(fobt):.0f}% m/m. " if fobt is not None else ". ")
+               + f"<b>→ {c['action']}.</b> "
+               "<span class='muted'>You know this ~2 weeks before HMRC publishes it.</span>")
     else:
-        metrics = "<p>Off-season — no Chilean fruit shipping. Whole-market view below is live year-round.</p>"
+        why = "Off-season — no Chilean fruit shipping. The track record and seasonal views below are year-round."
 
-    html = _TEMPLATE.format(
-        landing=c["landing_month"], metrics=metrics,
-        relay=_fig_html(relay, True), fob=_fig_html(fobfig, False), producers=pbar,
-        live=", ".join(ut["live_lanes_available"]) or "-",
-        deep=", ".join(ut["deep_sea"]),
-        generated=_dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-    )
+    headline = f"""<div class='stats'>
+      <div class='stat'><div class='n'>~2 wks</div><div class='l'>earlier than HMRC</div></div>
+      <div class='stat'><div class='n'>{insk['dir_skill_%']:.0f}%</div><div class='l'>directional hit-rate</div></div>
+      <div class='stat'><div class='n'>+{insk['skill_vs_snaive_%']:.0f}%</div><div class='l'>more accurate than 'last year'</div></div>
+      <div class='stat'><div class='n'>{cr['in_season']['n']}</div><div class='l'>in-season calls tested</div></div>
+    </div>"""
+
+    html = _TPL.format(
+        landing=c["landing_month"], why=why, headline=headline,
+        track=_html(fig_track_record(cr), first=True),
+        arrivals=_html(fig_vs_normal(chile, "Chile arrivals", "t/month")),
+        fob=_html(fig_vs_normal(fob_m, "Chile FOB cost", "USD/kg")) if len(fob_m) else "<p>FOB pending.</p>",
+        calendar=_html(fig_calendar()),
+        generated=_dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(html, encoding="utf-8")
     print(f"wrote {OUT} ({len(html)//1024} KB)")
 
 
-_TEMPLATE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UK Blueberry Intelligence</title>
+_TPL = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>UK Blueberry Intelligence</title>
 <style>
  body{{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f6f8fa;color:#1f2328}}
- .wrap{{max-width:1100px;margin:0 auto;padding:18px}}
- h1{{font-size:1.5rem;margin:.2em 0}} h2{{font-size:1.1rem;margin:1.4em 0 .4em;border-top:1px solid #d0d7de;padding-top:.8em}}
- .muted{{color:#57606a;font-size:.9rem}}
- .cards{{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}}
- .card{{background:#fff;border:1px solid #d0d7de;border-radius:10px;padding:14px 18px;flex:1;min-width:150px}}
- .big{{font-size:1.7rem;font-weight:700}} .sub{{color:#57606a;font-size:.85rem}}
- .action{{background:#dafbe1;border:1px solid #1a7f37;border-radius:8px;padding:10px 14px;margin:10px 0;font-weight:600}}
- .chip{{color:#fff;padding:2px 8px;border-radius:10px;font-size:.72rem;margin-right:6px;display:inline-block;margin-top:4px}}
- .ledger{{display:flex;gap:14px;flex-wrap:wrap}} .ledger>div{{flex:1;min-width:240px;background:#fff;border:1px solid #d0d7de;border-radius:10px;padding:12px 16px}}
- .panel{{background:#fff;border:1px solid #d0d7de;border-radius:10px;padding:8px;margin-top:6px}}
+ .wrap{{max-width:1040px;margin:0 auto;padding:20px}}
+ h1{{font-size:1.5rem;margin:.1em 0}} h2{{font-size:1.05rem;margin:1.5em 0 .3em}}
+ .muted{{color:#57606a}} .lede{{color:#57606a;font-size:.9rem;margin-bottom:14px}}
+ .call{{background:#fff;border:1px solid #d0d7de;border-left:5px solid #1a7f37;border-radius:10px;padding:16px 18px;font-size:1.05rem;line-height:1.5}}
+ .stats{{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}}
+ .stat{{background:#0d1117;color:#fff;border-radius:10px;padding:12px 18px;flex:1;min-width:130px;text-align:center}}
+ .stat .n{{font-size:1.6rem;font-weight:700;color:#58a6ff}} .stat .l{{font-size:.78rem;color:#c9d1d9}}
+ .panel{{background:#fff;border:1px solid #d0d7de;border-radius:10px;padding:10px;margin-top:6px}}
+ .cap{{color:#57606a;font-size:.82rem;margin:4px 2px 0}}
+ .ledger{{display:flex;gap:12px;flex-wrap:wrap}} .ledger>div{{flex:1;min-width:230px;background:#fff;border:1px solid #d0d7de;border-radius:10px;padding:12px 16px;font-size:.86rem}}
 </style></head><body><div class="wrap">
 <h1>🫐 UK Blueberry Intelligence</h1>
-<div class="muted">Free, self-updating (GitHub Actions). Every number wears its confidence. Generated {generated}.</div>
+<div class="lede">The edge: we call the Chilean import number ~2 weeks before HMRC, and beat 'same as last year'. Generated {generated}.</div>
 
-<h2>This week's call — Chile arrivals, landing {landing}</h2>
-{metrics}
+<h2>This week's call — landing {landing}</h2>
+<div class="call">{why}</div>
 
-<h2>Whole-market UK supply — year-round, never blank</h2>
-<div class="panel">{relay}</div>
-<div class="muted">Deep-sea lanes (can lead): {deep}. Live weekly feed: {live} (others HMRC-benchmarked).</div>
+<h2>Does it work? — our early call vs the official figure</h2>
+{headline}
+<div class="panel">{track}</div>
+<div class="cap">Blue = our nowcast made ~2 weeks before the print. Grey bars = HMRC actual (what later landed). Dotted = the naive 'same as last year' baseline we beat.</div>
 
-<h2>Chilean FOB cost — 8-yr history (~2-week lead)</h2>
+<h2>Where we are vs normal</h2>
+<div class="panel">{arrivals}</div>
+<div class="cap">This season's Chilean arrivals against the 10–90% seasonal band. Below the band = tight supply; above = glut.</div>
 <div class="panel">{fob}</div>
-<div class="muted">Declared export price (landed cost, not UK sell price). No free UK sell-side spot in the Chile season — honest gap.</div>
+<div class="cap">Landed FOB cost vs its seasonal band (declared export price, ~2-week lead). High = expensive fruit incoming.</div>
 
-<h2>Who & what is landing — named producers</h2>
-<div class="panel">{producers}</div>
-<div class="muted">producer named ~91% of kg · region ~100% · cultivar ~46% (source ceiling) · cert GLOBALG.A.P. (inferred).</div>
+<h2>Supply calendar — who lands when</h2>
+<div class="panel">{calendar}</div>
+<div class="cap">Deep-sea Peru/Chile (Sep–Apr) hand off to Morocco/Spain (spring). The tool is live-leading on the deep-sea lanes, HMRC-anchored year-round.</div>
 
 <h2>Confidence ledger</h2>
 <div class="ledger">
- <div><b>● Validated edge</b><br>Within-month nowcast +12% OOS, 66% directional, ~2wk lead.<br>Weekly volume reconciled to HMRC (0.1 kg). Chile↔HMRC corr 0.92.</div>
- <div><b>◐ Data-derived</b><br>FOB cost (8-yr). Named producers 91% / region 100% / cultivar 46%. Whole-market fused volume.</div>
- <div><b>⚠ Honest gaps / paid</b><br>UK sell-price direction doesn't back-test. Peru weekly + names = paid. Named certified orchard = paid CIREN / your GGNs.</div>
+ <div><b>● Validated edge</b><br>Within-month nowcast +12% vs naive, 66% directional, ~2-week lead. Reconciles to HMRC (0.1 kg). Origin↔HMRC corr 0.92.</div>
+ <div><b>◐ Data-derived</b><br>FOB cost (8-yr). Named producers 91% / region 100% / cultivar 46%. Whole-market volume.</div>
+ <div><b>⚠ Honest gaps / paid</b><br>UK sell-price direction doesn't back-test. Peru weekly + names = paid. Named certified orchard = paid CIREN.</div>
 </div>
-<div class="muted" style="margin-top:14px">5 clean negatives + 1 validated edge + 3 caught false-positives. The discipline is the product.</div>
+<div class="cap" style="margin-top:12px">5 clean negatives + 1 validated edge + 3 caught false-positives. The discipline is the product.</div>
 </div></body></html>"""
 
 
