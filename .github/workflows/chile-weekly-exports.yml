@@ -47,7 +47,7 @@ jobs:
       - name: Install deps
         run: |
           sudo apt-get update && sudo apt-get install -y unar
-          pip install requests pandas openpyxl
+          pip install requests pandas openpyxl scipy plotly pyarrow
       - name: Run collector
         run: |
           # Parser validated (run #3): push + schedule -> collect; dispatch -> chosen mode.
@@ -65,11 +65,14 @@ jobs:
           python scripts/fetch_chile_weekly_exports.py \
             --mode "$MODE" --years "$YEARS" \
             --month-token "${{ github.event.inputs.month_token || 'enero' }}"
-      - name: Commit weekly series (collect only)
+      - name: Rebuild static dashboard (collect only)
+        if: ${{ env.MODE == 'collect' }}
+        run: python scripts/build_static_dashboard.py || echo "dashboard build skipped"
+      - name: Commit data + dashboard (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/weekly/ || true
-          git diff --staged --quiet || git commit -m "data: refresh Chile weekly blueberry exports"
+          git add data/weekly/ docs/ || true
+          git diff --staged --quiet || git commit -m "data+pages: refresh weekly exports & dashboard"
           git push
