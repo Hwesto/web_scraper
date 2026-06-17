@@ -1,8 +1,15 @@
 # UK Blueberry Hidden-Flow Nowcast
 
-Estimating the opaque EU/Morocco -> UK blueberry import flow weekly and in real
-time, ahead of HMRC's ~6-week-lagged monthly print, by fusing free signals into
-a mixed-frequency state-space (Kalman) model.
+Estimating the UK blueberry import flow weekly and in real time, ahead of HMRC's
+~6-week-lagged monthly print, by fusing free signals into a mixed-frequency
+state-space (Kalman) model.
+
+**Dashboard:** `streamlit run dashboard/app.py` (deps: `dashboard/requirements.txt`).
+Decision-first, confidence-tagged: the hero "this week's call", the whole-market
+supply relay, Chilean FOB cost (8-yr), named producers, and a confidence ledger.
+Reads only committed data, so it deploys free on Streamlit Community Cloud off the
+public repo and refreshes when the Monday cron commits. Verified to render via
+Streamlit's headless `AppTest`.
 
 This README tracks **what is actually built and verified**, not the full vision.
 The full design and the data-source stress test live in the project discussion.
