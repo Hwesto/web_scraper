@@ -18,13 +18,21 @@ import pandas as pd
 from nowcast.market import comtrade
 
 # --- The one assumption: ocean reefer freight, USD/kg, ex San Antonio/Valparaiso. ---
-# Order-of-magnitude from 2024-25 reefer benchmarks (40ft ~10-14 t of berries):
-# ~$0.45/kg short-haul Americas, ~$0.70/kg to Europe, ~$0.90/kg deep-sea to Asia.
-# Tune these as real forwarder quotes come in -- they move the ranking, so they are
-# isolated here and surfaced in the dashboard as an assumption.
+# Derived transparently as (40ft reefer rate per container) / (blueberry payload),
+# rather than guessed, so it can be checked and updated:
+#   * Reefer boxes run 2.5-4x a dry box; deep-sea reefer Asia<->N.America sits at
+#     ~$8-12k/container (2024-25). Chile-origin reefer estimates by lane:
+#       US/Canada (~14d) ~$6.0k   Europe (~26d) ~$7.5k   Asia (~33d) ~$9.5k
+#   * Fresh blueberries are volume-limited, not weight-limited: ~20 pallets fill a
+#     40ft reefer at ~11 t net, far below the ~26 t payload cap.
+#   => US 6.0k/11t=$0.55  Europe 7.5k/11t=$0.68  Asia 9.5k/11t=$0.86 per kg.
+# Sources: reefer-vs-dry premium & deep-sea reefer bands (Freightos/industry 2024-25);
+# 40ft reefer payload & blueberry pallet packing (container spec sheets). Tune as real
+# forwarder quotes arrive -- these move the ranking, hence isolated and surfaced.
+_REEFER_PAYLOAD_T = 11.0                  # net tonnes of blueberries per 40ft reefer
 _FREIGHT_REGION = {
-    "Americas": 0.48, "Europe": 0.70, "Asia": 0.90, "MiddleEast": 0.95,
-    "SouthAmerica": 0.30,
+    "Americas": 0.55, "Europe": 0.68, "Asia": 0.86, "MiddleEast": 0.91,
+    "SouthAmerica": 0.25,                 # short regional haul, partly overland
 }
 _TRANSIT_REGION = {                       # door-to-port sea days, ex central Chile
     "Americas": 14, "Europe": 26, "Asia": 33, "MiddleEast": 30, "SouthAmerica": 7,

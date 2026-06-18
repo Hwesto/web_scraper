@@ -415,7 +415,7 @@ from — a levy landing squarely on that 40%-of-volume lane.</p>
 <figcaption>Each bubble is a destination ({mkt_year}); height is grower netback per kg
 after freight, width of the chart is how much fruit the market absorbs (log scale),
 bubble size is total value. Prices and volumes observed (UN Comtrade, HS 081040);
-freight is a documented assumption, not a measurement.</figcaption></figure>
+freight derived from 40ft-reefer rates ÷ ~11 t blueberry payload (documented, tunable).</figcaption></figure>
 
 <div class="edge">
 <h2>How we know what's coming — two weeks early</h2>
