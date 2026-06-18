@@ -76,6 +76,11 @@ jobs:
         run: |
           python -c "from nowcast.data.ons_price import OnsRetailBlueberryPrice; from nowcast.store import vintage; print(vintage.save(OnsRetailBlueberryPrice().fetch()))" \
             || echo "ons price refresh skipped"
+      - name: Collect live retail price vintage (collect only)
+        if: ${{ env.MODE == 'collect' }}
+        run: |
+          python -c "from nowcast.data.retail_price import RetailBlueberryPrice; from nowcast.store import vintage; print(vintage.save(RetailBlueberryPrice().fetch()))" \
+            || echo "retail price collect skipped"
       - name: Rebuild static dashboard (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: python scripts/build_static_dashboard.py || echo "dashboard build skipped"
