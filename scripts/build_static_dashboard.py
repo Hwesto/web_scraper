@@ -27,6 +27,7 @@ from matplotlib.ticker import FuncFormatter
 
 from nowcast.backtest.within_month import calibrated_run
 from nowcast.config import REPO_ROOT
+from nowcast import price
 from nowcast.market import asia_access, comtrade, netback, origin_prices
 from nowcast.store import vintage
 
@@ -164,6 +165,24 @@ def chart_league(vol):
     ax.set_xlim(0, sh.max() / 1000 * 1.18)
     ax.set_xlabel("thousand tonnes, last 12 months")
     _bare(ax, grid="x")
+    return _png(fig)
+
+
+def chart_peru(vol):
+    """Peru's UK arrival profile -- Britain's autumn baton-carrier."""
+    pv = vol[vol["key"] == "Peru"].copy()
+    ny = max(1, pv["d"].dt.year.nunique())
+    prof = pv.groupby("m")["value"].sum().reindex(range(1, 13), fill_value=0) / ny
+    fig, ax = plt.subplots(figsize=(9.2, 3.6))
+    x = np.arange(12)
+    peak = {9, 10, 11, 12, 1}
+    cols = [ORIGIN_COLOURS["Peru"] if m in peak else "#aeb6e2" for m in range(1, 13)]
+    ax.bar(x, prof.values, color=cols, zorder=3, width=0.72)
+    ax.set_xticks(x); ax.set_xticklabels(MONTHS)
+    ax.set_yticks(np.arange(0, prof.values.max() + 1000, 1000))   # whole-kt ticks
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v/1000:.0f}k"))
+    ax.set_ylabel("avg tonnes landed per month")
+    _bare(ax)
     return _png(fig)
 
 
@@ -509,6 +528,29 @@ hub — a distribution valve, not a final table.</p>
 <figcaption>Each bubble is a destination ({mkt_year}); height is grower netback per kg
 after freight, width is how much the market absorbs (log scale), bubble size is total
 value. Observed (UN Comtrade, HS 081040); freight from reefer rate ÷ ~11 t payload.</figcaption></figure>""")
+
+    # Peru -> UK: lights up its matrix cell from data we already hold
+    pcif = price.import_unit_value("Peru").dropna()
+    pcif_recent = pcif[pcif.index >= pcif.index.max() - pd.DateOffset(months=11)].mean()
+    pr = origin_prices.load()
+    pr = pr[(pr["origin"] == "Peru") & (pr["dest"] == "United Kingdom")].sort_values("year")
+    if len(pr) and pd.notna(pcif_recent):
+        fob_usd = float(pr["fob_usd_kg"].iloc[-1]); fob_yr = int(pr["year"].iloc[-1])
+        wedge = pcif_recent - fob_usd * 0.79
+        add("Peru", "UK", "HMRC + Comtrade", f"""
+<h2>Peru — Britain's autumn supplier</h2>
+<p class="deck">The other deep-sea giant. Peru carries the back half of the year
+into Britain, peaking October–December — the mirror image of Morocco's spring.</p>
+<p>Peru is among the largest sources of Britain's blueberries by tonnage, and its
+arrivals are strongly seasonal: a heavy autumn surge from <em>September</em> through
+<em>December</em>, fading to almost nothing by late spring. Its fruit leaves Peru at
+about <em>${fob_usd:.2f}/kg</em> ({fob_yr}, FOB to the UK) and lands at roughly
+<em>£{pcif_recent:.2f}/kg</em> CIF — a freight-and-insurance wedge near
+<em>£{wedge:.2f}/kg</em>, the deep-sea signature it shares with Chile.</p>
+<figure><img src="{chart_peru(vol)}" alt="Peru blueberry arrivals into the UK by month">
+<figcaption>Average monthly Peru arrivals into the UK (HMRC, 08104050); autumn months
+highlighted. Export FOB: UN Comtrade Peru→UK {fob_yr} (${fob_usd:.2f}/kg); landed CIF:
+HMRC Peru unit value, last 12 months. Annual FOB vs recent CIF — wedge is indicative.</figcaption></figure>""")
 
     add("Chile", "China", "SAG + Comtrade", asia_access_block())
 
