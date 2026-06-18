@@ -27,6 +27,7 @@ from matplotlib.ticker import FuncFormatter
 
 from nowcast.backtest.within_month import calibrated_run
 from nowcast.config import REPO_ROOT
+from nowcast.market import comtrade, netback
 from nowcast.store import vintage
 
 OUT = REPO_ROOT / "docs" / "index.html"
@@ -213,6 +214,39 @@ def chart_varieties(prod):
     return _png(fig)
 
 
+_REGION_COLOUR = {"Asia": "#6b3fa0", "Americas": "#e8833a", "Europe": "#4c5fd5",
+                  "MiddleEast": "#2a9d8f", "SouthAmerica": "#8d99ae"}
+_REGION_OF = netback._REGION
+
+
+def chart_markets(t: pd.DataFrame):
+    """Price-vs-volume map: where Chilean fruit nets most against how much it absorbs."""
+    fig, ax = plt.subplots(figsize=(9.2, 5.0))
+    for _, r in t.iterrows():
+        reg = _REGION_OF.get(r["destination"], "Europe")
+        size = min(r["net_kg"] / 1e6 * 11 + 50, 1700)
+        ax.scatter(r["net_kg"] / 1e6, r["netback_usd_kg"], s=size,
+                   color=_REGION_COLOUR.get(reg, "#8d99ae"), alpha=0.78,
+                   edgecolor="white", linewidth=1.3, zorder=3)
+    # label the markets that carry the story
+    show = {"United States", "Netherlands", "South Korea", "United Kingdom",
+            "China", "Germany", "Canada"}
+    for _, r in t.iterrows():
+        if r["destination"] in show:
+            ax.annotate(r["destination"], (r["net_kg"] / 1e6, r["netback_usd_kg"]),
+                        xytext=(0, 13), textcoords="offset points", ha="center",
+                        fontsize=10, color=INK, fontweight="bold", zorder=4)
+    ax.set_xscale("log")
+    ax.set_xticks([0.5, 1, 2, 5, 10, 20, 50])
+    ax.get_xaxis().set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}k t"))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"${v:.0f}"))
+    ax.set_xlabel("fruit the market absorbs  (thousand tonnes, log scale)")
+    ax.set_ylabel("grower netback  ($/kg, after freight)")
+    ax.margins(x=0.12, y=0.18)
+    _bare(ax, grid="both")
+    return _png(fig)
+
+
 # ----------------------------- assemble -----------------------------
 def build() -> None:
     _style()
@@ -222,11 +256,25 @@ def build() -> None:
     n_calls = cr["in_season"]["n"]
     n_named = (prod["producer"].astype(str).str.strip() != "").sum()
 
+    nb = netback.netback_table()
+    nbi = nb.set_index("destination")
+    mkt_year = comtrade.latest_year()
+    top_mkt = nb.iloc[0]
+    premium = (nbi.loc["South Korea", "netback_usd_kg"] /
+               nbi.loc["United States", "netback_usd_kg"] - 1) * 100 \
+        if {"South Korea", "United States"} <= set(nbi.index) else 0.0
+    us_share = nbi.loc["United States", "vol_share_%"] if "United States" in nbi.index else 0.0
+
     html = _TPL.format(
         relay=chart_relay(vol),
         league=chart_league(vol),
         price=chart_price(vol, val, s["avg_price"]),
         varieties=chart_varieties(prod),
+        markets=chart_markets(nb),
+        mkt_year=mkt_year,
+        kr_premium=f"{premium:.0f}",
+        us_share=f"{us_share:.0f}",
+        top_netback=f"{top_mkt['netback_usd_kg']:.2f}",
         annual_kt=f"{s['annual']/1000:,.0f}",
         countries=s["countries"],
         avg_price=f"{s['avg_price']:.2f}",
@@ -346,6 +394,28 @@ like a map of what survives the trip and still tastes of something on arrival.</
 <figure><img src="{varieties}" alt="Chilean blueberry varieties shipped to the UK">
 <figcaption>From {n_named} named Chilean exporters in the DUS customs feed. Cultivar is
 declared on roughly half of shipments — this is the named subset.</figcaption></figure>
+
+<h2>Where in the world to sell it</h2>
+<p class="deck">Now flip the seat. You grow blueberries in Chile — where on Earth
+does a kilo net you the most?</p>
+<p>The same customs data, read the other way, prices every market Chile ships to.
+After deducting ocean freight, a kilo sent to <em>South Korea</em> nets a Chilean
+grower roughly <em>{kr_premium}% more</em> than the same kilo sent to the United
+States — and the premium survives the longer, dearer voyage. Japan and the smaller
+Asian markets pay more still. Yet the United States alone takes <em>{us_share}%</em>
+of all Chilean fruit, because the premium lanes are tiny: Korea and Japan together
+can't absorb what one week of the US season ships. Holland looks cheap, but it is a
+re-export hub — a distribution valve, not a final table.</p>
+<p>So "where to sell" is never one answer. It is a portfolio: your firmest, certified,
+earliest fruit chases the Asian premium (where transit and phytosanitary rules let in
+only the best); the bulk clears through the US; Europe absorbs the rest. The one storm
+cloud is a 2025 US import tariff that Chilean blueberries were <em>not</em> exempted
+from — a levy landing squarely on that 40%-of-volume lane.</p>
+<figure><img src="{markets}" alt="Chilean blueberry netback by destination market">
+<figcaption>Each bubble is a destination ({mkt_year}); height is grower netback per kg
+after freight, width of the chart is how much fruit the market absorbs (log scale),
+bubble size is total value. Prices and volumes observed (UN Comtrade, HS 081040);
+freight is a documented assumption, not a measurement.</figcaption></figure>
 
 <div class="edge">
 <h2>How we know what's coming — two weeks early</h2>
