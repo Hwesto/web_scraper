@@ -27,7 +27,7 @@ from matplotlib.ticker import FuncFormatter
 
 from nowcast.backtest.within_month import calibrated_run
 from nowcast.config import REPO_ROOT
-from nowcast.market import comtrade, netback
+from nowcast.market import asia_access, comtrade, netback
 from nowcast.store import vintage
 
 OUT = REPO_ROOT / "docs" / "index.html"
@@ -247,6 +247,39 @@ def chart_markets(t: pd.DataFrame):
     return _png(fig)
 
 
+def chart_asia(top: pd.DataFrame):
+    """Top China-approved producers, sized by the Asia-premium prize they can capture."""
+    from nowcast.farm import names
+    g = top.copy()
+    g["label"] = g["producer"].map(names.canonicalize)      # fold cargo-text variants
+    d = (g.groupby("label", as_index=False)["net_kg"].sum()
+         .rename(columns={"label": "producer"}).sort_values("net_kg").tail(10))
+    fig, ax = plt.subplots(figsize=(9.2, 3.9))
+    y = np.arange(len(d))
+    ax.barh(y, d["net_kg"] / 1e6, color="#6b3fa0", zorder=3, height=0.72)
+    ax.set_yticks(y)
+    ax.set_yticklabels([str(p).title() for p in d["producer"]], fontsize=11, color=INK)
+    for i, kg in enumerate(d["net_kg"].values):
+        ax.text(kg / 1e6 + d["net_kg"].max() / 1e6 * 0.012, i, f"{kg/1e6:.1f}M kg",
+                va="center", fontsize=10, color=SUBTLE)
+    ax.set_xlim(0, d["net_kg"].max() / 1e6 * 1.16)
+    ax.set_xlabel("UK-bound volume of China-approved producers (million kg)")
+    _bare(ax, grid="x")
+    return _png(fig)
+
+
+def asia_access_block() -> str:
+    """The phyto-access chapter -- empty until the SAG roster is fetched by the cron."""
+    s = asia_access.summary()
+    if not s.get("available"):
+        return ""
+    return _ASIA_TPL.format(
+        chart=chart_asia(s["top_approved"]),
+        premium=f"{s['asia_premium_usd_kg']:.2f}",
+        n_approved=s["n_china_approved"], n_total=s["n_producers"],
+        approved_share=f"{s['approved_kg_share_%']:.0f}")
+
+
 # ----------------------------- assemble -----------------------------
 def build() -> None:
     _style()
@@ -275,6 +308,7 @@ def build() -> None:
         kr_premium=f"{premium:.0f}",
         us_share=f"{us_share:.0f}",
         top_netback=f"{top_mkt['netback_usd_kg']:.2f}",
+        asia_access=asia_access_block(),
         annual_kt=f"{s['annual']/1000:,.0f}",
         countries=s["countries"],
         avg_price=f"{s['avg_price']:.2f}",
@@ -417,6 +451,7 @@ after freight, width of the chart is how much fruit the market absorbs (log scal
 bubble size is total value. Prices and volumes observed (UN Comtrade, HS 081040);
 freight derived from 40ft-reefer rates ÷ ~11 t blueberry payload (documented, tunable).</figcaption></figure>
 
+{asia_access}
 <div class="edge">
 <h2>How we know what's coming — two weeks early</h2>
 <p>This is the working edge behind the journalism. Chile's export records publish
@@ -441,6 +476,23 @@ claimed: UK retail-shelf price direction (does not back-test) and named certifie
 orchard mapping (requires paid registries). The discipline is the product.
 </div>
 </div></body></html>"""
+
+
+_ASIA_TPL = """
+<h2>Who can actually chase the premium</h2>
+<p class="deck">The best price means nothing if your fruit can't get in. China only
+admits SAG-registered orchards — so which of our named producers are cleared?</p>
+<p>Matching our named Chilean exporters against the SAG roster of orchards authorised
+for China, <em>{n_approved} of {n_total}</em> producers in our flow are cleared —
+covering <em>{approved_share}%</em> of the UK-bound volume we can name. Those are the
+growers positioned to steer fruit toward the <em>${premium}/kg</em> premium that Asia
+nets over the US bulk lane. The rest are locked to the Atlantic markets until they
+clear registration.</p>
+<figure><img src="{chart}" alt="China-approved Chilean blueberry producers in our flow">
+<figcaption>Named producers matched to the SAG China-authorised orchard roster, by
+UK-bound volume. Roster: SAG "Listado de predios de arándanos a China"; match is
+name-canonicalised, so it is the high-confidence overlap, not the full register.</figcaption></figure>
+"""
 
 
 if __name__ == "__main__":
