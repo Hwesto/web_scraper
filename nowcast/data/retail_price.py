@@ -18,12 +18,18 @@ so it cannot feed the walk-forward backtest; its job is to start the clock and,
 going forward, validate/replace the all-berries ONS proxy. Retail price is also
 demand-driven and does not lead volume -- an economics/context signal. If every
 product fails to parse, it emits an empty frame rather than faking a number.
+
+Polite by design (it runs unattended from a shared CI/datacenter IP): honest UA
+with a contact URL, jittered ~1.5s between fetches, transient errors retried but a
+403/429 refusal ABORTS the run rather than hammering a host that said no, and a
+delisted product (404) is skipped without retry.
 """
 from __future__ import annotations
 
 import datetime as _dt
 import html
 import json
+import random
 import re
 import time
 
@@ -45,10 +51,20 @@ BASKET = [
     ("Asda", "standard", "asda-sweet-bursting-blueberries/GSX127"),
     ("Asda", "standard", "asda-sweet-bursting-blueberries/GDA152"),
 ]
+# Identify honestly with a contact URL (good scraping etiquette); we run from a
+# shared CI/datacenter IP, so we do NOT masquerade as a browser.
 _HEADERS = {
-    "User-Agent": "uk-blueberry-nowcast/0.1 (research; contact via repo)",
+    "User-Agent": "uk-blueberry-nowcast/0.2 (+https://github.com/hwesto/web_scraper; "
+                  "research, polite, ~weekly)",
     "Accept": "text/html", "Accept-Language": "en-GB,en;q=0.9",
 }
+_DELAY = 1.5            # base seconds between product fetches (plus jitter)
+
+
+class _Refused(Exception):
+    """Trolley actively refused us (403/429) -- stop, don't hammer."""
+
+
 _LD = re.compile(r'<script type="application/ld\+json">(.*?)</script>', re.S)
 _SIZE = re.compile(r"\(([\d.]+)\s*(g|kg)\)", re.I)
 
@@ -87,28 +103,43 @@ class RetailBlueberryPrice(SignalSource):
         week = (vintage_date - _dt.timedelta(days=vintage_date.weekday())).isoformat()
 
         records = []
-        for retailer, tier, path in BASKET:
-            parsed = self._fetch_product(_BASE + path)
-            if parsed is None:
-                continue
-            price, grams = parsed
-            records.append({
-                "series": self.series, "ref_period": week, "freq": self.freq,
-                "key": f"{retailer}|{tier}|{int(grams)}g",
-                "value": round(price / (grams / 1000), 4), "unit": self.unit,
-            })
-            time.sleep(1.0)                             # polite: one product/sec
+        try:
+            for retailer, tier, path in BASKET:
+                parsed = self._fetch_product(_BASE + path)
+                time.sleep(_DELAY + random.uniform(0, 0.5))   # polite, jittered
+                if parsed is None:
+                    continue
+                price, grams = parsed
+                records.append({
+                    "series": self.series, "ref_period": week, "freq": self.freq,
+                    "key": f"{retailer}|{tier}|{int(grams)}g",
+                    "value": round(price / (grams / 1000), 4), "unit": self.unit,
+                })
+        except _Refused as e:
+            # If the site refuses us, stop immediately rather than pound it; keep
+            # whatever we already have and surface the block (not a silent empty).
+            print(f"retail_blueberry_price: stopped early -- Trolley refused ({e}); "
+                  f"kept {len(records)} product(s) collected before the block.")
         return self._tidy(records, vintage_date)
 
     @staticmethod
     def _fetch_product(url: str) -> tuple[float, float] | None:
+        """Fetch one product page. Status-aware: refusal aborts, 404 skips, only
+        transient errors (network/5xx) retry. Never fabricates."""
         for attempt in range(3):
             try:
                 r = requests.get(url, headers=_HEADERS, timeout=30)
-                r.raise_for_status()
-                return _parse(r.text)
-            except Exception:                           # noqa: BLE001 -- skip, don't fake
+            except requests.RequestException:                 # transient -> retry
                 time.sleep(2 ** attempt)
+                continue
+            if r.status_code in (403, 429):                   # refused / rate-limited
+                raise _Refused(f"HTTP {r.status_code}")
+            if r.status_code == 404:                          # product delisted
+                return None
+            if r.status_code >= 500:                          # server hiccup -> retry
+                time.sleep(2 ** attempt)
+                continue
+            return _parse(r.text) if r.ok else None
         return None
 
 

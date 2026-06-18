@@ -46,6 +46,24 @@ def test_fetch_computes_gbp_per_kg_and_skips_failures(monkeypatch):
 
 
 def test_fetch_empty_when_all_fail(monkeypatch):
+    monkeypatch.setattr(retail_price.time, "sleep", lambda *_: None)
     monkeypatch.setattr(RetailBlueberryPrice, "_fetch_product",
                         staticmethod(lambda url: None))
     assert RetailBlueberryPrice().fetch(dt.date(2026, 6, 18)).empty   # no faked rows
+
+
+def test_fetch_aborts_politely_when_refused(monkeypatch):
+    # collect one product, then the site refuses -> stop, keep what we had, no fake
+    monkeypatch.setattr(retail_price.time, "sleep", lambda *_: None)
+    calls = {"n": 0}
+
+    def fake(url):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return (2.20, 150.0)
+        raise retail_price._Refused("HTTP 403")
+    monkeypatch.setattr(RetailBlueberryPrice, "_fetch_product", staticmethod(fake))
+
+    df = RetailBlueberryPrice().fetch(dt.date(2026, 6, 18))
+    assert len(df) == 1                                # kept the pre-block product
+    assert calls["n"] == 2                             # stopped at the refusal, didn't pound on
