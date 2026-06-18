@@ -41,3 +41,17 @@ def test_summary_degrades_without_roster(tmp_path):
     s = asia_access.summary(tmp_path / "does_not_exist.csv")
     assert s["available"] is False
     assert "asia_premium_usd_kg" in s                    # still reports the premium
+
+
+def test_committed_sag_roster_is_sane():
+    # the real SAG China roster ships in the repo; guard its shape + that the
+    # match against our flow lands in a credible (audited) range
+    if not asia_access.ROSTER.exists():
+        return
+    roster = pd.read_csv(asia_access.ROSTER)
+    assert {"grower_name", "csg_code"} <= set(roster.columns)
+    assert len(roster) > 1000                            # thousands of orchards
+    s = asia_access.summary()
+    assert s["available"]
+    assert 8 <= s["n_china_approved"] <= 40              # ~23 of our 72, audited
+    assert 40 < s["approved_kg_share_%"] < 90            # ~66% of named volume
