@@ -316,6 +316,50 @@ def asia_access_block() -> str:
 
 
 # ----------------------------- assemble -----------------------------
+# Vocabulary for the two selectors. Adding a new exporter/importer is just a
+# string here plus block(s) tagged to it; empty cells show honestly in the matrix.
+EXPORTERS = ["Global", "Chile", "Peru"]
+IMPORTERS = ["Global", "UK", "US", "China", "Netherlands"]
+DEFAULT = ("Global", "UK")
+
+
+def _section(b: dict) -> str:
+    """One comparison block, tagged with its (exporter,importer) pair + source."""
+    return (f'<section class="block" data-pair="{b["exp"]}|{b["imp"]}">'
+            f'<div class="src"><span class="pair">{b["exp"]} → {b["imp"]}</span>'
+            f'<span class="feed">{b["source"]}</span></div>{b["body"]}</section>')
+
+
+def _matrix(blocks: list[dict]) -> str:
+    """Coverage grid: per (exporter,importer) cell, how many blocks/sources we hold."""
+    cov: dict[tuple[str, str], list[str]] = {}
+    for b in blocks:
+        cov.setdefault((b["exp"], b["imp"]), []).append(b["source"])
+    head = "".join(f"<th>{i}</th>" for i in IMPORTERS)
+    rows = ""
+    for e in EXPORTERS:
+        cells = ""
+        for i in IMPORTERS:
+            srcs = cov.get((e, i), [])
+            klass = "cell filled" if srcs else "cell empty"
+            label = f'<b>{len(srcs)}</b>' if srcs else "·"
+            tip = " · ".join(sorted(set(srcs))) if srcs else "no source yet"
+            cells += (f'<td class="{klass}" data-pair="{e}|{i}" title="{tip}" '
+                      f'onclick="pick(\'{e}\',\'{i}\')">{label}</td>')
+        rows += f'<tr><th>{e}</th>{cells}</tr>'
+    return (f'<table id="matrix"><tr><th class="corner">exp · imp</th>{head}</tr>'
+            f'{rows}</table>')
+
+
+def _controls() -> str:
+    def opts(vals):
+        return "".join(f'<option value="{v}">{v}</option>' for v in vals)
+    return (f'<div class="controls">'
+            f'<label>Exporter<select id="exp">{opts(EXPORTERS)}</select></label>'
+            f'<label>Importer<select id="imp">{opts(IMPORTERS)}</select></label>'
+            f'<span id="crumb"></span></div>')
+
+
 def build() -> None:
     _style()
     vol, val, prod = _load()
@@ -324,43 +368,111 @@ def build() -> None:
     n_calls = cr["in_season"]["n"]
     n_named = (prod["producer"].astype(str).str.strip() != "").sum()
 
-    nb = netback.netback_table()
-    nbi = nb.set_index("destination")
+    nb = netback.netback_table(); nbi = nb.set_index("destination")
     mkt_year = comtrade.latest_year()
-    top_mkt = nb.iloc[0]
     premium = (nbi.loc["South Korea", "netback_usd_kg"] /
                nbi.loc["United States", "netback_usd_kg"] - 1) * 100 \
         if {"South Korea", "United States"} <= set(nbi.index) else 0.0
     us_share = nbi.loc["United States", "vol_share_%"] if "United States" in nbi.index else 0.0
 
-    html = _TPL.format(
-        relay=chart_relay(vol),
-        league=chart_league(vol),
-        price=chart_price(vol, val, s["avg_price"]),
-        varieties=chart_varieties(prod),
-        markets=chart_markets(nb),
-        origin_wedge=origin_wedge_block(),
-        mkt_year=mkt_year,
-        kr_premium=f"{premium:.0f}",
-        us_share=f"{us_share:.0f}",
-        top_netback=f"{top_mkt['netback_usd_kg']:.2f}",
-        asia_access=asia_access_block(),
-        annual_kt=f"{s['annual']/1000:,.0f}",
-        countries=s["countries"],
-        avg_price=f"{s['avg_price']:.2f}",
-        growth=f"{s['growth']:.0f}",
-        n_named=n_named,
-        dir_skill=f"{edge['dir_skill_%']:.0f}",
-        vs_naive=f"{edge['skill_vs_snaive_%']:.0f}",
-        n_calls=n_calls,
+    blocks: list[dict] = []
+
+    def add(exp, imp, source, body):
+        if body and body.strip():
+            blocks.append({"exp": exp, "imp": imp, "source": source, "body": body})
+
+    add("Global", "UK", "HMRC OTS", f"""
+<h2>The relay</h2>
+<p class="deck">Who lands when — average tonnes per month across recent years.</p>
+<p>The year opens in the southern-hemisphere summer: <em>Chile</em> and <em>Peru</em>
+carry January and February. As they fade, <em>Morocco</em> floods spring — its April
+peak is the single biggest month any origin posts all year. A midsummer lull follows,
+the one window when British and near-European fruit matters most. Then the baton swings
+back across the equator: <em>Peru</em> and <em>South Africa</em> ramp hard through the
+autumn to close the year.</p>
+<figure><img src="{chart_relay(vol)}" alt="Seasonal relay of UK blueberry imports by origin">
+<figcaption>Average monthly arrivals by origin, last five years (HMRC, commodity
+08104050). Bands are stacked — height is total fruit landing that month.</figcaption></figure>""")
+
+    add("Global", "UK", "HMRC OTS", f"""
+<h2>Who supplies Britain</h2>
+<p class="deck">Share of everything that landed in the last twelve months.</p>
+<p>No single country owns the British blueberry. <em>Peru</em> and <em>Morocco</em> run
+neck-and-neck at the top, together better than half the market; <em>South Africa</em>
+is the clear third. Chile — the origin this project tracks weekly, fruit by fruit — is
+smaller by tonnage but lands in the highest-value winter window.</p>
+<figure><img src="{chart_league(vol)}" alt="UK blueberry imports by country, last 12 months">
+<figcaption>Twelve-month totals by origin (HMRC). Percentages are share of all
+fresh-blueberry imports.</figcaption></figure>""")
+
+    add("Global", "UK", "HMRC OTS", f"""
+<h2>What it costs</h2>
+<p class="deck">Average import price per kilo, by month of the year.</p>
+<p>The landed price of an imported kilo hovers around <em>£{s['avg_price']:.2f}</em>, but
+it is not flat. It firms in early autumn — as the southern season restarts and
+air-freighted early fruit commands a premium — and softens through the high-volume
+mid-winter and late-spring gluts. Price tracks scarcity, not the calendar.</p>
+<figure><img src="{chart_price(vol, val, s['avg_price'])}" alt="Average UK blueberry import price by month">
+<figcaption>Import unit value = declared customs value ÷ tonnes, all origins (HMRC).
+A proxy for the wholesale landed cost, not the supermarket shelf price.</figcaption></figure>""")
+
+    add("Global", "UK", "Comtrade + HMRC", origin_wedge_block())
+
+    add("Chile", "UK", "Chile DUS customs", f"""
+<h2>What Chile ships</h2>
+<p class="deck">The varieties inside Chile's punnets, by volume sent to the UK.</p>
+<p>Chilean customs records name the cultivar on most shipments, so we can see exactly
+which berries Britain buys. <em>Legacy</em> dominates — a firm, travel-hardy variety
+bred for exactly this kind of six-week sea journey — followed by <em>Duke</em> and the
+premium club varieties <em>Blue Ribbon</em> and <em>Draper</em>.</p>
+<figure><img src="{chart_varieties(prod)}" alt="Chilean blueberry varieties shipped to the UK">
+<figcaption>From {n_named} named Chilean exporters in the DUS customs feed. Cultivar is
+declared on roughly half of shipments — this is the named subset.</figcaption></figure>""")
+
+    add("Chile", "Global", "UN Comtrade", f"""
+<h2>Where in the world to sell it</h2>
+<p class="deck">Flip the seat. You grow in Chile — where does a kilo net the most?</p>
+<p>The same customs data, read the other way, prices every market Chile ships to. After
+deducting ocean freight, a kilo sent to <em>South Korea</em> nets a grower roughly
+<em>{premium:.0f}% more</em> than the same kilo into the United States — and the premium
+survives the longer voyage. Yet the US alone takes <em>{us_share:.0f}%</em> of Chilean
+fruit, because the premium lanes are tiny. Holland looks cheap, but it is a re-export
+hub — a distribution valve, not a final table.</p>
+<figure><img src="{chart_markets(nb)}" alt="Chilean blueberry netback by destination market">
+<figcaption>Each bubble is a destination ({mkt_year}); height is grower netback per kg
+after freight, width is how much the market absorbs (log scale), bubble size is total
+value. Observed (UN Comtrade, HS 081040); freight from reefer rate ÷ ~11 t payload.</figcaption></figure>""")
+
+    add("Chile", "China", "SAG + Comtrade", asia_access_block())
+
+    add("Chile", "UK", "HMRC + DUS · model", f"""
+<div class="edge">
+<h2>How we know what's coming — two weeks early</h2>
+<p>Chile's export records publish weeks before Britain's official import figures. By
+transit-shifting the outbound shipments, we estimate each month's Chilean arrivals
+<em style="color:#b9a4ff">about two weeks before HMRC prints them</em> — and the call
+beats simply assuming "same as last year".</p>
+<div class="row">
+  <div><div class="big">~2 wks</div><div class="cap">ahead of the official figure</div></div>
+  <div><div class="big">{edge['dir_skill_%']:.0f}%</div><div class="cap">got the direction right</div></div>
+  <div><div class="big">+{edge['skill_vs_snaive_%']:.0f}%</div><div class="cap">better than the naive baseline</div></div>
+  <div><div class="big">{n_calls}</div><div class="cap">in-season calls back-tested</div></div>
+</div></div>""")
+
+    html = _PAGE.format(
+        controls=_controls(), matrix=_matrix(blocks),
+        blocks="\n".join(_section(b) for b in blocks),
+        default_exp=DEFAULT[0], default_imp=DEFAULT[1],
+        annual_kt=f"{s['annual']/1000:,.0f}", countries=s["countries"],
+        avg_price=f"{s['avg_price']:.2f}", growth=f"{s['growth']:.0f}",
         generated=_dt.datetime.utcnow().strftime("%-d %B %Y"),
     )
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(html, encoding="utf-8")
-    print(f"wrote {OUT} ({len(html)//1024} KB)")
+    print(f"wrote {OUT} ({len(html)//1024} KB, {len(blocks)} blocks)")
 
 
-_TPL = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Britain's Blueberry Year</title>
 <style>
@@ -376,8 +488,8 @@ _TPL = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .standfirst{{font-size:1.22rem;color:#494653;line-height:1.55;margin:0 0 26px;
    font-family:Georgia,serif}}
  .byline{{font-size:.82rem;color:var(--subtle);border-top:1px solid var(--line);
-   border-bottom:1px solid var(--line);padding:12px 0;margin-bottom:40px}}
- h2{{font-family:Georgia,serif;font-size:1.7rem;font-weight:700;margin:52px 0 6px;
+   border-bottom:1px solid var(--line);padding:12px 0;margin-bottom:28px}}
+ h2{{font-family:Georgia,serif;font-size:1.7rem;font-weight:700;margin:14px 0 6px;
    letter-spacing:-.01em}}
  .deck{{color:var(--subtle);font-size:1rem;margin:0 0 18px}}
  p{{font-size:1.06rem;margin:0 0 18px}}
@@ -386,13 +498,36 @@ _TPL = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  figcaption{{font-size:.82rem;color:var(--subtle);margin-top:10px;
    border-left:3px solid var(--line);padding-left:12px}}
  .stats{{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
-   border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:8px 0 8px}}
+   border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:8px 0 26px}}
  .stat{{background:#fff;padding:20px 14px;text-align:center}}
  .stat .n{{font-family:Georgia,serif;font-size:1.95rem;font-weight:700;color:var(--accent);
    line-height:1}}
  .stat .l{{font-size:.74rem;color:var(--subtle);margin-top:8px;line-height:1.3}}
+ .controls{{display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;margin:8px 0 14px}}
+ .controls label{{display:flex;flex-direction:column;gap:6px;font-size:.7rem;font-weight:700;
+   text-transform:uppercase;letter-spacing:.12em;color:var(--subtle)}}
+ .controls select{{font-size:1rem;padding:8px 10px;border:1px solid var(--line);
+   border-radius:8px;background:#fff;color:var(--ink);font-family:inherit;min-width:150px}}
+ #crumb{{margin-left:auto;font-family:Georgia,serif;font-size:1.05rem;font-weight:700;
+   color:var(--accent)}}
+ .mxnote{{font-size:.78rem;color:var(--subtle);margin:0 0 6px}}
+ #matrix{{border-collapse:collapse;width:100%;margin:0 0 8px;font-size:.85rem}}
+ #matrix th,#matrix td{{border:1px solid var(--line);padding:9px 6px;text-align:center}}
+ #matrix th{{color:var(--subtle);font-weight:600;background:#fff}}
+ #matrix .corner{{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em}}
+ #matrix td.cell{{cursor:pointer;background:#fff}}
+ #matrix td.filled{{background:#efeafc;color:var(--accent);font-weight:700}}
+ #matrix td.empty{{color:#cfcabf}}
+ #matrix td.sel{{outline:3px solid var(--accent);outline-offset:-3px}}
+ .block{{border-top:1px solid var(--line);padding-top:8px;margin-top:30px}}
+ .block .src{{display:flex;gap:10px;align-items:center;margin:6px 0 2px;font-size:.72rem}}
+ .block .src .pair{{background:var(--accent);color:#fff;padding:2px 10px;border-radius:20px;
+   font-weight:700;letter-spacing:.03em}}
+ .block .src .feed{{color:var(--subtle);text-transform:uppercase;letter-spacing:.1em;
+   font-weight:700}}
+ #empty{{color:var(--subtle);font-style:italic;padding:34px 0;font-size:1.02rem}}
  .edge{{background:#1d1a2e;color:#efeaff;border-radius:12px;padding:30px 30px 24px;
-   margin:30px 0}}
+   margin:14px 0}}
  .edge h2{{color:#fff;margin-top:0}}
  .edge p{{color:#cfc8e6;font-size:1.02rem}}
  .edge .row{{display:flex;gap:26px;flex-wrap:wrap;margin-top:18px}}
@@ -403,15 +538,15 @@ _TPL = """<!doctype html><html lang="en"><head><meta charset="utf-8">
    font-size:.8rem;color:var(--subtle)}}
  .foot b{{color:#5b5766}}
  em{{color:var(--accent);font-style:normal;font-weight:600}}
- @media(max-width:560px){{h1{{font-size:2.1rem}}.stats{{grid-template-columns:repeat(2,1fr)}}}}
+ @media(max-width:560px){{h1{{font-size:2.1rem}}.stats{{grid-template-columns:repeat(2,1fr)}}
+   #crumb{{margin-left:0;width:100%}}}}
 </style></head><body><div class="wrap">
 
 <div class="kicker">🫐 The UK Fresh Blueberry Market</div>
 <h1>Britain's blueberry year</h1>
 <p class="standfirst">Britain eats blueberries every week of the year — yet almost
-none are grown here in winter. Behind every punnet is a quiet global relay: a baton
-passed from Peru to Morocco to South Africa to Chile and back, timed so the shelves
-never go empty. Here is that year, in the data.</p>
+none are grown here in winter. Behind every punnet is a quiet global relay. Pick an
+<em>exporter</em> and an <em>importer</em> below to read that trade from either seat.</p>
 <div class="byline">An automatic, self-updating read of HMRC trade records and Chilean
 customs data · refreshed {generated}</div>
 
@@ -422,97 +557,50 @@ customs data · refreshed {generated}</div>
   <div class="stat"><div class="n">+{growth}%</div><div class="l">bigger than in 2019</div></div>
 </div>
 
-<h2>The relay</h2>
-<p class="deck">Who lands when — average tonnes per month across recent years.</p>
-<p>The year opens in the southern-hemisphere summer: <em>Chile</em> and <em>Peru</em>
-carry January and February. As they fade, <em>Morocco</em> floods spring — its April
-peak is the single biggest month any origin posts all year. A midsummer lull follows,
-the one window when British and near-European fruit matters most. Then the baton swings
-back across the equator: <em>Peru</em> and <em>South Africa</em> ramp hard through the
-autumn to close the year.</p>
-<figure><img src="{relay}" alt="Seasonal relay of UK blueberry imports by origin">
-<figcaption>Average monthly arrivals by origin, last five years (HMRC, commodity
-08104050). Bands are stacked — height is total fruit landing that month.</figcaption></figure>
+{controls}
+<p class="mxnote">Coverage — each cell is how many data blocks we hold for that
+exporter→importer pair (click to jump). Empty cells are honest gaps, filled as new
+sources come online.</p>
+{matrix}
 
-<h2>Who supplies Britain</h2>
-<p class="deck">Share of everything that landed in the last twelve months.</p>
-<p>No single country owns the British blueberry. <em>Peru</em> and <em>Morocco</em> run
-neck-and-neck at the top, together better than half the market; <em>South Africa</em>
-is the clear third. Chile — the origin this project tracks weekly, fruit by fruit — is
-smaller by tonnage but lands in the highest-value winter window.</p>
-<figure><img src="{league}" alt="UK blueberry imports by country, last 12 months">
-<figcaption>Twelve-month totals by origin (HMRC). Percentages are share of all
-fresh-blueberry imports.</figcaption></figure>
-
-<h2>What it costs</h2>
-<p class="deck">Average import price per kilo, by month of the year.</p>
-<p>The landed price of an imported kilo hovers around <em>£{avg_price}</em>, but it is
-not flat. It firms in early autumn — September and October, as the southern season
-restarts and air-freighted early fruit commands a premium — and softens through the
-high-volume mid-winter and late-spring gluts. Price tracks scarcity, not the calendar.</p>
-<figure><img src="{price}" alt="Average UK blueberry import price by month">
-<figcaption>Import unit value = declared customs value ÷ tonnes, all origins (HMRC).
-A proxy for the wholesale landed cost, not the supermarket shelf price.</figcaption></figure>
-
-{origin_wedge}
-<h2>What Chile ships</h2>
-<p class="deck">The varieties inside Chile's punnets, by volume sent to the UK.</p>
-<p>Chilean customs records name the cultivar on most shipments, so we can see exactly
-which berries Britain buys. <em>Legacy</em> dominates — a firm, travel-hardy variety
-bred for exactly this kind of six-week sea journey — followed by <em>Duke</em> and the
-premium club varieties <em>Blue Ribbon</em> and <em>Draper</em>. Together they read
-like a map of what survives the trip and still tastes of something on arrival.</p>
-<figure><img src="{varieties}" alt="Chilean blueberry varieties shipped to the UK">
-<figcaption>From {n_named} named Chilean exporters in the DUS customs feed. Cultivar is
-declared on roughly half of shipments — this is the named subset.</figcaption></figure>
-
-<h2>Where in the world to sell it</h2>
-<p class="deck">Now flip the seat. You grow blueberries in Chile — where on Earth
-does a kilo net you the most?</p>
-<p>The same customs data, read the other way, prices every market Chile ships to.
-After deducting ocean freight, a kilo sent to <em>South Korea</em> nets a Chilean
-grower roughly <em>{kr_premium}% more</em> than the same kilo sent to the United
-States — and the premium survives the longer, dearer voyage. Japan and the smaller
-Asian markets pay more still. Yet the United States alone takes <em>{us_share}%</em>
-of all Chilean fruit, because the premium lanes are tiny: Korea and Japan together
-can't absorb what one week of the US season ships. Holland looks cheap, but it is a
-re-export hub — a distribution valve, not a final table.</p>
-<p>So "where to sell" is never one answer. It is a portfolio: your firmest, certified,
-earliest fruit chases the Asian premium (where transit and phytosanitary rules let in
-only the best); the bulk clears through the US; Europe absorbs the rest. The one storm
-cloud is a 2025 US import tariff that Chilean blueberries were <em>not</em> exempted
-from — a levy landing squarely on that 40%-of-volume lane.</p>
-<figure><img src="{markets}" alt="Chilean blueberry netback by destination market">
-<figcaption>Each bubble is a destination ({mkt_year}); height is grower netback per kg
-after freight, width of the chart is how much fruit the market absorbs (log scale),
-bubble size is total value. Prices and volumes observed (UN Comtrade, HS 081040);
-freight derived from 40ft-reefer rates ÷ ~11 t blueberry payload (documented, tunable).</figcaption></figure>
-
-{asia_access}
-<div class="edge">
-<h2>How we know what's coming — two weeks early</h2>
-<p>This is the working edge behind the journalism. Chile's export records publish
-weeks before Britain's official import figures. By transit-shifting the outbound
-shipments, we estimate each month's Chilean arrivals <em style="color:#b9a4ff">about
-two weeks before HMRC prints them</em> — and the call is more accurate than simply
-assuming "same as last year".</p>
-<div class="row">
-  <div><div class="big">~2 wks</div><div class="cap">ahead of the official figure</div></div>
-  <div><div class="big">{dir_skill}%</div><div class="cap">got the direction right</div></div>
-  <div><div class="big">+{vs_naive}%</div><div class="cap">more accurate than the naive baseline</div></div>
-  <div><div class="big">{n_calls}</div><div class="cap">in-season calls back-tested</div></div>
-</div>
+<div id="blocks">
+{blocks}
+<div id="empty">No dedicated blocks for this pair yet — the coverage grid above shows
+where the data currently sits. This is where new sources slot in.</div>
 </div>
 
 <div class="foot">
-<b>Sources & honesty.</b> Volumes and prices: HMRC Overseas Trade Statistics (fresh
+<b>Sources &amp; honesty.</b> Volumes and prices: HMRC Overseas Trade Statistics (fresh
 blueberries, 08104050), reconciled across vintages. Chilean detail: Aduana DUS customs
-export records via datos.gob.cl. The two-week edge is validated out-of-sample on the
-deep-sea Chilean lane only; the whole-market view is HMRC-anchored. Deliberately not
-claimed: UK retail-shelf price direction (does not back-test) and named certified
-orchard mapping (requires paid registries). The discipline is the product.
+records. Destination &amp; origin prices: UN Comtrade (HS 081040). China access: SAG
+orchard roster. Each block is stamped with its source; the two-week edge is validated
+out-of-sample on the Chilean lane only. The discipline is the product.
 </div>
-</div></body></html>"""
+</div>
+
+<script>
+(function(){{
+  var exp=document.getElementById('exp'), imp=document.getElementById('imp');
+  function apply(){{
+    var key=exp.value+'|'+imp.value, shown=0;
+    document.querySelectorAll('.block').forEach(function(b){{
+      var ok=b.getAttribute('data-pair')===key;
+      b.style.display=ok?'':'none'; if(ok)shown++;
+    }});
+    document.getElementById('empty').style.display=shown?'none':'';
+    document.getElementById('crumb').textContent=
+      exp.value+' \\u2192 '+imp.value+'  ·  '+shown+(shown===1?' block':' blocks');
+    document.querySelectorAll('#matrix td.cell').forEach(function(c){{
+      c.classList.toggle('sel', c.getAttribute('data-pair')===key);
+    }});
+  }}
+  window.pick=function(e,i){{ exp.value=e; imp.value=i; apply();
+    document.getElementById('blocks').scrollIntoView({{behavior:'smooth',block:'start'}}); }};
+  exp.addEventListener('change',apply); imp.addEventListener('change',apply);
+  exp.value='{default_exp}'; imp.value='{default_imp}'; apply();
+}})();
+</script>
+</body></html>"""
 
 
 _ORIGIN_TPL = """
