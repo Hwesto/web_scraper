@@ -27,7 +27,7 @@ from matplotlib.ticker import FuncFormatter
 
 from nowcast.backtest.within_month import calibrated_run
 from nowcast.config import REPO_ROOT
-from nowcast.market import asia_access, comtrade, netback
+from nowcast.market import asia_access, comtrade, netback, origin_prices
 from nowcast.store import vintage
 
 OUT = REPO_ROOT / "docs" / "index.html"
@@ -268,6 +268,41 @@ def chart_asia(top: pd.DataFrame):
     return _png(fig)
 
 
+def chart_origin_wedge(w: pd.DataFrame):
+    """Dumbbell: each origin's export price (FOB) -> UK landed price (CIF); gap = freight."""
+    d = w.sort_values("net_kg").tail(8)
+    fig, ax = plt.subplots(figsize=(9.2, 4.2))
+    y = np.arange(len(d))
+    for i, (_, r) in enumerate(d.iterrows()):
+        ax.plot([r["fob_gbp_kg"], r["cif_gbp_kg"]], [i, i], color="#d9d4cc",
+                linewidth=3, solid_capstyle="round", zorder=2)
+    ax.scatter(d["fob_gbp_kg"], y, s=72, color=SUBTLE, zorder=3,
+               label="origin export (FOB)")
+    ax.scatter(d["cif_gbp_kg"], y, s=72, color=ACCENT, zorder=4,
+               label="UK landed (CIF)")
+    ax.set_yticks(y)
+    ax.set_yticklabels(d["origin"], fontsize=11.5, color=INK)
+    for i, (_, r) in enumerate(d.iterrows()):
+        wg = r["wedge_gbp_kg"]
+        tag = f"+£{wg:.2f}" if wg >= 0 else f"−£{abs(wg):.2f}"
+        ax.text(max(r["fob_gbp_kg"], r["cif_gbp_kg"]) + 0.12, i, tag,
+                va="center", fontsize=9.5, color=SUBTLE)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"£{v:.0f}"))
+    ax.set_xlabel("price per kilo  (£)")
+    ax.margins(x=0.16)
+    ax.legend(loc="lower right", frameon=False, fontsize=9.5)
+    _bare(ax, grid="x")
+    return _png(fig)
+
+
+def origin_wedge_block() -> str:
+    """Per-origin FOB->CIF chapter -- empty until origin export prices are fetched."""
+    w = origin_prices.wedge()
+    if w.empty:
+        return ""
+    return _ORIGIN_TPL.format(chart=chart_origin_wedge(w), year=int(w["year"].iloc[0]))
+
+
 def asia_access_block() -> str:
     """The phyto-access chapter -- empty until the SAG roster is fetched by the cron."""
     s = asia_access.summary()
@@ -304,6 +339,7 @@ def build() -> None:
         price=chart_price(vol, val, s["avg_price"]),
         varieties=chart_varieties(prod),
         markets=chart_markets(nb),
+        origin_wedge=origin_wedge_block(),
         mkt_year=mkt_year,
         kr_premium=f"{premium:.0f}",
         us_share=f"{us_share:.0f}",
@@ -418,6 +454,7 @@ high-volume mid-winter and late-spring gluts. Price tracks scarcity, not the cal
 <figcaption>Import unit value = declared customs value ÷ tonnes, all origins (HMRC).
 A proxy for the wholesale landed cost, not the supermarket shelf price.</figcaption></figure>
 
+{origin_wedge}
 <h2>What Chile ships</h2>
 <p class="deck">The varieties inside Chile's punnets, by volume sent to the UK.</p>
 <p>Chilean customs records name the cultivar on most shipments, so we can see exactly
@@ -476,6 +513,25 @@ claimed: UK retail-shelf price direction (does not back-test) and named certifie
 orchard mapping (requires paid registries). The discipline is the product.
 </div>
 </div></body></html>"""
+
+
+_ORIGIN_TPL = """
+<h2>What every origin charges — and the freight wedge</h2>
+<p class="deck">Two prices per supplier: what the fruit costs leaving its own country
+(FOB) and what it's worth landed in Britain (CIF). The gap is mostly ocean freight.</p>
+<p>Same fruit, two ends of the journey. The grey dot is each origin's own export price;
+the purple dot is what Britain pays for it at the border ({year}). The distance between
+them is the freight-and-insurance wedge — wide for the deep-sea origins (Chile, South
+Africa, Argentina ride ~£0.5–1.6/kg of shipping), barely there for short-haul Europe
+(Spain ≈ £0). Where the wedge goes <em>negative</em> the country is a re-export hub, not
+a true grower — Dutch and Portuguese "exports" are largely fruit landed elsewhere first,
+so their FOB sits above the UK border price. A clean tell for which origins actually
+grow what they ship.</p>
+<figure><img src="{chart}" alt="Origin export price vs UK landed price, by country">
+<figcaption>Origin export FOB (UN Comtrade, reporter=origin, HS 081040) vs UK-landed CIF
+(HMRC, value÷volume), {year}, USD→GBP at a single notional rate. Annual; Comtrade
+reporter coverage lags, so some origins are absent in the latest year.</figcaption></figure>
+"""
 
 
 _ASIA_TPL = """

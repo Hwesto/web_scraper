@@ -101,6 +101,43 @@ def by_country(year: int | None = None, dest: str = "United Kingdom") -> pd.Data
     return sub.sort_values("net_kg", ascending=False).reset_index(drop=True)
 
 
+def _hmrc_cif_annual(year: int) -> pd.Series:
+    """Volume-weighted HMRC UK-landed CIF (GBP/kg) per origin for one year."""
+    from nowcast.config import KG_PER_TONNE
+    from nowcast.store import vintage
+    vol = vintage.latest("hmrc_blueberry_imports")
+    val = vintage.latest("hmrc_blueberry_import_value")
+    if vol.empty or val.empty:
+        return pd.Series(dtype=float)
+    m = vol.merge(val, on=["ref_period", "key"], suffixes=("_t", "_gbp"))
+    m = m[pd.to_datetime(m["ref_period"]).dt.year == year]
+    g = m.groupby("key").agg(t=("value_t", "sum"), gbp=("value_gbp", "sum"))
+    g = g[g["t"] > 0]
+    return (g["gbp"] / (g["t"] * KG_PER_TONNE)).rename("cif_gbp_kg")
+
+
+def wedge(year: int | None = None, usd_gbp: float = 0.79) -> pd.DataFrame:
+    """Per-origin origin-export FOB vs UK-landed CIF, and the gap between them.
+
+    cif_gbp_kg - fob_gbp_kg is ~ocean freight + insurance per kg (both are
+    pre-importer, at-border prices) -- plus the usual Comtrade/HMRC mirror gap, so
+    read it as an order-of-magnitude wedge, not an exact freight quote. FX is a
+    single notional rate (documented). Only origins present on both sides.
+    """
+    fob = by_country(year, dest="United Kingdom")
+    if fob.empty:
+        return fob
+    year = int(fob["year"].iloc[0])
+    cif = _hmrc_cif_annual(year)
+    df = fob[["origin", "fob_usd_kg", "net_kg"]].copy()
+    df["fob_gbp_kg"] = (df["fob_usd_kg"] * usd_gbp).round(3)
+    df["cif_gbp_kg"] = df["origin"].map(cif).round(3)
+    df = df.dropna(subset=["cif_gbp_kg"])
+    df["wedge_gbp_kg"] = (df["cif_gbp_kg"] - df["fob_gbp_kg"]).round(3)
+    df["year"] = year
+    return df.sort_values("net_kg", ascending=False).reset_index(drop=True)
+
+
 if __name__ == "__main__":                         # python -m nowcast.market.origin_prices
     this = _dt.date.today().year
     df = refresh([this - 2, this - 1])
