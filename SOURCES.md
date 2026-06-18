@@ -50,7 +50,7 @@ matrix are sources we don't yet have for that pair.
 
 | Candidate | Would add | Fills (exp→imp) | Feasibility |
 |---|---|---|---|
-| **Kaggle "Time-Series UK Supermarket Data"** | Daily multi-retailer (Aldi/Asda/Morrisons/Tesco/Sainsbury's) shelf £/kg with **history from Jan-2024** + price/unit + own-brand | Global→UK retail, *with* backtest history | Free, but needs a Kaggle API token; community-maintained (staleness risk); **licence to confirm**. Best near-term upgrade to the forward-only Trolley scrape |
+| **Kaggle "Time-Series UK Supermarket Data"** | Daily multi-retailer shelf prices (Aldi/Asda/Morrisons/Tesco/Sainsbury's) | Global→UK retail | **Checked & rejected as a feed:** version 6 (latest) only spans **9 Jan–13 Apr 2024** then stops — abandoned, not ongoing; "blueberry" is also very noisy (yoghurts/muffins/baby-food). Useful only as a one-off cross-check: fresh-punnet median **£10.8/kg** for that window, which corroborates Trolley/ONS. Not wired |
 | **ONS grocery scanner data** | ~50% of the UK grocery market, official, item-level | Global→UK retail, definitive | Official roll-in from **2026** (parallel-run first); watch for a public cut |
 | **Eurostat COMEXT** | EU import/export volumes & prices | Spain/NL/Poland exporter detail; EU as importer | Free, bulk API; good for the European cells |
 | **Peru SUNAT / Agrodata Peru** | Peru export volume + price by destination | **Peru→UK / →World** (currently empty) | Agrodata partly free; SUNAT bulk patchy — would light up the Peru row |
