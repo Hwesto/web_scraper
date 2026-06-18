@@ -268,6 +268,58 @@ def chart_asia(top: pd.DataFrame):
     return _png(fig)
 
 
+def _ink_or_white(c):
+    """Readable label colour for a segment fill (by luminance)."""
+    import matplotlib.colors as mcolors
+    r, g, b = mcolors.to_rgb(c)
+    return INK if 0.299 * r + 0.587 * g + 0.114 * b > 0.6 else "white"
+
+
+def _top_share(s: pd.Series, n: int = 6) -> pd.Series:
+    """Normalise to shares, keep the top n, fold the rest into 'Other'."""
+    s = s[s > 0].sort_values(ascending=False)
+    s = s / s.sum()
+    if len(s) > n:
+        s = pd.concat([s.head(n), pd.Series({"Other": s.iloc[n:].sum()})])
+    return s
+
+
+def chart_shelf(vol, prod):
+    """What's offered now: current origin mix (HMRC, latest month) + Chile's variety split."""
+    cur = vol[vol["d"] == vol["d"].max()]
+    origins = _top_share(cur.groupby("key")["value"].sum())
+    cv = prod.copy(); cv["top_cultivar"] = cv["top_cultivar"].astype(str).str.strip()
+    varieties = _top_share(cv[cv["top_cultivar"] != ""].groupby("top_cultivar")["net_kg"].sum())
+    vidx = list(varieties.index)
+    vshade = {n: plt.cm.Purples(0.45 + 0.5 * (i / max(1, len(vidx) - 1)))
+              for i, n in enumerate(vidx)}
+
+    fig, ax = plt.subplots(figsize=(9.2, 2.9))
+
+    def stack(yy, series, colour):
+        left = 0.0
+        for name, frac in series.items():
+            c = colour(name)
+            ax.barh(yy, frac, left=left, height=0.6, color=c, edgecolor="white",
+                    linewidth=1.4, zorder=3)
+            label = (f"{str(name).title()}\n{frac*100:.0f}%" if frac > 0.12
+                     else (f"{frac*100:.0f}%" if frac > 0.05 else ""))
+            if label:
+                ax.text(left + frac / 2, yy, label, ha="center", va="center",
+                        fontsize=8.5, fontweight="bold", color=_ink_or_white(c))
+            left += frac
+
+    stack(1, origins, lambda n: ORIGIN_COLOURS.get(n, "#b9b3aa"))
+    stack(0, varieties, lambda n: vshade.get(n, "#cccccc"))
+    ax.set_yticks([0, 1])
+    ax.set_yticklabels(["Chile's\nvarieties", "On shelf\nby origin"],
+                       fontsize=10.5, color=INK)
+    ax.set_xlim(0, 1); ax.set_ylim(-0.55, 1.55); ax.set_xticks([])
+    for s in ax.spines.values():
+        s.set_visible(False)
+    return _png(fig)
+
+
 def chart_origin_wedge(w: pd.DataFrame):
     """Dumbbell: each origin's export price (FOB) -> UK landed price (CIF); gap = freight."""
     d = w.sort_values("net_kg").tail(8)
@@ -404,6 +456,21 @@ smaller by tonnage but lands in the highest-value winter window.</p>
 <figure><img src="{chart_league(vol)}" alt="UK blueberry imports by country, last 12 months">
 <figcaption>Twelve-month totals by origin (HMRC). Percentages are share of all
 fresh-blueberry imports.</figcaption></figure>""")
+
+    add("Global", "UK", "HMRC + Chile DUS", f"""
+<h2>What's on Britain's shelves now</h2>
+<p class="deck">The shelf labels neither origin nor variety — but the import flow does.
+This is the mix landing right now, and the cultivars inside Chile's share.</p>
+<p>A UK punnet carries no cultivar and a rotating, often-unlabelled origin, so "what's
+offered" can't be read off the shelf — you read it off the customs flow. The upper bar
+is the origin mix of fruit landing in the latest month (<em>{vol['d'].max().strftime('%B %Y')}</em>),
+the relay's current hand; the lower bar is the cultivar split <em>within</em> Chile's
+shipments — <em>Legacy</em> leads, then <em>Duke</em>, with premium <em>Blue Ribbon</em>
+and <em>Draper</em> behind — the only stage where variety is ever recorded.</p>
+<figure><img src="{chart_shelf(vol, prod)}" alt="Current UK blueberry mix by origin and Chile's variety split">
+<figcaption>Origin: HMRC imports, latest available month ({vol['d'].max().strftime('%B %Y')}).
+Variety: Chilean DUS cultivar share of named shipments (Chile's slice, when in season —
+not necessarily this month's shelf). A supply-side proxy; UK retail discloses neither.</figcaption></figure>""")
 
     add("Global", "UK", "HMRC OTS", f"""
 <h2>What it costs</h2>
