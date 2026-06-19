@@ -129,9 +129,11 @@ _SEED: list[tuple] = [
      "2024/25: Camposol 34kt/$259M ...); annual snapshot, live SUNAT-weekly still gated"),
     ("Peru", "exporter", "cultivar per shipment", "none", "na",
      "", "", "", "", "", "SUNAT customs does not carry cultivar (unlike Chile DUS)"),
-    ("Peru", "exporter", "season export progress, by week", "free", "no",
-     "ProArandanos", "proarandanos.org", "weekly campaign volumes", "", "",
-     "no structured feed -- 403/press/PDF only; fragile scrape"),
+    ("Peru", "exporter", "season export progress, by week", "free", "yes",
+     "ProArandanos (via agri-press)", "proarandanos.pe", "season snapshot", "", _TODAY,
+     "REAL-TIME LAYER -- wired via atlas/peru_campaign.py (2025/26: ~383kt record ▲20%, "
+     "peak wk40 21kt); site is a dashboard/ECONNREFUSED so it's a hand-curated press snapshot, "
+     "not a live weekly feed"),
     ("Peru", "exporter", "area / production / exports + forecasts", "free", "yes",
      "USDA-FAS Blueberry Annual (Lima)", "apps.fas.usda.gov/newgainapi", "PSD table, annual",
      "2022/23->2026/27", _TODAY, "the Catastro substitute; manual annual bump"),
