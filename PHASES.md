@@ -63,7 +63,9 @@ wired registry row. "Maximum" = nothing free and parseable left merely catalogue
 - [ ] National **area/production overlays** (variety/planting-year/sub-national): USDA
       **NASS QuickStats** (US), Spain **ESYRCE**, Mexico SIAP, Canada StatCan, others
 - [ ] **EUROPHYT/AGRINFO** plant-health interceptions
-- [ ] USDA-FAS **GAIN** multi-country forecasts (PDF; runner-only, fragile — last)
+- [x] USDA-FAS **GAIN** forecasts — `atlas/usda_gain.py` extracts headline forecast MT
+      (production/exports/imports) from the report narrative for Peru + Mexico (China's
+      report is qualitative); filenames hand-pinned (no free GAIN search). The forward axis.
 
 ---
 

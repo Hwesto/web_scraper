@@ -222,9 +222,11 @@ _SEED: list[tuple] = [
     ("*", "global", "tariffs / duties into UK", "free", "no",
      "UK Trade Tariff", "trade-tariff.service.gov.uk", "per origin", "", "",
      "fresh blueberries 0% under UK-Chile / UK-Andean; confirm & note"),
-    ("*", "global", "production / export forecasts", "free", "no",
-     "USDA FAS (free); iQonsulting / Frutas de Chile (paid)", "apps.fas.usda.gov",
-     "season-ahead", "", "", "Peru forecast wired; Chile forecast free-partial/paid"),
+    ("*", "global", "production / export forecasts", "free", "yes",
+     "USDA-FAS GAIN (Blueberry Annual)", "apps.fas.usda.gov/newgainapi", "season-ahead, MT", "", _TODAY,
+     "the forward axis; wired via atlas/usda_gain.py -> data/atlas/usda_forecasts.csv (Peru+Mexico "
+     "headline forecasts) + scripts/fetch_usda_peru.py (full Peru PSD); China report qualitative; "
+     "filenames hand-pinned (no free GAIN search)"),
     ("*", "global", "EU detailed trade by HS6/CN8 (all member states)", "free", "yes",
      "Eurostat COMEXT (DS-045409)", "https://ec.europa.eu/eurostat/api/comext/dissemination",
      "annual, HS6 081040 x reporter x partner x flow", "2002->now", _TODAY,
@@ -329,9 +331,9 @@ _SEED_PHASE2: list[tuple] = [
      "SIAP -- Cierre de la Produccion Agricola", "https://nube.agricultura.gob.mx/cierre_agricola/",
      "area/production/value by crop+variety+state+municipality, annual", "", "",
      "aranadano tracked; a Catastro analogue; 503 from sandbox -- re-probe on runner"),
-    ("Mexico", "exporter", "production/export forecast", "free", "no",
+    ("Mexico", "exporter", "production/export forecast", "free", "yes",
      "USDA-FAS GAIN 'Mexico Blueberry Annual' (Guadalajara)", "https://www.fas.usda.gov/data/mexico-blueberry-annual-voluntary",
-     "season-ahead (MT)", "", "", "dedicated blueberry annual; fas 403 to bots"),
+     "season-ahead (MT)", "", _TODAY, "wired via atlas/usda_gain.py (CY2025: prod 73.5k / exp 70k / imp 20k MT)"),
 
     # ---- Canada (#8 exporter 2023) ----
     ("Canada", "both", "national customs trade detail (HS8 export / HS10 import)", "free", "no",

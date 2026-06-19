@@ -2,7 +2,7 @@
 lookup, and the Comtrade global sweep (offline parse + committed-table sanity)."""
 from atlas import comtrade_sweep as cs
 from atlas import (comtrade_matrix, comtrade_monthly, countries, eurostat,
-                   faostat, hs_codes, nasa_power, registry, schema, senasica)
+                   faostat, hs_codes, nasa_power, registry, schema, senasica, usda_gain)
 
 
 # ---- HS-code registry ----------------------------------------------------
@@ -217,6 +217,26 @@ def test_comtrade_monthly_committed_is_sane():
         return
     assert df["month"].between(1, 12).all()
     assert df[df["net_kg"] >= 50_000]["unit_usd_kg"].between(0.5, 40).all()
+
+
+def test_usda_gain_extracts_forecast_narrative():
+    text = ("Mexico's CY 2025 exports are forecast at 70,000 MT and imports at 20,000 MT. "
+            "Production is forecast at 73,500 metric tons (MT) for calendar year (CY) 2025. "
+            "Prices rose last season.")                  # non-forecast sentence ignored
+    df = usda_gain._extract(text, "Mexico")
+    got = {(r["metric"], r["year"]): r["value_mt"] for _, r in df.iterrows()}
+    assert got[("production", 2025)] == 73500
+    assert got[("exports", 2025)] == 70000              # split from the two-metric sentence
+    assert got[("imports", 2025)] == 20000
+
+
+def test_usda_gain_committed_forecasts_are_sane():
+    df = usda_gain.load()
+    if df.empty:
+        return
+    assert set(usda_gain._COLS) == set(df.columns)
+    assert set(df["metric"]) <= {"production", "exports", "imports"}
+    assert (df["value_mt"] > 0).all() and df["year"].between(2020, 2030).all()
 
 
 def test_nasa_power_parses_months_and_skips_fill():
