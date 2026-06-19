@@ -37,6 +37,9 @@ _FREIGHT_REGION = {
 _TRANSIT_REGION = {                       # door-to-port sea days, ex central Chile
     "Americas": 14, "Europe": 26, "Asia": 33, "MiddleEast": 30, "SouthAmerica": 7,
 }
+_TRANSIT_PERU = {                         # ex Callao/Paita -- closer to N. America/Asia
+    "Americas": 11, "Europe": 22, "Asia": 30, "MiddleEast": 26, "SouthAmerica": 7,
+}
 _REGION = {
     "United States": "Americas", "Canada": "Americas", "Mexico": "Americas",
     "Netherlands": "Europe", "Germany": "Europe", "United Kingdom": "Europe",
@@ -49,7 +52,9 @@ _REGION = {
     "United Arab Emirates": "MiddleEast", "Qatar": "MiddleEast",
     "Saudi Arabia": "MiddleEast",
     "Argentina": "SouthAmerica", "Brazil": "SouthAmerica",
-    "Colombia": "SouthAmerica", "Ecuador": "SouthAmerica",
+    "Colombia": "SouthAmerica", "Ecuador": "SouthAmerica", "Chile": "SouthAmerica",
+    "Costa Rica": "Americas", "Russia": "Europe",
+    "India": "Asia", "Thailand": "Asia",
 }
 
 # Chile's FTAs zero the duty into its major markets (US/EU/UK/China/Korea/Japan).
@@ -58,18 +63,27 @@ _REGION = {
 US_RECIPROCAL_TARIFF = 0.10
 _TARIFF = {"United States": US_RECIPROCAL_TARIFF}
 
+# Per-origin config. Freight is the shared deep-sea-reefer approximation (Peru ex-Callao
+# is a touch closer to the US/Asia, partly captured by shorter transit; tune later).
+_ORIGINS = {
+    "Chile": {"cache": comtrade.CACHE, "transit": _TRANSIT_REGION, "tariff": _TARIFF},
+    "Peru":  {"cache": comtrade.PERU_CACHE, "transit": _TRANSIT_PERU, "tariff": {}},
+}
+
 
 def _region(dest: str) -> str:
     return _REGION.get(dest, "Europe")            # conservative mid default
 
 
-def netback_table(year: int | None = None, min_kg: float = 200_000.0) -> pd.DataFrame:
-    """Per-destination netback for one year, ranked best-first.
+def netback_table(year: int | None = None, min_kg: float = 200_000.0,
+                  origin: str = "Chile") -> pd.DataFrame:
+    """Per-destination netback for one origin/year, ranked best-first.
 
     Columns: destination, cif_usd_kg, freight_usd_kg, netback_usd_kg, net_kg,
     vol_share_%, transit_days, tariff_%, yoy_growth_%.
     """
-    df = comtrade.load()
+    cfg = _ORIGINS[origin]
+    df = comtrade.load(cfg["cache"])
     if df.empty:
         return df
     year = year or comtrade.latest_year(df)
@@ -79,9 +93,9 @@ def netback_table(year: int | None = None, min_kg: float = 200_000.0) -> pd.Data
 
     cur["region"] = cur["destination"].map(_region)
     cur["freight_usd_kg"] = cur["region"].map(_FREIGHT_REGION)
-    cur["transit_days"] = cur["region"].map(_TRANSIT_REGION)
+    cur["transit_days"] = cur["region"].map(cfg["transit"])
     cur["netback_usd_kg"] = cur["cif_usd_kg"] - cur["freight_usd_kg"]
-    cur["tariff_%"] = cur["destination"].map(_TARIFF).fillna(0.0) * 100
+    cur["tariff_%"] = cur["destination"].map(cfg["tariff"]).fillna(0.0) * 100
     cur["vol_share_%"] = cur["net_kg"] / cur["net_kg"].sum() * 100
     cur["yoy_growth_%"] = cur.apply(
         lambda r: (r["net_kg"] / prev[r["destination"]] - 1) * 100

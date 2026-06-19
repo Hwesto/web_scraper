@@ -45,3 +45,16 @@ def test_asia_premium_survives_freight():
     if "South Korea" in t.index and "United States" in t.index:
         assert t.loc["South Korea", "netback_usd_kg"] > t.loc["United States", "netback_usd_kg"]
         assert t.loc["South Korea", "transit_days"] > t.loc["United States", "transit_days"]
+
+
+def test_peru_netback_loads_and_us_dominates():
+    """Peru destinations (generalised reporter): US is the dominant volume sink."""
+    t = netback.netback_table(origin="Peru")
+    if t.empty:                                        # cache not fetched yet
+        return
+    assert (t["netback_usd_kg"] < t["cif_usd_kg"]).all()
+    assert t["netback_usd_kg"].is_monotonic_decreasing
+    top_by_vol = t.sort_values("net_kg", ascending=False)["destination"].iloc[0]
+    assert top_by_vol == "United States"               # Peru's defining concentration
+    # no duplicate destinations (dedup at fetch)
+    assert t["destination"].is_unique

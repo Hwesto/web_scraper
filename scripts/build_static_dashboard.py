@@ -251,7 +251,7 @@ def chart_markets(t: pd.DataFrame):
                    edgecolor="white", linewidth=1.3, zorder=3)
     # label the markets that carry the story
     show = {"United States", "Netherlands", "South Korea", "United Kingdom",
-            "China", "Germany", "Canada"}
+            "China", "Germany", "Canada", "Hong Kong", "Singapore"}
     for _, r in t.iterrows():
         if r["destination"] in show:
             ax.annotate(r["destination"], (r["net_kg"] / 1e6, r["netback_usd_kg"]),
@@ -614,6 +614,28 @@ hub — a distribution valve, not a final table.</p>
 <figcaption>Each bubble is a destination ({mkt_year}); height is grower netback per kg
 after freight, width is how much the market absorbs (log scale), bubble size is total
 value. Observed (UN Comtrade, HS 081040); freight from reefer rate ÷ ~11 t payload.</figcaption></figure>""")
+
+    nb_peru = netback.netback_table(origin="Peru")
+    if not nb_peru.empty:
+        pe = nb_peru.set_index("destination")
+        us_sh = pe.loc["United States", "vol_share_%"] if "United States" in pe.index else 0
+        nl_sh = pe.loc["Netherlands", "vol_share_%"] if "Netherlands" in pe.index else 0
+        peru_year = comtrade.latest_year(comtrade.load(comtrade.PERU_CACHE))
+        add("Peru", "Global", "UN Comtrade", f"""
+<h2>Where Peru sells — and its one big risk</h2>
+<p class="deck">The same lens on the world's #1 exporter. Peru ships ~360k t a season —
+but to a far narrower set of tables than Chile.</p>
+<p>Peru's reach is strikingly concentrated: the <em>United States</em> alone takes about
+<em>{us_sh:.0f}%</em> of its blueberries, and the <em>Netherlands</em> — Europe's
+re-export valve — another <em>{nl_sh:.0f}%</em>. Asia is still a small slice but the
+fastest-growing: Hong Kong, China, Singapore and India all jumped double- or triple-digit
+year on year. The flip side of dominance is exposure — over half the crop rides one
+destination, so a US price wobble or trade-policy shift lands harder on Peru than on
+anyone, Chile included.</p>
+<figure><img src="{chart_markets(nb_peru)}" alt="Peru blueberry netback by destination market">
+<figcaption>Each bubble a destination ({peru_year}); height is netback per kg after freight,
+width is volume absorbed (log scale). UN Comtrade reporter=Peru, HS 081040; freight =
+deep-sea reefer ÷ payload (ex-Callao transit, a touch shorter than Chile).</figcaption></figure>""")
 
     # Per-origin <origin>→UK blocks, all from held data (HMRC seasonality + CIF,
     # Comtrade FOB). Lights up a matrix cell per major supplier; empties stay empty.

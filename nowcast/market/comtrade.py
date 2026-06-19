@@ -22,7 +22,9 @@ import pandas as pd
 from nowcast.config import DATA_DIR
 
 CACHE = DATA_DIR / "market" / "chile_destinations.csv"
+PERU_CACHE = DATA_DIR / "market" / "peru_destinations.csv"
 _CHILE = 152
+PERU = 604
 _HS = "081040"
 _PREVIEW = ("https://comtradeapi.un.org/public/v1/preview/C/A/HS"
             "?reporterCode={rep}&period={yr}&cmdCode={hs}&flowCode=X"
@@ -39,6 +41,8 @@ PARTNER = {
     752: "Sweden", 372: "Ireland", 76: "Brazil", 170: "Colombia", 218: "Ecuador",
     784: "United Arab Emirates", 634: "Qatar", 682: "Saudi Arabia",
     376: "Israel", 616: "Poland",
+    # added for Peru's destination set
+    699: "India", 764: "Thailand", 643: "Russia", 188: "Costa Rica", 152: "Chile",
 }
 
 
@@ -47,8 +51,8 @@ def _num(row: dict, key: str) -> float:
     return float(v) if isinstance(v, (int, float)) else 0.0
 
 
-def _fetch_year(year: int, retries: int = 4) -> pd.DataFrame:
-    url = _PREVIEW.format(rep=_CHILE, yr=year, hs=_HS)
+def _fetch_year(year: int, reporter: int = _CHILE, retries: int = 4) -> pd.DataFrame:
+    url = _PREVIEW.format(rep=reporter, yr=year, hs=_HS)
     last = None
     for attempt in range(retries):
         try:
@@ -72,32 +76,33 @@ def _fetch_year(year: int, retries: int = 4) -> pd.DataFrame:
                     "net_kg": wgt,
                     "cif_usd_kg": val / wgt,
                 })
-            return pd.DataFrame(out)
+            # the preview endpoint can emit duplicate records per partner
+            return pd.DataFrame(out).drop_duplicates(subset=["year", "partner_code"])
         except Exception as e:                     # noqa: BLE001 -- retry any net error
             last = e
             time.sleep(2 ** attempt)
     raise RuntimeError(f"Comtrade fetch failed for {year}: {last}")
 
 
-def refresh(years: list[int]) -> pd.DataFrame:
-    """Fetch the given years and (re)write the committed cache, merging by year."""
-    fresh = pd.concat([_fetch_year(y) for y in years], ignore_index=True)
-    if CACHE.exists():
-        old = pd.read_csv(CACHE)
+def refresh(years: list[int], reporter: int = _CHILE, cache=CACHE) -> pd.DataFrame:
+    """Fetch the given years for `reporter` and (re)write its cache, merging by year."""
+    fresh = pd.concat([_fetch_year(y, reporter) for y in years], ignore_index=True)
+    if cache.exists():
+        old = pd.read_csv(cache)
         old = old[~old["year"].isin(years)]        # replace refreshed years wholesale
         fresh = pd.concat([old, fresh], ignore_index=True)
     fresh = fresh.sort_values(["year", "value_usd"], ascending=[True, False])
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
-    fresh.to_csv(CACHE, index=False)
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    fresh.to_csv(cache, index=False)
     return fresh
 
 
-def load() -> pd.DataFrame:
-    """Read the cached destinations table (offline). Empty frame if never fetched."""
-    if not CACHE.exists():
+def load(cache=CACHE) -> pd.DataFrame:
+    """Read a cached destinations table (offline). Empty frame if never fetched."""
+    if not cache.exists():
         return pd.DataFrame(columns=["year", "partner_code", "destination",
                                      "value_usd", "net_kg", "cif_usd_kg"])
-    return pd.read_csv(CACHE)
+    return pd.read_csv(cache)
 
 
 def latest_year(df: pd.DataFrame | None = None) -> int:
@@ -108,7 +113,7 @@ def latest_year(df: pd.DataFrame | None = None) -> int:
 if __name__ == "__main__":                         # python -m nowcast.market.comtrade
     import datetime as _dt
     this = _dt.date.today().year
-    df = refresh([this - 3, this - 2, this - 1])
-    print(f"cached {len(df)} rows -> {CACHE}")
-    last = df[df["year"] == latest_year(df)].head(8)
-    print(last[["destination", "cif_usd_kg", "net_kg"]].to_string(index=False))
+    yrs = [this - 3, this - 2, this - 1]
+    for rep, cache, who in ((_CHILE, CACHE, "Chile"), (PERU, PERU_CACHE, "Peru")):
+        df = refresh(yrs, reporter=rep, cache=cache)
+        print(f"{who}: cached {len(df)} rows -> {cache}")
