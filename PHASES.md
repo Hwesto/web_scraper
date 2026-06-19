@@ -51,7 +51,10 @@ wired registry row. "Maximum" = nothing free and parseable left merely catalogue
 - [ ] National customs with clean access: **US Census**, **Canada ISED/StatCan**, **Japan
       e-Stat/Customs**, **Korea KITA**, **Switzerland Swiss-Impex**, **Serbia SORS**,
       **Mexico INEGI/Banxico**, **South Africa SARS**
-- [ ] National **area/production**: USDA **NASS QuickStats** (US), Spain **ESYRCE**, others
+- [x] **Global area/production/yield base layer — FAOSTAT** (`atlas/faostat.py`), all
+      countries, one keyless bulk. National censuses below are now finer *overlays*.
+- [ ] National **area/production overlays** (variety/planting-year/sub-national): USDA
+      **NASS QuickStats** (US), Spain **ESYRCE**, Mexico SIAP, Canada StatCan, others
 - [ ] **EUROPHYT/AGRINFO** plant-health interceptions
 - [ ] USDA-FAS **GAIN** multi-country forecasts (PDF; runner-only, fragile — last)
 

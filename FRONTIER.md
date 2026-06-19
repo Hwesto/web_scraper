@@ -73,10 +73,13 @@ Flow/price (Stage 2/4) is largely **global already** via Comtrade; the AFTER gro
 is concentrated in the overlays (Stage 0, 4-phyto, 6–7, forecasts).
 
 ### Stage 0 — Growing (farm structure & condition)
-- Orchard **area by region/variety/planting-year** — `[NOW]` Chile (Catastro, block-level)
-  · `[AFTER]` Spain (ESYRCE, plot-level), USA (NASS), Mexico (SIAP), Canada (StatCan),
-  Poland (GUS), Netherlands (CBS), South Africa (Berries ZA), Morocco, Germany,
-  Portugal, South Korea (KOSIS), Serbia, France, Peru (regional)
+- **Area / production / yield by country** — `[NOW]` **global, all countries**
+  (FAOSTAT, `atlas/faostat.py`) — the production base layer (FAO is to growing what
+  Comtrade is to trade). FAO area includes wild lowbush for US/CA.
+- Orchard **area by region/variety/planting-year** (finer than FAO national totals) —
+  `[NOW]` Chile (Catastro, block-level) · `[AFTER]` overlays: Spain (ESYRCE, plot-level),
+  USA (NASS), Mexico (SIAP), Canada (StatCan), Poland (GUS), Netherlands (CBS),
+  South Africa (Berries ZA), Morocco, Germany, Portugal, South Korea, Serbia, France
 - **Bearing-capacity trajectory** (derived) — `[NOW]` Chile · `[AFTER]` only where a
   block-level planting-year census exists (Chile; partially Spain)
 - **Variety-renewal trajectory** (derived) — `[NOW]` Chile

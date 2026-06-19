@@ -50,6 +50,8 @@ jobs:
         run: python -m atlas.eurostat || echo "eurostat refresh skipped"
       - name: Refresh SENASICA registered berry orchards (Mexico)
         run: python -m atlas.senasica || echo "senasica refresh skipped"
+      - name: Refresh FAOSTAT global blueberry production/area
+        run: python -m atlas.faostat || echo "faostat refresh skipped"
       - name: Refresh M49 country-code reference
         run: python -m atlas.countries || echo "country-code refresh skipped"
       - name: Re-probe overlay source reachability (clean egress)

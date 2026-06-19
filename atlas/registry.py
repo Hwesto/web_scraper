@@ -206,6 +206,11 @@ _SEED: list[tuple] = [
      "UN Comtrade monthly (HS 081040)", "comtradeapi.un.org", "monthly, per lane, exporter target set",
      "2023->now", _TODAY,
      "the counter-season relay; wired via atlas/comtrade_monthly.py -> data/atlas/comtrade_monthly.csv; seasonality() gives each origin's monthly volume profile"),
+    ("*", "global", "blueberry area / production / yield by country", "free", "yes",
+     "FAOSTAT (QCL bulk, item 552)", "https://bulks-faostat.fao.org/production/",
+     "annual, by country", "1961->now", _TODAY,
+     "the global production base layer (FAO is to growing what Comtrade is to trade); "
+     "wired via atlas/faostat.py -> data/atlas/faostat_blueberry.csv; FAO area incl. wild lowbush for US/CA"),
     ("*", "global", "FX USD/GBP (and crosses)", "free", "yes",
      "Frankfurter / ECB", "api.frankfurter.app", "daily", "daily", _TODAY,
      "replaces notional 0.79"),

@@ -2,7 +2,7 @@
 lookup, and the Comtrade global sweep (offline parse + committed-table sanity)."""
 from atlas import comtrade_sweep as cs
 from atlas import (comtrade_matrix, comtrade_monthly, countries, eurostat,
-                   hs_codes, registry, schema, senasica)
+                   faostat, hs_codes, registry, schema, senasica)
 
 
 # ---- HS-code registry ----------------------------------------------------
@@ -172,6 +172,35 @@ def test_comtrade_monthly_committed_is_sane():
         return
     assert df["month"].between(1, 12).all()
     assert df[df["net_kg"] >= 50_000]["unit_usd_kg"].between(0.5, 40).all()
+
+
+def test_faostat_pivots_and_drops_aggregates():
+    rows = [  # normalized FAOSTAT shape; one country (area+prod+yield) + a dropped aggregate
+        {"Area Code": "231", "Area Code (M49)": "'840", "Area": "United States of America",
+         "Item Code": "552", "Element Code": "5312", "Year": "2023", "Value": "50000"},
+        {"Area Code": "231", "Area Code (M49)": "'840", "Area": "United States of America",
+         "Item Code": "552", "Element Code": "5510", "Year": "2023", "Value": "400000"},
+        {"Area Code": "5000", "Area Code (M49)": "'001", "Area": "World",   # aggregate -> drop
+         "Item Code": "552", "Element Code": "5312", "Year": "2023", "Value": "180000"},
+        {"Area Code": "231", "Area Code (M49)": "'840", "Area": "United States of America",
+         "Item Code": "515", "Element Code": "5312", "Year": "2023", "Value": "9"},  # not blueberry
+    ]
+    df = faostat._rows_to_df(rows)
+    assert list(df["country"]) == ["United States of America"]     # World aggregate dropped
+    r = df.iloc[0]
+    assert r["area_ha"] == 50000.0 and r["production_t"] == 400000.0
+    assert r["yield_t_ha"] == 8.0 and r["m49"] == "840"            # 400000/50000; quote stripped
+
+
+def test_faostat_committed_table_is_sane():
+    df = faostat.load()
+    if df.empty:
+        return
+    assert set(faostat._COLS) == set(df.columns)
+    latest = faostat.top_producers()
+    assert {"United States of America", "Peru"} <= set(latest["country"])
+    # material producers only -- tiny FAO rows carry sub-0.5 t/ha artifacts
+    assert latest["yield_t_ha"].between(0.5, 30).all()             # plausible t/ha
 
 
 def test_senasica_parses_bilingual_orchard_rows():
