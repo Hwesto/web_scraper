@@ -636,10 +636,19 @@ def build() -> Path:
 
     kpis = "".join(f'<div class="kpi"><b>{v}</b><span>{l}</span></div>' for v, l in _kpis())
     m = cmth.load()
-    lm = f"{int(m['year'].max())}-{int(m[m['year'] == m['year'].max()]['month'].max()):02d}" if len(m) else "—"
-    recency = (f"Annual trade complete to <b>2024</b>; <b>2025 partial</b> (the big southern "
-               f"exporters — Peru, Chile — file their annual returns late, so 2025 shows early "
-               f"reporters only, tagged <b>ᵖ</b>). Monthly trade current to <b>{lm}</b>.")
+    # monthly rows exist past here, but are partial -- the last month whose world total is
+    # within 85% of the year-ago month (i.e. the major exporters have actually reported).
+    complete = "—"
+    if len(m):
+        g = m.groupby(m["year"] * 12 + m["month"])["net_kg"].sum()
+        ok = [ym for ym in g.index if (ym - 12) in g.index and g[ym - 12] > 5e6 and g[ym] >= 0.85 * g[ym - 12]]
+        if ok:
+            cm_ym = max(ok); complete = f"{cm_ym // 12}-{cm_ym % 12 or 12:02d}"
+    recency = (f"Annual trade complete to <b>2024</b>; <b>2025 partial</b> (Peru &amp; Chile file "
+               f"their annual returns late — 2025 shows early reporters only, tagged <b>ᵖ</b>). "
+               f"Monthly trade is complete only to <b>~{complete}</b> (later months are filed with a "
+               f"long lag), so the relay is a multi-year average. No free trade source is current to "
+               f"2026 — that needs the depth frontier (e.g. ProArándanos weekly).")
 
     the_year = "".join([
         _fig_block("The relay — who supplies the world each month",
