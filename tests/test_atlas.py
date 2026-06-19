@@ -59,6 +59,19 @@ def test_coverage_counts_every_row():
     assert int(registry.coverage()["n"].sum()) == len(registry.load())
 
 
+def test_phase2_national_overlays_catalogued():
+    df = registry.load()
+    # the top exporters beyond the Chile/Peru reference lanes are now catalogued
+    assert {"Spain", "Netherlands", "Morocco", "USA", "Mexico", "Canada",
+            "South Africa", "Poland"} <= set(df["country"])
+    # recurring Phase-2 finding: free shipment-level export-with-names exists nowhere
+    bol = df[df["data_point"].str.contains("shipment-level export with exporter")]
+    assert len(bol) > 0 and set(bol["access"]) == {"paid"}
+    # but some free NPPO orchard rosters DO exist (the SAG-China analogue) -- e.g. Mexico
+    phyto_free = df[df["data_point"].str.contains("phyto") & (df["access"] == "free")]
+    assert "Mexico" in set(phyto_free["country"])
+
+
 # ---- country lookup ------------------------------------------------------
 
 def test_country_lookup_and_fallback():

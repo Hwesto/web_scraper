@@ -51,8 +51,24 @@ So "global" is a Comtrade sweep, not lane-by-lane labour.
   2024 sweep still missed Peru, rank 50; 2023 was complete). `comtrade_sweep.FINAL_LAG_YEARS=3`;
   `ranking`/`target_set` default to the latest **non-provisional** year.
 
-Then **Phase 2** (catalogue national overlays per country in `target_set` — *probe
-reachability, don't wire*; one registry row each), **Phase 3** (deepen selectively),
+**Phase 2 STARTED** — national overlays catalogued for the 8 top exporters beyond
+the Chile/Peru reference lanes (**Spain, Netherlands, Morocco, USA, Mexico, Canada,
+South Africa, Poland**), 40 rows added (registry now 109). Per country, 4-5 overlay
+categories probed for reachability (`atlas/probe.py` — classifies reachable /
+key_gated / auth / tls_blocked etc., handling the "200 + Missing Key" case). Findings:
+- **No country publishes free shipment-level export data with exporter names** — that
+  identity layer is paid (brokers) everywhere, same gap as Chile/Peru.
+- **Free NPPO orchard rosters exist for Mexico (SENASICA) and Morocco (ONSSA)** — the
+  SAG-China analogue; Spain/NL/USA/Canada/Poland keep theirs gated (`access=none`).
+- **Free orchard/area census exists for all 8** (ESYRCE, NASS QuickStats, SIAP, StatCan,
+  Berries ZA, etc.) — Catastro analogues of varying granularity.
+- **Eurostat COMEXT** = the free harmonised CN8 overlay for all EU exporters (one global row).
+- Sandbox-blocked (503/anti-bot, real sources): StatCan CIMT, PL GUS/PIORIN, MA ONSSA,
+  MX SIAP, MA Office des Changes — **re-probe on the clean-egress runner** (`verified_date`
+  left blank for these). Query: `registry.gaps(access=…, wired=…)`.
+
+**Still to do:** Phase 2 importer-side overlays + remaining exporters (HK/Germany/France/
+Portugal/Serbia/Belgium re-export hubs); **Phase 3** (deepen selectively where it pays);
 **Phase 4** (swap HS code for other fruits — `hs_codes.csv` already seeded).
 Full reasoning condensed in `SOURCES.md` / `DATA.md`.
 

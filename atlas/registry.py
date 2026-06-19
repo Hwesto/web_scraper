@@ -210,12 +210,173 @@ _SEED: list[tuple] = [
     ("*", "global", "production / export forecasts", "free", "no",
      "USDA FAS (free); iQonsulting / Frutas de Chile (paid)", "apps.fas.usda.gov",
      "season-ahead", "", "", "Peru forecast wired; Chile forecast free-partial/paid"),
+    ("*", "global", "EU detailed trade by CN8 (all member states)", "free", "no",
+     "Eurostat COMEXT", "https://ec.europa.eu/eurostat/api/comext/dissemination",
+     "monthly, CN8 x reporter x partner x flow", "2002->now", _TODAY,
+     "free bulk CSV + SDMX API, no key; harmonised overlay for ES/NL/PL/DE/FR/PT/BE"),
+]
+
+# ---- Phase 2: national overlay sources per country in the Comtrade target set ----
+# Probe reachability, do NOT wire (the standing rule). One+ row per country x overlay
+# category (customs detail / shipment-level identity / phyto registry / area census /
+# forecast). Sources compiled + URL-verified 2026-06; reachability probed from this
+# sandbox (verified_date set where a live 200 was seen; blank where the source is
+# real but anti-bot/503-blocked here -> re-probe on the clean-egress runner).
+# Recurring finding: NO country publishes free shipment-level export data with
+# exporter names -- that identity layer is paid (brokers) everywhere, like Chile/Peru.
+_SEED_PHASE2: list[tuple] = [
+    # ---- Spain (EU; #3 exporter 2023) ----
+    ("Spain", "exporter", "national customs trade detail (CN8, province)", "free", "no",
+     "DataComex (Agencia Tributaria) + Eurostat COMEXT", "https://datacomex.comercio.es/",
+     "HS/TARIC x partner x province, monthly", "", _TODAY,
+     "aggregate; CN 08104050; bulk needs free login. COMEXT for harmonised CN8"),
+    ("Spain", "exporter", "shipment-level export with exporter names", "paid", "no",
+     "commercial brokers (Volza / ImportGenius / Tendata)", "", "per shipment", "", "",
+     "no free origin bill-of-lading -- the identity gap, as everywhere"),
+    ("Spain", "exporter", "authorised export orchards/packhouses (phyto)", "none", "na",
+     "MAPA CEXVEG", "https://servicio.mapa.gob.es/cexvegweb/home", "operator-level", "", "",
+     "registration-gated internal registry; no public list found"),
+    ("Spain", "exporter", "orchard / planted-area by region/variety", "free", "no",
+     "MAPA ESYRCE", "https://www.mapa.gob.es/es/estadistica/temas/estadisticas-agrarias/agricultura/esyrce/",
+     "plot-level survey by Autonomous Community, annual", "1990->now", _TODAY,
+     "berries/frutos rojos; a Catastro analogue (plot-level since 1990)"),
+    ("Spain", "exporter", "production/export forecast", "free", "no",
+     "USDA-FAS GAIN 'Spanish Berry Outlook' (Madrid)", "https://www.fas.usda.gov/data",
+     "season-ahead", "", "", "fas.usda.gov 403 to bots; live in browser/runner"),
+
+    # ---- Netherlands (EU; #2 exporter 2023 -- re-export hub) ----
+    ("Netherlands", "exporter", "national customs trade detail (re-export split)", "free", "no",
+     "CBS StatLine + Eurostat COMEXT", "https://opendata.cbs.nl/",
+     "value by SITC/CN8 x partner, monthly; free OData API", "2015->now", _TODAY,
+     "distinguishes Dutch-product exports vs re-exports (key for NL hub)"),
+    ("Netherlands", "exporter", "shipment-level export with exporter names", "paid", "no",
+     "commercial brokers", "", "per shipment", "", "", "no free origin BoL"),
+    ("Netherlands", "exporter", "authorised export orchards/packhouses (phyto)", "none", "na",
+     "NVWA e-CertNL", "https://english.nvwa.nl/topics/themes/plant-health", "operator-level",
+     "", "", "certification process only; no public registry"),
+    ("Netherlands", "exporter", "orchard / planted-area (small fruit)", "free", "no",
+     "CBS StatLine (klein fruit) + Landbouwtelling", "https://opendata.cbs.nl/", "national",
+     "", _TODAY, "blueberry sits within 'small fruit'; no dedicated blueberry area table"),
+    ("Netherlands", "exporter", "production/export forecast", "none", "na",
+     "USDA-FAS EU-wide GAIN (no NL blueberry report)", "https://www.fas.usda.gov/data",
+     "EU-level", "", "", "no dedicated NL blueberry forecast; folded into EU reporting"),
+
+    # ---- Morocco (#5 exporter 2023) ----
+    ("Morocco", "exporter", "national customs trade detail (by product)", "free", "no",
+     "Office des Changes -- Base commerce extérieur", "https://services.oc.gov.ma/DataBase/CommerceExterieur/login",
+     "product x partner, monthly since 1998, CSV", "1998->now", "",
+     "free visitor tier (subscriber tier gated); login page 403 from sandbox"),
+    ("Morocco", "exporter", "shipment-level export with exporter names", "paid", "no",
+     "commercial brokers", "", "per shipment", "", "", "no free origin BoL"),
+    ("Morocco", "exporter", "authorised export packing stations (phyto)", "free", "no",
+     "ONSSA -- approved establishments list", "https://www.onssa.gov.ma/lists-of-approved-authorised-establishments/?lang=en",
+     "named packing stations + agrement no., PDF", "", "",
+     "the best public NPPO list of the set; 503 from sandbox -- re-probe on runner"),
+    ("Morocco", "exporter", "orchard / planted-area (red fruits)", "free", "no",
+     "Min. Agriculture -- Filiere petits fruits rouges", "https://www.agriculture.gov.ma/fr/filieres-regions/petits-fruits-rouges",
+     "national/sector (area, production, export share)", "", "",
+     "~2,175 ha 2022/23; regional figures in PDFs not an open DB; 503 from sandbox"),
+    ("Morocco", "exporter", "production/export forecast", "none", "na",
+     "USDA-FAS Rabat spotlight (no berry annual)", "https://fas.usda.gov/data/spotlight-morocco-fruit-exports",
+     "analysis", "", "", "no dedicated season-ahead Morocco blueberry forecast found"),
+
+    # ---- USA (#6 exporter, #1 importer 2023) ----
+    ("USA", "both", "national customs trade detail (HTS10 / Schedule B, by state)", "free", "no",
+     "USITC DataWeb; Census USA Trade Online / API", "https://dataweb.usitc.gov/",
+     "HTS10 x partner x customs district / state, monthly", "", _TODAY,
+     "DataWeb mostly no-login; Census API is free but key-gated (200+'Missing Key')"),
+    ("USA", "exporter", "shipment-level export with exporter names", "paid", "no",
+     "commercial brokers (Panjiva / ImportGenius / Datamyne)", "", "per shipment", "", "",
+     "no free US export BoL; import manifests partly broker-available (paid)"),
+    ("USA", "exporter", "authorised export orchards/packhouses (phyto)", "none", "na",
+     "USDA APHIS PCIT / PExD", "https://www.aphis.usda.gov/plant-exports/certification",
+     "operator-level", "", "", "registration-gated; no public orchard/packhouse registry"),
+    ("USA", "exporter", "orchard / planted-area by state", "free", "no",
+     "USDA NASS QuickStats + Noncitrus Fruits & Nuts", "https://quickstats.nass.usda.gov/",
+     "bearing acreage/yield/production/value by state, annual", "", _TODAY,
+     "no-login query tool; Census of Ag adds farm-level every 5 yrs"),
+    ("USA", "exporter", "production/export forecast", "free", "no",
+     "USDA-FAS GAIN (global) + NASS Noncitrus in-season", "https://www.fas.usda.gov/data/search",
+     "season-ahead / in-season", "", "", "US covered in global overviews; no standalone US GAIN"),
+
+    # ---- Mexico (#7 exporter 2023) ----
+    ("Mexico", "exporter", "national customs trade detail (NICO 8-10 digit)", "free", "no",
+     "INEGI BCMM + Banxico Cubo Comercio Exterior", "https://www.inegi.org.mx/rnm/index.php/catalog/1082",
+     "fraccion/NICO x partner, monthly", "", _TODAY,
+     "use INEGI/Banxico -- SIAVI is frozen at Nov 2021; aggregate, no exporter names"),
+    ("Mexico", "exporter", "shipment-level export with exporter names", "paid", "no",
+     "commercial brokers (pedimento data)", "", "per shipment", "", "", "no free SAT pedimentos"),
+    ("Mexico", "exporter", "authorised export orchards (phyto)", "free", "no",
+     "SENASICA -- huertos registrados", "https://www.gob.mx/senasica/documentos/huertos-registrados",
+     "named orchards by destination country (China/Korea/EU for berries)", "", _TODAY,
+     "a real free NPPO roster (SAG-China analogue); not the US lane"),
+    ("Mexico", "exporter", "orchard / planted-area by state/variety", "free", "no",
+     "SIAP -- Cierre de la Produccion Agricola", "https://nube.agricultura.gob.mx/cierre_agricola/",
+     "area/production/value by crop+variety+state+municipality, annual", "", "",
+     "aranadano tracked; a Catastro analogue; 503 from sandbox -- re-probe on runner"),
+    ("Mexico", "exporter", "production/export forecast", "free", "no",
+     "USDA-FAS GAIN 'Mexico Blueberry Annual' (Guadalajara)", "https://www.fas.usda.gov/data/mexico-blueberry-annual-voluntary",
+     "season-ahead (MT)", "", "", "dedicated blueberry annual; fas 403 to bots"),
+
+    # ---- Canada (#8 exporter 2023) ----
+    ("Canada", "both", "national customs trade detail (HS8 export / HS10 import)", "free", "no",
+     "StatCan CIMT + ISED Trade Data Online", "https://ised-isde.canada.ca/site/trade-data-online/en",
+     "HS x partner x province, monthly", "", _TODAY,
+     "ISED no-login (verified); CIMT 503 from sandbox; aggregate, no exporter names"),
+    ("Canada", "exporter", "shipment-level export with exporter names", "paid", "no",
+     "commercial brokers", "", "per shipment", "", "", "no free Canadian export BoL"),
+    ("Canada", "exporter", "authorised export orchards/packhouses (phyto)", "none", "na",
+     "CFIA horticulture exports", "https://inspection.canada.ca/en/plant-health/horticulture/exports",
+     "operator-level", "", _TODAY, "registration internal to CFIA; no public blueberry registry"),
+    ("Canada", "exporter", "orchard / planted-area by province", "free", "no",
+     "StatCan Fruit & vegetable production + Census of Agriculture", "https://www.statcan.gc.ca/en/census-agriculture",
+     "area/production/value by province, annual + 5-yr census", "", _TODAY,
+     "splits wild lowbush vs cultivated highbush"),
+    ("Canada", "exporter", "production/export forecast", "free", "no",
+     "AAFC Statistical Overview of the Canadian Fruit Industry", "https://www.agr.gc.ca/eng/horticulture/horticulture-sector-reports/",
+     "annual (retrospective)", "", "", "no forward blueberry outlook -- only the annual overview"),
+
+    # ---- South Africa (#9 exporter 2023) ----
+    ("South Africa", "exporter", "national customs trade detail (HS x partner)", "free", "no",
+     "SARS Trade Statistics", "https://www.sars.gov.za/customs-and-excise/trade-statistics/",
+     "HS x partner, monthly; beta downloads (volume-limited)", "", _TODAY,
+     "legislated trade-stats authority; aggregate, no exporter names"),
+    ("South Africa", "exporter", "shipment-level export with exporter names", "paid", "no",
+     "commercial brokers", "", "per shipment", "", "", "no free origin BoL"),
+    ("South Africa", "exporter", "authorised export orchards/packhouses (phyto)", "free", "no",
+     "DALRRD PUC/PHC + PPECB", "https://ppecb.com/", "PUC/PHC registration; per-crop PDFs",
+     "", "", "framework public; no standalone blueberry PUC list found"),
+    ("South Africa", "exporter", "orchard / planted-area (blueberry-specific)", "free", "no",
+     "Berries ZA -- Statistics", "https://www.berriesza.co.za/statistics/",
+     "ha + regional split, blueberry-specific", "", _TODAY,
+     "best blueberry source (~2,600-3,000 ha; W.Cape ~60%); some member-gated"),
+    ("South Africa", "exporter", "production/export forecast", "free", "no",
+     "Berries ZA crop estimates + USDA-FAS GAIN (Pretoria)", "https://www.berriesza.co.za/",
+     "season-ahead", "", _TODAY, "~25,000 t export estimate; NAMC fruit trade-flow adds context"),
+
+    # ---- Poland (EU; #9-ish exporter 2023) ----
+    ("Poland", "exporter", "national customs trade detail (CN8)", "free", "no",
+     "GUS Foreign Trade + Eurostat COMEXT", "https://stat.gov.pl/en/topics/prices-trade/trade/",
+     "HS/CN8 x partner, monthly", "", "",
+     "GUS 503 from sandbox; COMEXT is the harmonised CN8 route (reachable)"),
+    ("Poland", "exporter", "shipment-level export with exporter names", "paid", "no",
+     "commercial brokers", "", "per shipment", "", "", "no free origin BoL"),
+    ("Poland", "exporter", "authorised export orchards/packhouses (phyto)", "none", "na",
+     "PIORIN -- Professional Operators Register", "http://piorin.gov.pl/en/",
+     "operator-level", "", "", "registration required but no public named list published"),
+    ("Poland", "exporter", "orchard / planted-area by voivodeship", "free", "no",
+     "GUS Agriculture & horticultural crops + BDL", "https://stat.gov.pl/en/topics/agriculture-forestry/agricultural-and-horticultural-crops/",
+     "area/production by voivodeship, annual", "", "",
+     "borowka wysoka (highbush) in Statistical Yearbook of Agriculture; 503 from sandbox"),
+    ("Poland", "exporter", "production/export forecast", "none", "na",
+     "USDA-FAS Warsaw (no blueberry annual)", "https://www.fas.usda.gov/",
+     "n/a", "", "", "Stone Fruits Annual excludes blueberry; no season-ahead PL forecast found"),
 ]
 
 
 def _records() -> list[dict]:
     rows = []
-    for t in _SEED:
+    for t in _SEED + _SEED_PHASE2:
         rec = {"commodity": _COMMODITY, "hs_code": _HS}
         rec.update(dict(zip(_FIELDS, t)))
         rows.append(rec)
