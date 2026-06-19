@@ -57,6 +57,9 @@ _COLS = ["year", "role", "reporter_code", "country", "value_usd", "net_kg",
 # #1 exporter, rank 50), while 2023 was complete -- i.e. ~18 months was not yet
 # final, but ~30 months (2023) was.
 FINAL_LAG_YEARS = 3
+# Comtrade HS-classified blueberry data is usable from 2012 -- pull the full
+# history so the atlas carries trajectories, not just a recent snapshot.
+START_YEAR = 2012
 
 
 def is_provisional(year: int, today: _dt.date | None = None) -> bool:
@@ -182,9 +185,9 @@ def target_set(role: str, year: int | None = None, coverage: float = 0.95,
 
 if __name__ == "__main__":                             # python -m atlas.comtrade_sweep
     this = _dt.date.today().year
-    # 3-year window: guarantees at least one non-provisional (final) year is cached.
-    df = refresh([this - 4, this - 3, this - 2])
-    print(f"cached {len(df)} ranking rows -> {CACHE}")
+    # full history START_YEAR..present (recent years flagged provisional).
+    df = refresh(list(range(START_YEAR, this + 1)))
+    print(f"cached {len(df)} ranking rows ({START_YEAR}->{this}) -> {CACHE}")
     for role in ("exporter", "importer"):
         ts = target_set(role)                          # latest final year
         yr = int(ts["year"].iloc[0]) if len(ts) else "-"
