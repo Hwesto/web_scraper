@@ -125,12 +125,60 @@ Target: Chile→UK arrivals Jan–Apr (HMRC).
   **+0.71 excluding the 2022 low-NDVI outlier** (n=7). The year-to-year vigour wiggle
   tracks the year-to-year export wiggle.
 
-**Verdict: cautious GO.** The signal shows up on the *correct* test, exactly as predicted,
-and survives outlier removal. Honest caveats: **n=8 is low power**; there's researcher
-degrees-of-freedom (choosing to detrend / inspect 2022); and this crude single-scene,
-coarse, unmasked probe likely *understates* the achievable signal. The **2022 anomaly**
-(NDVI 0.307) needs checking — real bad season vs cloud contamination.
+**Verdict: cautious GO.** The signal shows up on the *correct* test, survives outlier
+removal. Honest caveats: **n=8 low power**; researcher df (detrend / inspect 2022); crude
+single-scene/coarse/unmasked probe.
 
-**→ Proceed to Phase 2b** to firm it: integrated seasonal metric (greenness-days) instead
-of one scene, WorldCover cropland mask, capacity-model residual as the target, and all
-blueberry comunas. Only then consider Tier 3.
+### Manual scene check (2022 anomaly + control 2021)
+
+Pulled every Dec–Feb scene per AOI with cloud%, clear-pixel count, NDVI:
+
+- **2022 is NOT cloud contamination.** Scenes are **0 % cloud, ~35,700/35,700 clear px**;
+  NDVI is genuinely ~0.24–0.35 across all three regions (vs ~0.42–0.65 in 2021). The low
+  is real reflectance.
+- **But three problems surface, not one:**
+  1. **Heavy non-orchard dilution.** Absolute NDVI 0.24–0.65 is far below healthy
+     blueberry canopy (~0.6–0.8) → the AOI box is dominated by inter-row soil / rainfed
+     pasture / town, so it's a *regional* vegetation signal, not blueberry-specific.
+  2. **Single-scene picking is timing-fragile.** Ñuble swung 0.39 (Jan 23) → 0.24 (Feb 7)
+     within 2022; and the big *2023* heat/fire event (Jan–Feb 2023, Ñuble/Biobío) doesn't
+     show — the probe grabbed a pre-fire clear scene, so season-2023 reads normal.
+  3. So 2022's low is real regional dryness, but its link to *blueberry yield* is
+     plausible-not-proven — the correlation may be riding regional climate, not orchards.
+
+Net: the cautious GO holds (the correlation isn't a cloud artifact), but 2a can't yet
+separate "blueberry condition" from "regional climate." That separation is the whole job
+of 2b.
+
+**→ Proceed to Phase 2b**, scoped below.
+
+---
+
+## Phase 2b — scope (refined by 2a)
+
+**Objective.** Turn the regional NDVI proxy into a *blueberry-orchard* condition index and
+re-test it properly — isolating orchards from the landscape, using an integrated metric,
+against the capacity residual.
+
+| # | Task | Why (from 2a) | How (free) |
+|---|---|---|---|
+| 1 | **Isolate orchard pixels** | absolute NDVI shows heavy non-orchard dilution | unsupervised **NDVI-persistence mask**: perennial irrigated orchards stay green through the dry summer & across years; select pixels with high multi-year summer-min NDVI. Cross-check masked hectares vs Catastro comuna area. (WorldCover cropland as a coarse pre-filter) |
+| 2 | **Whole-AOI vs masked diagnostic** | can't yet tell blueberry from regional climate | compute the export correlation for **both** whole-AOI and masked-orchard NDVI. If only whole-AOI tracks → it's regional climate (weak). If masked-orchard tracks → real orchard condition. **This is the decisive 2b test.** |
+| 3 | **Integrated seasonal metric** | single-scene is timing-fragile (2022 swing; 2023 fire missed) | mean/median NDVI over *all* clear scenes Nov–Feb, or greenness-days (seasonal integral) |
+| 4 | **Target = capacity residual** | raw exports are trend-dominated | regress masked seasonal NDVI on (exports − `capacity.py` expectation), leave-one-season-out |
+| 5 | **All blueberry comunas, Catastro-weighted** | 3 AOIs is thin | iterate Catastro top-hectare comunas; hectare-weight |
+| 6 | **Event cases as natural experiments** | sanity check | does masked NDVI dip in the 2022 dry summer / where 2023 fires burned? right place, right time? |
+
+**Deliverables.** `nowcast/data/sentinel_ndvi.py` (SignalSource: tifffile+fsspec reader,
+persistence mask, integrated metric) · a backtest diagnostic (whole-AOI vs masked vs
+capacity-residual, leave-one-out) · GO/NO-GO memo for Tier 3.
+
+**Decision gate.** Continue to Tier 3 only if **task 2** shows the *masked-orchard* index
+(not just whole-AOI) tracks the capacity residual. If only the regional signal survives,
+stop — we'd be modelling Chilean weather, not its blueberries.
+
+**Honest limits unchanged.** n≈8 seasons; persistence-mask ≠ true blueberry classification
+(catches all perennial orchard — cherries/other berries too); NDVI is relative condition.
+
+**Effort.** ~3–5 focused days (reader + mask + metric + backtest), no new egress risk
+(tifffile+fsspec path proven), modest compute (overview reads, cache per scene).
