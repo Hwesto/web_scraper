@@ -344,18 +344,61 @@ def _faostat_iso() -> pd.DataFrame:
     return fa
 
 
-def _vp_fig(years, vol_kt, price, verb, color) -> str:
-    """The two hard-hitting charts every country has: volume + $/kg over time."""
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(5.6, 1.9))
-    a1.fill_between(years, vol_kt, color=color, alpha=0.85, zorder=3)
-    a1.plot(years, vol_kt, color=color, lw=1.4, zorder=4)
-    a1.set_title(f"{verb} volume · kt", fontsize=9.5, color=SUBTLE, loc="left")
-    a2.plot(years, price, color="#b8860b", lw=2.0, marker="o", ms=3, zorder=4)
-    a2.set_title("price · $/kg", fontsize=9.5, color=SUBTLE, loc="left")
-    for ax in (a1, a2):
-        ax.set_xticks([years[0], years[-1]]); ax.tick_params(labelsize=8.5)
-        _bare(ax, grid="y")
-    a1.set_ylim(bottom=0)
+def _country_fig(name, code, ex, im, primary, bil, named) -> str:
+    """Adaptive card figure: dual-flow volume · labelled price · dual partner graph ·
+    named-exporter depth (where it exists). Panels render only when they have data."""
+    panels = ["vol", "price"]
+    Y = int(bil["year"].max()) if len(bil) else None
+    dest = (bil[(bil["exporter_code"] == code) & (bil["year"] == Y)]
+            .groupby("importer")["value_usd"].sum().nlargest(4)) if code else pd.Series(dtype=float)
+    orig = (bil[(bil["importer_code"] == code) & (bil["year"] == Y)]
+            .groupby("exporter")["value_usd"].sum().nlargest(4)) if code else pd.Series(dtype=float)
+    if len(dest) or len(orig):
+        panels.append("partners")
+    if named is not None and len(named):
+        panels.append("named")
+    n = len(panels)
+    fig, axs = plt.subplots(1, n, figsize=(2.8 * n, 2.15))
+    axs = np.atleast_1d(axs)
+    for ax, p in zip(axs, panels):
+        if p == "vol":
+            series = [s for s in (("exports", ex, ACCENT), ("imports", im, "#6a8caf")) if len(s[1])]
+            for label, d, col in series:
+                ax.plot(d["year"], d["net_kg"] / 1e6, color=col, lw=1.8, label=label, zorder=4)
+            if len(series) == 2:                                    # fill the SMALLER flow
+                small = min(series, key=lambda s: s[1]["net_kg"].iloc[-1])
+                ax.fill_between(small[1]["year"], small[1]["net_kg"] / 1e6, color=small[2], alpha=0.32, zorder=2)
+                ax.legend(fontsize=7, frameon=False, loc="upper left", handlelength=1.0)
+            elif series:
+                d, col = series[0][1], series[0][2]
+                ax.fill_between(d["year"], d["net_kg"] / 1e6, color=col, alpha=0.85, zorder=2)
+            yrs = sorted(set(ex["year"].tolist() + im["year"].tolist()))
+            ax.set_xticks([yrs[0], yrs[-1]] if yrs else []); ax.set_ylim(bottom=0)
+            ax.set_title("volume · kt", fontsize=9.5, color=SUBTLE, loc="left")
+        elif p == "price":
+            d = ex if primary == "exporter" else im
+            ax.plot(d["year"], d["unit_usd_kg"], color="#b8860b", lw=2.0, marker="o", ms=3, zorder=4)
+            ax.set_xticks([int(d["year"].min()), int(d["year"].max())])
+            ax.set_title(f"avg $/kg · customs {'FOB' if primary=='exporter' else 'CIF'}",
+                         fontsize=9.5, color=SUBTLE, loc="left")
+        elif p == "partners":
+            labels, vals, cols = [], [], []
+            for c, v in dest.items():
+                labels.append(f"▸ {c}"); vals.append(v / 1e6); cols.append(ACCENT)
+            for c, v in orig.items():
+                labels.append(f"◂ {c}"); vals.append(v / 1e6); cols.append("#6a8caf")
+            yy = list(range(len(labels)))
+            ax.barh(yy, vals, color=cols, height=0.72)
+            ax.set_yticks(yy); ax.set_yticklabels(labels, fontsize=7.5); ax.invert_yaxis()
+            ax.set_title("sells to ▸ / buys from ◂ · $M", fontsize=8.8, color=SUBTLE, loc="left")
+        elif p == "named":
+            t = named.head(6)
+            yy = list(range(len(t)))
+            ax.barh(yy, t["volume_t"] / 1000, color="#7a5c8e", height=0.72)
+            ax.set_yticks(yy); ax.set_yticklabels(t["company"], fontsize=7.5); ax.invert_yaxis()
+            ax.set_title("named exporters · kt", fontsize=8.8, color=SUBTLE, loc="left")
+        _bare(ax, grid="y" if p in ("vol", "price") else "x")
+        ax.tick_params(labelsize=8.2)
     return _png(fig)
 
 
@@ -389,7 +432,7 @@ def _extra_facts(name, code, iso3, fa_iso, wx) -> list[str]:
     return out
 
 
-def _country_card(name, code, cname, iso3, reg, fa_iso, wx) -> str:
+def _country_card(name, code, cname, iso3, reg, fa_iso, wx, bil) -> str:
     sub = cs.load()
     sub = sub[sub["reporter_code"] == code] if code else sub.iloc[0:0]
     ex = sub[sub["role"] == "exporter"].sort_values("year")
@@ -414,8 +457,11 @@ def _country_card(name, code, cname, iso3, reg, fa_iso, wx) -> str:
              + stat(f"{last['share']*100:.0f}%", f"world share · #{int(last['rank'])}")
              + (stat(f"{'+' if grow>=0 else ''}{grow:.0f}%", f"since {int(first['year'])}") if grow is not None else "")
              + "</div>")
-    color = ACCENT if role == "exporter" else "#6a8caf"
-    img = f'<img src="{_vp_fig(ts["year"].tolist(), (ts["net_kg"]/1e6).tolist(), ts["unit_usd_kg"].tolist(), verb, color)}"/>'
+    named = None
+    if name == "Peru":
+        from atlas import peru_exporters
+        named = peru_exporters.load()
+    img = f'<img src="{_country_fig(name, code, ex, im, role, bil, named)}"/>'
     facts = _extra_facts(name, code, iso3, fa_iso, wx)
     deep = '<a href="./index.html">deep dive ↗</a>' if name in ("United Kingdom", "Chile", "Peru") else ""
     facts_html = f'<p class="facts">{" · ".join(facts)}{(" · " + deep) if (facts and deep) else deep}</p>' if (facts or deep) else ""
@@ -445,6 +491,7 @@ def _country_sections(order: list[str]) -> str:
     c2i = _code_to_iso3()
     wx = _wx_load()
     fa_iso = _faostat_iso()
+    bil = cmat.load()
     reg_countries = [c for c in order if c in set(reg["country"])]
     reg_countries += [c for c in sorted(reg["country"].unique())
                       if c not in reg_countries and c != "*"]
@@ -453,7 +500,7 @@ def _country_sections(order: list[str]) -> str:
         code = n2c.get(name)
         cname = countries.name(code) if code else name
         iso3 = c2i.get(code) if code else None
-        out.append(_country_card(name, code, cname, iso3, reg, fa_iso, wx))
+        out.append(_country_card(name, code, cname, iso3, reg, fa_iso, wx, bil))
     return "".join(out)
 
 
@@ -593,8 +640,10 @@ you can know about it for free. <b>Reference year {year}.</b></p>
 <h2 id="year">The year</h2>
 {the_year}
 <h2 id="countries">Countries &amp; coverage <span style="font-size:.8rem;color:#a59e93">({n_countries} profiles)</span></h2>
-<p class="lead">Each country's wired data (production · destinations · season · frost) beside
-its coverage card — what's free-and-held (✅), free-but-unwired (🟢), paid (💷), or absent (⛔).</p>
+<p class="lead">Each country leads with the facts everyone wants — <b>volume</b> (exports &amp; imports
+on one axis, the smaller flow shaded) and <b>price</b> — then partners, depth, and a coverage card.
+Price is the <b>customs unit-value</b> (value ÷ net weight: FOB for exports, CIF for imports) —
+an average border price, <i>not</i> retail or spot. Named exporters where the depth exists.</p>
 <div class="profiles">{profiles}</div>
 <h2 id="atlas">The atlas — what you can know</h2>
 <p class="lead">The registry as a map: every country × data-class, flagged by access. This —
