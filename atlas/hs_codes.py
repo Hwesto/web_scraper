@@ -24,6 +24,19 @@ _COLS = ["commodity", "hs6", "jurisdiction", "national_code", "level",
 # The reference commodity: everything else is the same machine with this swapped.
 DEFAULT_COMMODITY = "blueberry"
 
+# FAOSTAT QCL item codes per commodity -- the production/area join key (Phase 4).
+FAO_ITEM = {
+    "blueberry": "552", "avocado": "572", "cherry": "531",
+    "raspberry_blackberry": "547", "strawberry": "544", "grape_table": "560",
+}
+
+
+def fao_item(commodity: str = DEFAULT_COMMODITY) -> str:
+    """FAOSTAT item code for a commodity (the FAOSTAT production join key)."""
+    if commodity not in FAO_ITEM:
+        raise KeyError(f"no FAOSTAT item code for commodity={commodity!r}")
+    return FAO_ITEM[commodity]
+
 
 def load() -> pd.DataFrame:
     if not CACHE.exists():

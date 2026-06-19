@@ -69,6 +69,15 @@ wired registry row. "Maximum" = nothing free and parseable left merely catalogue
 
 ---
 
+## Phase 4 — other fruits (HS code is just a parameter) → PROVEN
+- [x] **Generalization proof**: the global base layers run for a second fruit with only a
+      `commodity` arg. `comtrade_sweep`/`faostat` are commodity-parameterised (per-commodity
+      caches; `hs_codes.FAO_ITEM` + `hs6()` are the join keys). Ran **avocado** (HS 080440 /
+      FAO 572): Comtrade → Mexico #1 exporter (42%), Netherlands/Peru/Spain/Chile; FAOSTAT →
+      Mexico #1 producer (2.76 Mt). Committed: `comtrade_global_ranking_avocado.csv`,
+      `faostat_avocado.csv`. HS6 seeds exist for cherry/strawberry/raspberry/grape too.
+- [ ] Full per-fruit build (run the overlays — orchards/phyto/forecasts — for a chosen 2nd fruit)
+
 ## Execution order
 Foundation-up: **finish Phase 1 → fill Phase 2 → wire Phase 3**, then Phase 4 (HS swap).
 Heavy network pulls (full history, full monthly) run on the **clean-egress runner**

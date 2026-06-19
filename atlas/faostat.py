@@ -23,12 +23,17 @@ import zipfile
 
 import pandas as pd
 
-from atlas import ATLAS_DIR
+from atlas import ATLAS_DIR, hs_codes
 
 CACHE = ATLAS_DIR / "faostat_blueberry.csv"
 BULK_URL = ("https://bulks-faostat.fao.org/production/"
             "Production_Crops_Livestock_E_All_Data_(Normalized).zip")
-ITEM_CODE = "552"                                   # FAOSTAT "Blueberries"
+ITEM_CODE = "552"                                   # FAOSTAT "Blueberries" (default)
+
+
+def _cache(commodity: str) -> "object":
+    """Per-commodity cache path -- blueberry keeps the original filename (Phase 4)."""
+    return CACHE if commodity == "blueberry" else ATLAS_DIR / f"faostat_{commodity}.csv"
 _ELEMENTS = {"5312": "area_ha", "5510": "production_t", "5419": "yield_raw"}
 _AGG_MIN_CODE = 5000                                # FAO area codes >= 5000 are aggregates
 _COLS = ["year", "m49", "country", "area_ha", "production_t", "yield_t_ha"]
@@ -41,11 +46,11 @@ def _is_country(row: dict) -> bool:
         return False
 
 
-def _rows_to_df(rows: list[dict]) -> pd.DataFrame:
-    """Pivot normalized FAOSTAT rows (item 552) to one row per country-year (offline-testable)."""
+def _rows_to_df(rows: list[dict], item_code: str = ITEM_CODE) -> pd.DataFrame:
+    """Pivot normalized FAOSTAT rows for an item to one row per country-year (offline-testable)."""
     acc: dict[tuple, dict] = {}
     for r in rows:
-        if r.get("Item Code") != ITEM_CODE or not _is_country(r):
+        if r.get("Item Code") != item_code or not _is_country(r):
             continue
         col = _ELEMENTS.get(str(r.get("Element Code")))
         if col is None:
@@ -66,8 +71,9 @@ def _rows_to_df(rows: list[dict]) -> pd.DataFrame:
     return df.sort_values(["year", "production_t"], ascending=[True, False]).reset_index(drop=True)
 
 
-def refresh(url: str = BULK_URL) -> pd.DataFrame:
-    """Download the FAOSTAT QCL bulk, filter to blueberries, (re)write the cache."""
+def refresh(url: str = BULK_URL, commodity: str = "blueberry") -> pd.DataFrame:
+    """Download the FAOSTAT QCL bulk, filter to the commodity, (re)write its cache."""
+    item = hs_codes.fao_item(commodity)
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     data = urllib.request.urlopen(req, timeout=180).read()
     z = zipfile.ZipFile(io.BytesIO(data))
@@ -77,24 +83,26 @@ def refresh(url: str = BULK_URL) -> pd.DataFrame:
     with z.open(name) as f:
         rd = csv.DictReader(io.TextIOWrapper(f, encoding="utf-8-sig", errors="replace"))
         for row in rd:
-            if row.get("Item Code") == ITEM_CODE:
+            if row.get("Item Code") == item:
                 rows.append(row)
-    df = _rows_to_df(rows)
+    df = _rows_to_df(rows, item)
     if df.empty:
-        raise RuntimeError("no blueberry rows parsed from FAOSTAT bulk")
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(CACHE, index=False)
+        raise RuntimeError(f"no {commodity} rows parsed from FAOSTAT bulk")
+    out = _cache(commodity)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out, index=False)
     return df
 
 
-def load() -> pd.DataFrame:
-    if not CACHE.exists():
+def load(commodity: str = "blueberry") -> pd.DataFrame:
+    out = _cache(commodity)
+    if not out.exists():
         return pd.DataFrame(columns=_COLS)
-    return pd.read_csv(CACHE)
+    return pd.read_csv(out)
 
 
-def top_producers(year: int | None = None, n: int = 15) -> pd.DataFrame:
-    df = load()
+def top_producers(year: int | None = None, n: int = 15, commodity: str = "blueberry") -> pd.DataFrame:
+    df = load(commodity)
     if df.empty:
         return df
     year = year or int(df["year"].max())

@@ -110,38 +110,47 @@ def _rank_one(flow_role: str, year: int, hs: str, names: dict[int, str]) -> pd.D
     return df[_COLS]
 
 
+def _cache(commodity: str) -> "Path":
+    """Per-commodity cache path. Blueberry keeps the original filename (back-compat);
+    other fruits (Phase 4 -- HS code is just a parameter) get a suffixed file."""
+    return CACHE if commodity == "blueberry" else ATLAS_DIR / f"comtrade_global_ranking_{commodity}.csv"
+
+
 def refresh(years: list[int], commodity: str = "blueberry") -> pd.DataFrame:
     """Sweep exporter + importer rankings for each year; (re)write the cache."""
     hs = hs_codes.hs6(commodity)
     names = countries.name_map()
+    out = _cache(commodity)
     parts = []
     for year in years:
         for role in ("exporter", "importer"):
             parts.append(_rank_one(role, year, hs, names))
             time.sleep(0.5)                            # polite between calls
     fresh = pd.concat(parts, ignore_index=True)
-    if CACHE.exists() and not fresh.empty:
-        old = pd.read_csv(CACHE)
+    if out.exists() and not fresh.empty:
+        old = pd.read_csv(out)
         old = old[~old["year"].isin(years)]            # replace refreshed years wholesale
         fresh = pd.concat([old, fresh], ignore_index=True)
     fresh = fresh.sort_values(["year", "role", "rank"]).reset_index(drop=True)
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
-    fresh.to_csv(CACHE, index=False)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fresh.to_csv(out, index=False)
     return fresh
 
 
-def load() -> pd.DataFrame:
-    if not CACHE.exists():
+def load(commodity: str = "blueberry") -> pd.DataFrame:
+    out = _cache(commodity)
+    if not out.exists():
         return pd.DataFrame(columns=_COLS)
-    return pd.read_csv(CACHE)
+    return pd.read_csv(out)
 
 
-def latest_year(role: str, include_provisional: bool = False) -> int:
+def latest_year(role: str, include_provisional: bool = False,
+                commodity: str = "blueberry") -> int:
     """The default reference year for a role: latest non-provisional one cached.
 
     Falls back to the latest cached year if every cached year is provisional
     (so the function still returns *something* usable, just flagged)."""
-    df = load()
+    df = load(commodity)
     df = df[df["role"] == role]
     if df.empty:
         return 0
@@ -153,23 +162,23 @@ def latest_year(role: str, include_provisional: bool = False) -> int:
     return int(max(years))
 
 
-def ranking(role: str, year: int | None = None,
-            include_provisional: bool = False) -> pd.DataFrame:
+def ranking(role: str, year: int | None = None, include_provisional: bool = False,
+            commodity: str = "blueberry") -> pd.DataFrame:
     """The exporter or importer ranking for one year (latest *final* year if None)."""
-    df = load()
+    df = load(commodity)
     if df.empty:
         return df
     df = df[df["role"] == role]
     if year is None:
-        year = latest_year(role, include_provisional)
+        year = latest_year(role, include_provisional, commodity)
     return df[df["year"] == year].sort_values("rank").reset_index(drop=True)
 
 
-def coverage_by_year(role: str | None = None) -> pd.DataFrame:
+def coverage_by_year(role: str | None = None, commodity: str = "blueberry") -> pd.DataFrame:
     """Per-year data-quality lens: how many reporters filed, total trade value, and
     whether the year is still provisional. Makes the staggered-reporting lag visible
     (a year with far fewer reporters / much lower total is still filling in)."""
-    df = load()
+    df = load(commodity)
     if df.empty:
         return df
     if role is not None:
@@ -183,7 +192,7 @@ def coverage_by_year(role: str | None = None) -> pd.DataFrame:
 
 
 def target_set(role: str, year: int | None = None, coverage: float = 0.95,
-               include_provisional: bool = False) -> pd.DataFrame:
+               include_provisional: bool = False, commodity: str = "blueberry") -> pd.DataFrame:
     """Countries that together make up `coverage` of trade -- the 'global' target.
 
     Returns the smallest top-ranked set whose cumulative value share first
@@ -191,7 +200,7 @@ def target_set(role: str, year: int | None = None, coverage: float = 0.95,
     Defaults to the latest non-provisional year so a half-reported recent year
     can't drop a top exporter (e.g. Peru in 2024) from the target.
     """
-    df = ranking(role, year, include_provisional)
+    df = ranking(role, year, include_provisional, commodity)
     if df.empty:
         return df
     keep = df[df["cum_share"] < coverage]
