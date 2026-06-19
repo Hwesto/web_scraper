@@ -39,7 +39,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install deps
-        run: pip install requests pandas pyarrow pypdf
+        run: pip install requests pandas pyarrow pypdf matplotlib
       - name: Refresh Comtrade global ranking
         run: python -m atlas.comtrade_sweep || echo "comtrade sweep skipped"
       - name: Refresh Comtrade bilateral grid (both flows + mirror)
@@ -58,6 +58,8 @@ jobs:
         run: python -m atlas.usda_gain || echo "usda gain refresh skipped"
       - name: Refresh M49 country-code reference
         run: python -m atlas.countries || echo "country-code refresh skipped"
+      - name: Rebuild the Global Blueberry Atlas site (docs/atlas.html)
+        run: python scripts/build_atlas_site.py || echo "atlas site build skipped"
       - name: Re-probe overlay source reachability (clean egress)
         run: |
           ONLY_BLANK=""
@@ -68,9 +70,9 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           BRANCH="${{ github.ref_name }}"
-          git add data/atlas/ || true
+          git add data/atlas/ docs/atlas.html || true
           if git diff --staged --quiet; then echo "no atlas changes"; exit 0; fi
-          git commit -m "atlas: refresh global ranking + overlay reachability"
+          git commit -m "atlas: refresh data + rebuild site"
           # The PR branch can move under us while the (~10-min) refresh runs --
           # concurrent pushes from the dev sandbox or another run. Rebase our
           # generated-data commit on top and retry; on a data-file conflict prefer
