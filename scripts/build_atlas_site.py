@@ -456,7 +456,7 @@ def _country_card(name, code, cname, iso3, reg, fa_iso, wx, bil) -> str:
     tsq = ts[ts["net_kg"] > 0]                            # headline from years with real quantity
     tsq = tsq if len(tsq) else ts
     last, first = tsq.iloc[-1], tsq.iloc[0]
-    prov = bool(last.get("provisional", False))           # headline the latest year, but flag it
+    prov = cs.is_provisional(int(last["year"]))           # compute fresh (column is baked at fetch)
     yoy = (last["net_kg"] / tsq.iloc[-2]["net_kg"] - 1) * 100 if len(tsq) >= 2 and tsq.iloc[-2]["net_kg"] else None
     grow = (last["net_kg"] / first["net_kg"] - 1) * 100 if len(tsq) >= 2 and first["net_kg"] else None
     val = last["value_usd"]; vstr = f"${val/1e9:.2f}B" if val >= 1e9 else f"${val/1e6:.0f}M"
@@ -573,7 +573,7 @@ def _index_table_html(order: list[str]) -> str:
         primq = prim[prim["net_kg"] > 0]
         primq = primq if len(primq) else prim
         last = primq.iloc[-1]
-        prov = bool(last.get("provisional", False))
+        prov = cs.is_provisional(int(last["year"]))
         vol = last["net_kg"] / 1e6
         yoy = (last["net_kg"] / primq.iloc[-2]["net_kg"] - 1) * 100 if len(primq) >= 2 and primq.iloc[-2]["net_kg"] else None
         usd = last["unit_usd_kg"]; share = last["share"] * 100
@@ -635,6 +635,11 @@ def build() -> Path:
     yr = _latest_final("exporter")
 
     kpis = "".join(f'<div class="kpi"><b>{v}</b><span>{l}</span></div>' for v, l in _kpis())
+    m = cmth.load()
+    lm = f"{int(m['year'].max())}-{int(m[m['year'] == m['year'].max()]['month'].max()):02d}" if len(m) else "—"
+    recency = (f"Annual trade complete to <b>2024</b>; <b>2025 partial</b> (the big southern "
+               f"exporters — Peru, Chile — file their annual returns late, so 2025 shows early "
+               f"reporters only, tagged <b>ᵖ</b>). Monthly trade current to <b>{lm}</b>.")
 
     the_year = "".join([
         _fig_block("The relay — who supplies the world each month",
@@ -664,7 +669,7 @@ def build() -> Path:
     ceiling = _ceiling_html()
 
     html = _PAGE.format(today=today, year=yr, kpis=kpis, the_year=the_year, index=index,
-                        profiles=profiles, matrix=matrix, ceiling=ceiling,
+                        profiles=profiles, matrix=matrix, ceiling=ceiling, recency=recency,
                         n_countries=profiles.count('class="profile"'))
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(html, encoding="utf-8")
@@ -681,7 +686,9 @@ body{{margin:0;background:var(--paper);color:var(--ink);
  font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}}
 header{{padding:34px 22px 10px;max-width:1060px;margin:0 auto}}
 h1{{font-family:Georgia,serif;font-size:2.3rem;margin:0 0 4px}}
-.sub{{color:var(--subtle);font-size:1.02rem;margin:0 0 18px}}
+.sub{{color:var(--subtle);font-size:1.02rem;margin:0 0 8px}}
+.recency{{font-size:.84rem;color:var(--subtle);background:#fff;border:1px solid var(--line);
+ border-left:3px solid var(--accent);border-radius:8px;padding:8px 12px;margin:0 0 16px}}
 .kpis{{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 4px}}
 .kpi{{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 14px;min-width:120px}}
 .kpi b{{display:block;font-size:1.25rem}} .kpi span{{color:var(--subtle);font-size:.82rem}}
@@ -731,6 +738,7 @@ footer{{max-width:1060px;margin:0 auto;padding:20px 22px 50px;color:var(--subtle
 <h1>The Global Blueberry Atlas</h1>
 <p class="sub">What the world grows, ships, and pays through the year — and exactly what
 you can know about it for free. <b>Reference year {year}.</b></p>
+<p class="recency">{recency}</p>
 <div class="kpis">{kpis}</div>
 </header>
 <nav><a href="#year">The year</a><a href="#index">The index</a><a href="#countries">Countries</a><a href="#atlas">The atlas</a><a href="./index.html">Deep dive: UK ↗</a></nav>

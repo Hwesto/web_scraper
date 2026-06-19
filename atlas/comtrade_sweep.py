@@ -53,10 +53,10 @@ _COLS = ["year", "role", "reporter_code", "country", "value_usd", "net_kg",
 
 # Comtrade annual data is only treated as final this many calendar years on;
 # more recent years are provisional (staggered reporting -- see module docstring).
-# Set to 3 from a live check: in mid-2026 the 2024 sweep still missed Peru (the
-# #1 exporter, rank 50), while 2023 was complete -- i.e. ~18 months was not yet
-# final, but ~30 months (2023) was.
-FINAL_LAG_YEARS = 3
+# Re-checked live 2026-06: 2024 is now COMPLETE (Peru, the #1 exporter, has filed --
+# 326 kt), while 2025 is still partial (Peru/Chile file their annual returns late, so
+# 2025 shows other reporters only). So the latest *final* year is 2024, not 2023.
+FINAL_LAG_YEARS = 2
 # Comtrade HS-classified blueberry data is usable from 2012 -- pull the full
 # history so the atlas carries trajectories, not just a recent snapshot.
 START_YEAR = 2012

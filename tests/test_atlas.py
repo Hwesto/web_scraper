@@ -436,8 +436,9 @@ def test_coverage_by_year_quality_lens():
 def test_provisional_year_logic():
     import datetime as dt
     today = dt.date(2026, 6, 19)
-    assert cs.is_provisional(2024, today) is True               # ~18mo, still settling
-    assert cs.is_provisional(2023, today) is False              # ~30mo, final
+    # re-checked live 2026-06: 2024 is complete (Peru filed), 2025 still partial
+    assert cs.is_provisional(2025, today) is True               # latest year, still being reported
+    assert cs.is_provisional(2024, today) is False              # complete (incl. Peru)
 
 
 def test_committed_ranking_is_sane():
