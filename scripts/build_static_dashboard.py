@@ -268,6 +268,33 @@ def chart_markets(t: pd.DataFrame):
     return _png(fig)
 
 
+def chart_peru_outlook(f: pd.DataFrame):
+    """Peru fresh-export trajectory, split US vs rest, with USDA forecast years faded."""
+    f = f.sort_values("season").reset_index(drop=True)
+    us = f["exports_us_mt"] / 1000
+    row = (f["exports_mt"] - f["exports_us_mt"]) / 1000
+    fc = f["status"].eq("forecast").values
+    x = np.arange(len(f))
+    fig, ax = plt.subplots(figsize=(9.2, 4.0))
+    for i in range(len(f)):
+        a = 0.5 if fc[i] else 1.0
+        ax.bar(x[i], us.iloc[i], color="#e8833a", alpha=a, zorder=3, width=0.72)
+        ax.bar(x[i], row.iloc[i], bottom=us.iloc[i], color="#b9a9d6", alpha=a,
+               zorder=3, width=0.72)
+        ax.text(x[i], f["exports_mt"].iloc[i] / 1000 + 4,
+                f"{f['exports_us_share_%'].iloc[i]:.0f}%", ha="center",
+                fontsize=8.5, color=SUBTLE)
+    ax.set_xticks(x); ax.set_xticklabels(f["season"], fontsize=10, color=INK)
+    ax.set_ylabel("fresh exports (000 t)")
+    ax.bar(0, 0, color="#e8833a", label="to USA")
+    ax.bar(0, 0, color="#b9a9d6", label="rest of world")
+    ax.legend(loc="upper left", frameon=False, fontsize=9.5)
+    ax.text(x[fc.argmax()] - 0.4, ax.get_ylim()[1] * 0.02, "USDA forecast →",
+            fontsize=8.5, color=SUBTLE, style="italic") if fc.any() else None
+    _bare(ax, grid="y")
+    return _png(fig)
+
+
 def chart_asia(top: pd.DataFrame):
     """Top China-approved producers, sized by the Asia-premium prize they can capture."""
     from nowcast.farm import names
@@ -636,6 +663,27 @@ anyone, Chile included.</p>
 <figcaption>Each bubble a destination ({peru_year}); height is netback per kg after freight,
 width is volume absorbed (log scale). UN Comtrade reporter=Peru, HS 081040; freight =
 deep-sea reefer ÷ payload (ex-Callao transit, a touch shorter than Chile).</figcaption></figure>""")
+
+    _peruf = REPO_ROOT / "data" / "market" / "peru_fundamentals.csv"
+    if _peruf.exists():
+        pf = pd.read_csv(_peruf)
+        cur = pf[pf["status"] == "forecast"].iloc[0] if (pf["status"] == "forecast").any() else pf.iloc[-1]
+        add("Peru", "Global", "USDA-FAS", f"""
+<h2>Peru's supply outlook</h2>
+<p class="deck">Peru has no orchard census like Chile's — so the USDA's annual estimate
+is the structural and forward view: how much is planted, picked, and shipped, two
+seasons out.</p>
+<p>The trajectory is relentless: harvested area near <em>{int(cur['area_ha']):,} ha</em>
+and production forecast to a record <em>{int(cur['production_mt']/1000)}k t</em> in
+{cur['season']}, with exports around <em>{int(cur['exports_mt']/1000)}k t</em>. The
+striking part is the constancy of the concentration — the United States has taken
+~54–56% of Peru's fruit every year, and the USDA forecast has that share edging
+<em>up</em> to {cur['exports_us_share_%']:.0f}%. Peru isn't diversifying away from its
+one big customer; it's doubling down while Asia grows underneath.</p>
+<figure><img src="{chart_peru_outlook(pf)}" alt="Peru blueberry export outlook, US vs rest of world">
+<figcaption>Fresh exports by marketing year, split US vs rest (USDA-FAS Blueberry
+Annual, Lima; faded bars + % are FAS estimates/forecasts). Peru's substitute for an
+orchard census — authoritative annual estimates, not a per-block survey.</figcaption></figure>""")
 
     # Per-origin <origin>→UK blocks, all from held data (HMRC seasonality + CIF,
     # Comtrade FOB). Lights up a matrix cell per major supplier; empties stay empty.

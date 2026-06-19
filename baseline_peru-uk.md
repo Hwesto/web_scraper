@@ -24,7 +24,7 @@ census like Chile's Catastro**, so the structural/capacity layer can't be replic
 
 | Data point | Status | Source / note |
 |---|---|---|
-| **Season export progress, by week** | 🟢 | **ProArándanos** publishes weekly campaign volumes (peak week, cumulative) — Peru's analogue of Chile's DUS weekly, and arguably *better* season data. Site reachable (200); confirm raw/structured access vs press-republished (Agronometrics/FreshFruitPortal) |
+| **Season export progress, by week** | ⚠️ press-only | **ProArándanos** publishes weekly campaign volumes — but **checked: no structured feed** (site 403s to fetch; figures live in PDFs/press republished by Agronometrics/FreshFruitPortal). Not cleanly fillable as a series without a fragile scrape |
 | Packhouse hiring (leading) | 🟢 | same concept as Chile (forward-only) |
 | Grade / pack format | ⛔ | not public |
 
@@ -71,7 +71,7 @@ census like Chile's Catastro**, so the structural/capacity layer can't be replic
 |---|---|---|
 | USD/GBP FX | ✅ | ECB (fx.py) — held |
 | Tariff Peru→UK | 🟢 | UK-Andean agreement — fresh blueberries 0 %; confirm & note |
-| **Season forecasts** | 🟢 **verified** | **USDA FAS "Blueberry Annual – Lima"** (free PDF, 200) + ProArándanos estimates — Peru has *stronger* forward data than Chile |
+| **Area / production / exports + forecasts** | ✅ **built** | **USDA-FAS "Blueberry Annual – Lima"** PSD table → `peru_fundamentals.csv` (area, production, exports, exports-to-US, 2-season forecasts) + "Peru supply outlook" block. Peru's structural/forward layer, in lieu of an orchard census |
 | Competing-origin timing | ✅ | HMRC origin mix (the relay) |
 | Phyto access (Peru→China / →US) | 🟢 | GACC-registered Peruvian orchards / APHIS — analogue of the SAG-China roster |
 
@@ -79,12 +79,15 @@ census like Chile's Catastro**, so the structural/capacity layer can't be replic
 
 ## Verdict — what can be filled
 
-**Easier than Chile (flow & price):**
-1. **Peru netback** (Comtrade reporter=Peru) — *verified*, a ~1-day mirror of `comtrade.py`. Top immediate win.
-2. **ProArándanos weekly season volumes** — the rich origin feed (verify structured access).
-3. **USDA-FAS + ProArándanos forecasts** — *verified free*; Peru's forward data beats Chile's.
-4. **MIDAGRI regional hectares** — coarse area (region, not block).
-5. **Peru→China GACC phyto roster** — same trick as SAG.
+**Built:**
+1. ✅ **Peru netback** (Comtrade reporter=Peru) — "where Peru sells" block + 2012–24 history.
+2. ✅ **USDA-FAS fundamentals** — area/production/exports/forecasts → `peru_fundamentals.csv`
+   + "Peru supply outlook" block (the Catastro substitute).
+
+**Still open:**
+3. ⚠️ **ProArándanos weekly** — no structured feed (403/press-only); needs a fragile scrape.
+4. 🟢 **MIDAGRI regional hectares** — coarse area (region, not block); low priority.
+5. 🟢 **Peru→China GACC phyto roster** — same trick as SAG, if the GACC list is fetchable.
 
 **Already held:** HMRC Peru→UK volume+CIF, Comtrade Peru→UK FOB, the Peru→UK block, and
 every lane-independent layer (Trolley, ONS, FX, freight, importer side).
