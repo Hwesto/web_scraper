@@ -1,73 +1,78 @@
-# Data sources
+# Data sources — master link list
 
-A living catalogue of every feed behind the dashboard — what each gives, how far it
-reaches across the **exporter × importer** grid, and where it can grow. Status tags:
-
-`LIVE` wired & refreshing · `DERIVED` computed from another feed · `PROXY` stand-in with a
-documented gap · `STUB` schema fixed, collection forward-only · `BLOCKED` reachable only off
-the sandbox/paid · `CANDIDATE` researched, not yet wired.
-
-Each dashboard block is stamped with the source(s) below; empty cells in the coverage
-matrix are sources we don't yet have for that pair.
+Every feed behind the project, with its live endpoint, what it gives, time depth, and
+status. `LIVE` wired & refreshing · `DERIVED` computed from another feed · `PROXY`
+documented stand-in · `PROBE` validated, not yet a pipeline · `STUB` schema only ·
+`CANDIDATE`/`PAID` not wired. Each dashboard block is stamped with the source(s) below.
 
 ---
 
-## Current sources
+## Flow & volume
 
-### Flow & volume (the anchor)
+| Source | Link | Gives | Depth | Status · module |
+|---|---|---|---|---|
+| **HMRC OTS** | `api.uktradeinfo.com` (OData) | UK imports by origin — mass + customs value, CN8 08104050 | **2018→now**, monthly, ~6wk lag | `LIVE` · `data/hmrc.py` |
+| **Chile Aduana DUS** | `datos.gob.cl` (CKAN) | Chile→UK shipments: named exporter/producer + cultivar + region | **2018→now**, weekly | `LIVE` (cron, clean egress) · `scripts/fetch_chile_weekly_exports.py` |
+| **ODEPA** | `datos.gob.cl` (CKAN) | Chile→UK export tonnes (official mirror / cross-check) | monthly | `LIVE` · `volume/data/odepa_chile.py` |
+| Fused UK supply | — | year-round all-origin UK supply | weekly | `DERIVED` · `volume/uk_total.py` |
 
-| Source | Module | Provides | Scope | Cadence / lag | Status | Expand |
-|---|---|---|---|---|---|---|
-| **HMRC OTS** | `data/hmrc.py` | UK imports by origin — net mass + customs value, CN8 08104050 | Importer=UK, all origins | Monthly, ~6 wk lag | `LIVE` | Vintages only accrue forward (no deep revision history yet); add other CN8 lines / frozen 08111000 |
-| **Chile Aduana — DUS cargo** | `scripts/fetch_chile_weekly_exports.py` | Chile→UK shipments, **named exporter/producer + cultivar + region**, weekly | Exporter=Chile, importer=UK | Weekly | `LIVE` | The deep, de-anonymised feed; daily DUS exists on datos.gob.cl but is `BLOCKED` (TLS) — would give true daily shape |
-| **ODEPA (Chile customs mirror)** | `volume/data/odepa_chile.py` | Chile→UK export tonnes, official | Exporter=Chile, importer=UK | Monthly | `LIVE` | Two-sided cross-check; other destinations beyond UK |
-| **Fused UK supply** | `volume/uk_total.py` | Year-round all-origin UK supply, never-blank | Importer=UK, 9 origins | Weekly | `DERIVED` | Add origins as live feeds appear (Peru/Morocco have none yet) |
+## Prices
 
-### Prices
+| Source | Link | Gives | Depth | Status · module |
+|---|---|---|---|---|
+| **HMRC unit value** | (from HMRC OTS) | UK-landed **CIF £/kg by origin** (~46 origins) | 2018→now, monthly | `DERIVED` · `price.py` |
+| **UN Comtrade — destinations** | `comtradeapi.un.org` (preview) | what each market pays Chile **&** Peru (CIF $/kg, by partner) | **2012→2025** | `LIVE` · `market/comtrade.py` |
+| **UN Comtrade — origin export** | `comtradeapi.un.org` | every origin's export FOB $/kg (World + UK) → the FOB→CIF wedge | **2012→2025** | `LIVE` · `market/origin_prices.py` |
+| **DEFRA wholesale** | `gov.uk/.../statistical-data-sets` | UK wholesale £/kg | 2018→now, weekly, **Jun–Nov only** | `LIVE` · `data/defra_price.py` |
+| **ONS retail** | `ons.gov.uk/file` (pre-2025) + `github.com/onsdigital/cpi-items-actions` (post) | UK retail £/kg, year-round | **2018→2026** (proxy after Jan-25) | `LIVE`+`PROXY` · `data/ons_price.py` |
+| **Trolley (retail shelf)** | `trolley.co.uk/product` | multi-retailer shelf £/kg by retailer × tier × pack | forward (weekly) | `LIVE` · `data/retail_price.py` |
+| **FX USD→GBP** | `api.frankfurter.app` (ECB) | real reference rate (replaces notional 0.79) | daily | `LIVE` · `market/fx.py` |
 
-| Source | Module | Provides | Scope | Cadence / lag | Status | Expand |
-|---|---|---|---|---|---|---|
-| **HMRC unit value** | `price.py` | UK-landed **CIF £/kg per origin** (value÷volume) — every supplier, one method | Importer=UK, ~46 origins | Monthly | `DERIVED` | Volume-weight to kill tiny-N spikes; pair with origin FOB (done) |
-| **UN Comtrade — destinations** | `market/comtrade.py` | What each market pays Chile (CIF $/kg) | Exporter=Chile, importer=all | Annual | `LIVE` | Premium Comtrade+ gives monthly; more HS lines |
-| **UN Comtrade — origin export** | `market/origin_prices.py` | Every origin's **export FOB $/kg** to World + UK | All exporters, importer=World/UK | Annual | `LIVE` | More reporters; the FOB→CIF wedge (`origin_prices.wedge`) |
-| **DEFRA wholesale** | `data/defra_price.py` | UK wholesale £/kg | Importer=UK | Weekly→fortnightly, **Jun–Nov only** | `LIVE` | Inherently seasonal — silent in the Chile (Dec–May) window |
-| **ONS retail** | `data/ons_price.py` | UK retail blueberry £/kg 2018→Jan-2025, then all-berry index proxy → 2026 | Importer=UK | Monthly | `LIVE` + `PROXY` | Replace proxy when ONS scanner data lands (2026) |
-| **Live retail (Trolley)** | `data/retail_price.py` | Multi-retailer shelf £/kg, blueberry-specific | Importer=UK | Weekly, forward-only | `LIVE` | No history (can't backtest); more products; **Kaggle history** (below) |
+## Structure, forward & access
 
-### Structure, access & experimental
+| Source | Link | Gives | Depth | Status · module |
+|---|---|---|---|---|
+| **Catastro Frutícola** | `datos.odepa.gob.cl` | Chile orchard area × variety × planting-year → capacity + renewal | **1987→2024** | `LIVE` · `farm/data/catastro.py` → `capacity.py` |
+| **USDA-FAS Blueberry Annual** | `apps.fas.usda.gov/newgainapi` | **Peru** area/production/exports/exports-to-US + 2-season forecast | 2022/23→2026/27 | `LIVE` (annual) · `scripts/fetch_usda_peru.py` |
+| **SAG China roster** | `sag.gob.cl/.../exportaciones/registros` (xlsx) | 3,966 China-authorised Chilean orchards | season | `LIVE` · `scripts/fetch_sag_china.py` |
+| **GlobalG.A.P. / GGN** | `ggn.org/search.html` | cert validate / enrich (no name→GGN discovery) | — | `DERIVED` · `farm/certs.py` |
 
-| Source | Module | Provides | Scope | Status | Expand |
-|---|---|---|---|---|---|
-| **Catastro Frutícola** | `farm/data/catastro.py` → `capacity.py` | Chile orchard area by planting-year/variety/region → bearing-capacity forecast | Exporter=Chile | `LIVE` | No yield/destination/named entity (paid CIREN directory) |
-| **SAG China roster** | `farm/sag_china.py` | 3,966 China-authorised Chilean orchards → who can chase the Asia premium | Exporter=Chile, importer=China | `LIVE` | Packing-facilities sheet; same trick for cherries/other crops |
-| **GlobalG.A.P. certs** | `farm/certs.py` | UK-cert status inference; GGN validate/enrich | Exporter=Chile | `DERIVED` | No free name→GGN discovery; enrich only from an out-of-band GGN |
-| **Satellite NDVI** | `data/ndvi.py` | Crop greenness (structurally leading) | Per origin | `LIVE` | Weak/confounded under polytunnels; per-origin tuning |
-| **Packhouse hiring** | `data/altdata/job_boards.py` | Temp-role postings as a leading wave signal | Per origin | `STUB` | Forward-only; live per-board scrape is the TODO |
+## Leading / experimental (satellite & alt-data)
 
----
-
-## New candidate sources
-
-| Candidate | Would add | Fills (exp→imp) | Feasibility |
+| Source | Link | Gives | Status · module |
 |---|---|---|---|
-| **Kaggle "Time-Series UK Supermarket Data"** | Daily multi-retailer shelf prices (Aldi/Asda/Morrisons/Tesco/Sainsbury's) | Global→UK retail | **Checked & rejected as a feed:** version 6 (latest) only spans **9 Jan–13 Apr 2024** then stops — abandoned, not ongoing; "blueberry" is also very noisy (yoghurts/muffins/baby-food). Useful only as a one-off cross-check: fresh-punnet median **£10.8/kg** for that window, which corroborates Trolley/ONS. Not wired. (Swept all of Kaggle by most-recently-updated 2026-06 — no fresher/maintained UK fresh-produce price set exists; the space is abandoned one-shot scrapes.) |
-| **ONS grocery scanner data** | ~50% of the UK grocery market, official, item-level | Global→UK retail, definitive | Official roll-in from **2026** (parallel-run first); watch for a public cut |
-| **Eurostat COMEXT** | EU import/export volumes & prices | Spain/NL/Poland exporter detail; EU as importer | Free, bulk API; good for the European cells |
-| **Peru SUNAT / Agrodata Peru** | Peru export volume + price by destination | **Peru→UK / →World** (currently empty) | Agrodata partly free; SUNAT bulk patchy — would light up the Peru row |
-| **Morocco — Office des Changes / EACCE** | Morocco export detail | Morocco→UK | Likely limited/paid; verify reachability |
-| **GACC (China customs)** | China import registered establishments / volumes | exporter=all → China | Chinese-language portal; pairs with the SAG side we hold |
-| **USDA / US customs (USA Trade)** | US import & export detail | US as importer/exporter | Free; useful for the US column |
-| **Trolley.co.uk** | Aggregated multi-retailer (current `LIVE` scrape) | Global→UK retail | Proprietary, `robots.txt` disallows `/search/`; we poll a fixed `/product/` basket only — fragile, no history |
+| **Sentinel-2 (Tier 2)** | `earth-search.aws.element84.com` + `sentinel-cogs` S3 | 10 m crop-condition NDVI over blueberry comunas | `PROBE` — cautious GO, not pipelined · `scripts/sentinel_probe.py` |
+| **MODIS NDVI** | `modis.ornl.gov/rst` | 250 m regional greenness (Spain/Morocco; Chile coded) | `LIVE` (throttle-flaky) · `data/ndvi.py` |
+| **Packhouse hiring** | (job boards) | temp-role postings as a leading wave signal | `STUB` · `data/altdata/job_boards.py` |
 
 ---
 
-## The recurring gaps (no free source yet)
+## Candidates & paid (not wired)
 
-1. **Importer→retailer wholesale price** — the link between CIF (~£5.5/kg) and shelf (~£12/kg). No public feed; needs trade contacts.
-2. **Costs / margins** — grower production cost, importer markup. Not in any customs data.
-3. **Daily Chilean DUS** — exists, but datos.gob.cl is TLS-`BLOCKED` from the sandbox; weekly shape is modelled, not measured.
-4. **Named → GGN / orchard identity** — no free name search (CIREN paid, GlobalG.A.P. validate-only).
-5. **Demand side** — promotions, retailer orders, consumption.
+| Source | Would add | Status |
+|---|---|---|
+| **ONS grocery scanner data** | ~50% of UK retail, official | 🟢 free, rolls in **2026** |
+| **Eurostat COMEXT** | EU import/export prices (Spain/NL/Poland detail) | 🟢 free |
+| **Peru→China GACC roster** | Peru phyto access (SAG analogue) | 🟢 if list fetchable |
+| **ProArándanos weekly** | Peru weekly campaign volumes | ⚠️ **no structured feed** — 403/press-only |
+| Bill of lading — **Panjiva · ImportGenius · Datamyne** | shipper↔UK-importer identity, vessel | 💷 |
+| Retail sales — **Kantar · NielsenIQ · Circana** | units sold, share, consumption | 💷 |
+| Real freight — **Xeneta · Freightos · Drewry** | measured reefer rates (replace assumption) | 💷 |
+| Orchard registry — **CIREN** (Chile) / SUNAT-Agrodata (Peru) | named/yield detail | 💷 |
 
-> Verify reachability before wiring any candidate (the project's standing rule), and stamp
-> each new feed onto the dashboard block(s) it powers.
+## Structural gaps (no source, free or paid)
+
+Shelf-level origin/variety attribution · sub-monthly UK customs · importer→retailer
+price & margins · per-block orchard census for Peru · cultivar-per-shipment for Peru.
+
+---
+
+## At a glance
+
+- **Time depth is now uniform** — every core layer runs 2018→present (Comtrade 2012,
+  Catastro 1987). No more snapshot caches.
+- **Two origins covered:** Chile (deep — flow, named producers, varieties, capacity,
+  renewal, phyto) and Peru (flow, netback, USDA forward outlook).
+- **Lane-independent layers** (HMRC, Trolley, ONS, FX, freight, Comtrade origin prices)
+  carry to any new UK-import lane — only origin customs + orchard structure change.
+- See `baseline_chile-uk.md` / `baseline_peru-uk.md` for the per-lane gap maps.
