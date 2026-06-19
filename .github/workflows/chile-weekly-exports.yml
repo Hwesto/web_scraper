@@ -77,16 +77,11 @@ jobs:
       - name: Refresh SAG China orchard roster (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: python scripts/fetch_sag_china.py --mode collect || echo "sag-china fetch skipped"
-      - name: Refresh ONS retail price vintage (collect only)
+      - name: Ingest vintage sources — HMRC, DEFRA, ODEPA, ONS, retail (collect only)
         if: ${{ env.MODE == 'collect' }}
-        run: |
-          python -c "from nowcast.data.ons_price import OnsRetailBlueberryPrice; from nowcast.store import vintage; print(vintage.save(OnsRetailBlueberryPrice().fetch()))" \
-            || echo "ons price refresh skipped"
-      - name: Collect live retail price vintage (collect only)
-        if: ${{ env.MODE == 'collect' }}
-        run: |
-          python -c "from nowcast.data.retail_price import RetailBlueberryPrice; from nowcast.store import vintage; print(vintage.save(RetailBlueberryPrice().fetch()))" \
-            || echo "retail price collect skipped"
+        # one pass over the registry (per-source try/except inside); brings the HMRC
+        # anchor + DEFRA/ODEPA onto the weekly cadence, and refreshes ONS + retail too
+        run: python -m nowcast.pipeline ingest || echo "vintage ingest skipped"
       - name: Rebuild static dashboard (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: python scripts/build_static_dashboard.py || echo "dashboard build skipped"

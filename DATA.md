@@ -14,22 +14,22 @@ Status: `LIVE` wired · `DERIVED` computed · `PROXY` stand-in · `PROBE` valida
 
 | Data point | Source · link | Depth | Ours | Theirs | Status |
 |---|---|---|---|---|---|
-| UK imports by origin (tonnes) | HMRC OTS · `api.uktradeinfo.com` | 2018→now | **manual** (`pipeline ingest`) | monthly (~6wk lag) | LIVE |
-| UK import value by origin (£) | HMRC OTS · `api.uktradeinfo.com` | 2018→now | **manual** | monthly | LIVE |
+| UK imports by origin (tonnes) | HMRC OTS · `api.uktradeinfo.com` | 2018→now | weekly-cron (`pipeline ingest`) | monthly (~6wk lag) | LIVE |
+| UK import value by origin (£) | HMRC OTS · `api.uktradeinfo.com` | 2018→now | weekly-cron | monthly | LIVE |
 | Chile→UK volume (net kg) | Chile DUS · `datos.gob.cl` | 2018→now | weekly-cron | ~daily | LIVE |
 | Chile→UK named producer / exporter / cultivar / region | Chile DUS · `datos.gob.cl` | season | weekly-cron | ~daily | LIVE |
-| Chile→UK volume (official mirror) | ODEPA · `datos.gob.cl` | monthly | manual | periodic | LIVE |
+| Chile→UK volume (official mirror) | ODEPA · `datos.gob.cl` | monthly | weekly-cron | periodic | LIVE |
 | Fused all-origin UK supply (weekly) | — derived | 2018→now | weekly-cron | — | DERIVED |
 
 ## B. Prices
 
 | Data point | Source · link | Depth | Ours | Theirs | Status |
 |---|---|---|---|---|---|
-| UK-landed **CIF £/kg by origin** (~46) | HMRC (value÷vol) | 2018→now | manual | monthly | DERIVED |
+| UK-landed **CIF £/kg by origin** (~46) | HMRC (value÷vol) | 2018→now | weekly-cron | monthly | DERIVED |
 | Chile **FOB $/kg** weekly | Chile DUS · `datos.gob.cl` | 2018→now | weekly-cron | ~daily | LIVE |
 | Chile **&** Peru **CIF $/kg by destination** | UN Comtrade · `comtradeapi.un.org` | **2012→2025** | weekly-cron (rolling) | annual (revised) | LIVE |
 | Every origin **export FOB $/kg** (World+UK) → wedge | UN Comtrade · `comtradeapi.un.org` | **2012→2025** | weekly-cron | annual | LIVE |
-| UK **wholesale £/kg** | DEFRA · `gov.uk/.../statistical-data-sets` | 2018→now (Jun–Nov) | manual | weekly→fortnightly | LIVE |
+| UK **wholesale £/kg** | DEFRA · `gov.uk/.../statistical-data-sets` | 2018→now (Jun–Nov) | weekly-cron | weekly→fortnightly | LIVE |
 | UK **retail £/kg** (monthly, +proxy) | ONS · `ons.gov.uk` + `github.com/onsdigital/cpi-items-actions` | 2018→2026 | weekly-cron | monthly | LIVE+PROXY |
 | UK **retail shelf £/kg** by retailer×tier×pack | Trolley · `trolley.co.uk/product` | forward | weekly-cron | ~daily | LIVE |
 | **FX USD→GBP** | Frankfurter/ECB · `api.frankfurter.app` | daily | weekly-cron | daily | LIVE |
@@ -65,9 +65,9 @@ Status: `LIVE` wired · `DERIVED` computed · `PROXY` stand-in · `PROBE` valida
 
 ## Renewal: ours vs theirs — where they diverge
 
-- **HMRC (the anchor) refreshes *manually*, not on the weekly cron** — same for DEFRA,
-  ODEPA, NDVI. Worth fixing: add `pipeline ingest` to the workflow so the ground-truth
-  series stays as current as the rest.
+- **HMRC (the anchor), DEFRA and ODEPA now refresh on the weekly cron** via
+  `pipeline ingest` (alongside ONS + retail) — the ground-truth series stay as current
+  as the rest. **NDVI** is the only series still manual (not in the ingest registry; parked).
 - **Comtrade**: we re-pull weekly but it only publishes annually — harmless (the rolling
   refresh just re-reads recent years), the deep history is backfilled once and merged.
 - **Trolley / Chile-DUS / FX**: source updates daily, we sample weekly — adequate; only
