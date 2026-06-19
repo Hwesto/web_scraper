@@ -61,6 +61,18 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="${{ github.ref_name }}"
           git add data/atlas/ || true
-          git diff --staged --quiet || git commit -m "atlas: refresh global ranking + overlay reachability"
-          git push
+          if git diff --staged --quiet; then echo "no atlas changes"; exit 0; fi
+          git commit -m "atlas: refresh global ranking + overlay reachability"
+          # The PR branch can move under us while the (~10-min) refresh runs --
+          # concurrent pushes from the dev sandbox or another run. Rebase our
+          # generated-data commit on top and retry; on a data-file conflict prefer
+          # our freshly-generated artifacts (-X theirs = the commit being replayed).
+          for i in 1 2 3 4 5; do
+            git fetch origin "$BRANCH" -q || true
+            git rebase -X theirs "origin/$BRANCH" || { git rebase --abort || true; }
+            if git push origin "HEAD:$BRANCH"; then echo "pushed"; exit 0; fi
+            sleep $((2 ** i))
+          done
+          echo "push failed after retries"; exit 1
