@@ -605,6 +605,12 @@ def _index_table_html(order: list[str]) -> str:
         prov = cs.is_provisional(int(last["year"]))
         vol = last["net_kg"] / 1e6
         yoy = (last["net_kg"] / primq.iloc[-2]["net_kg"] - 1) * 100 if len(primq) >= 2 and primq.iloc[-2]["net_kg"] else None
+        # 5-year change: latest vs 5 years prior (nearest available year with quantity)
+        base_yr = int(last["year"]) - 5
+        base = primq[primq["year"] == base_yr]
+        if base.empty:
+            base = primq[primq["year"] <= base_yr].tail(1)
+        fiveyr = (last["net_kg"] / base.iloc[0]["net_kg"] - 1) * 100 if len(base) and base.iloc[0]["net_kg"] else None
         usd = last["unit_usd_kg"]; share = last["share"] * 100
         # production (FAOSTAT) + forecast (USDA) — blank = a visible gap
         iso3 = c2i.get(code)
@@ -634,12 +640,12 @@ def _index_table_html(order: list[str]) -> str:
             f'<td data-v="{name}"><a href="#{_slug(name)}">{name}</a></td>'
             f'<td data-v="{role}">{role}</td>'
             + f'<td data-v="{vol:.3f}">{vol:.0f} kt{"ᵖ" if prov else ""}</td>'
-            + num(yoy, "", arrow=True) + num(usd, "${:.2f}")
+            + num(yoy, "", arrow=True) + num(fiveyr, "", arrow=True) + num(usd, "${:.2f}")
             + num(share, "{:.0f}%") + num(prod, "{:.0f} kt") + num(fore, "{:.0f} kt")
             + f'<td data-v="{wired}" class="covcell">{covbar}</td></tr>'))
     body = "".join(r for _, r in sorted(rows, key=lambda x: -x[0]))
-    heads = ["Country", "Role", "Volume", "YoY", "$/kg", "Share", "Produces", "Forecast", "Coverage"]
-    numeric = [0, 0, 1, 1, 1, 1, 1, 1, 1]
+    heads = ["Country", "Role", "Volume", "YoY", "5yr", "$/kg", "Share", "Produces", "Forecast", "Coverage"]
+    numeric = [0, 0, 1, 1, 1, 1, 1, 1, 1, 1]
     th = "".join(f'<th onclick="sortIdx({i},{n})">{h}</th>' for i, (h, n) in enumerate(zip(heads, numeric)))
     return (f'<table class="index" id="indexTable" data-sortcol="2" data-sortdir="desc">'
             f'<thead><tr>{th}</tr></thead><tbody>{body}</tbody></table>')
@@ -785,8 +791,8 @@ you can know about it for free. <b>Reference year {year}.</b></p>
 {the_year}
 <h2 id="index">The index</h2>
 <p class="lead">Every country on one screen — <b>click any column to sort</b>, click a name to jump to
-its card. Blank cells (—) are the gaps: no FAOSTAT production, no forecast; <b>ᵖ</b> = provisional latest
-year (Comtrade still finalising). The coverage bar shows
+its card. <b>YoY</b> and <b>5yr</b> are volume change (1- and 5-year). Blank cells (—) are the gaps:
+no FAOSTAT production, no forecast; <b>ᵖ</b> = provisional latest year (Comtrade still finalising). The coverage bar shows
 each country's source mix (✅ wired · 🟢 free · 💷 paid · ⛔ none).</p>
 {index}
 <h2 id="countries">Countries &amp; coverage <span style="font-size:.8rem;color:#a59e93">({n_countries} profiles)</span></h2>
