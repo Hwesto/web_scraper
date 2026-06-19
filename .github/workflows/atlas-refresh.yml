@@ -42,6 +42,10 @@ jobs:
         run: pip install requests pandas pyarrow
       - name: Refresh Comtrade global ranking
         run: python -m atlas.comtrade_sweep || echo "comtrade sweep skipped"
+      - name: Refresh Comtrade bilateral flow+price grid
+        run: python -m atlas.comtrade_matrix || echo "comtrade matrix skipped"
+      - name: Refresh Eurostat COMEXT EU blueberry trade
+        run: python -m atlas.eurostat || echo "eurostat refresh skipped"
       - name: Refresh M49 country-code reference
         run: python -m atlas.countries || echo "country-code refresh skipped"
       - name: Re-probe overlay source reachability (clean egress)

@@ -200,7 +200,8 @@ _SEED: list[tuple] = [
     # ---- Global / cross-cutting (country = *) ----
     ("*", "global", "bilateral flow + price matrix (exporter x importer)", "free", "yes",
      "UN Comtrade (HS 081040)", "comtradeapi.un.org", "annual; monthly many reporters",
-     "2012->2025", _TODAY, "the free global base layer; every cell from one source"),
+     "2012->2025", _TODAY,
+     "the free global base layer; wired via atlas/comtrade_matrix.py -> data/atlas/comtrade_bilateral.csv (realised USD/kg per lane, exporter target set)"),
     ("*", "global", "FX USD/GBP (and crosses)", "free", "yes",
      "Frankfurter / ECB", "api.frankfurter.app", "daily", "daily", _TODAY,
      "replaces notional 0.79"),
@@ -210,10 +211,10 @@ _SEED: list[tuple] = [
     ("*", "global", "production / export forecasts", "free", "no",
      "USDA FAS (free); iQonsulting / Frutas de Chile (paid)", "apps.fas.usda.gov",
      "season-ahead", "", "", "Peru forecast wired; Chile forecast free-partial/paid"),
-    ("*", "global", "EU detailed trade by CN8 (all member states)", "free", "no",
-     "Eurostat COMEXT", "https://ec.europa.eu/eurostat/api/comext/dissemination",
-     "monthly, CN8 x reporter x partner x flow", "2002->now", _TODAY,
-     "free bulk CSV + SDMX API, no key; harmonised overlay for ES/NL/PL/DE/FR/PT/BE"),
+    ("*", "global", "EU detailed trade by HS6/CN8 (all member states)", "free", "yes",
+     "Eurostat COMEXT (DS-045409)", "https://ec.europa.eu/eurostat/api/comext/dissemination",
+     "annual, HS6 081040 x reporter x partner x flow", "2002->now", _TODAY,
+     "no key; wired via atlas/eurostat.py -> data/atlas/eurostat_blueberry.csv (ES/NL/PL/DE/FR/PT/BE/IT/AT, EUR/kg)"),
 ]
 
 # ---- Phase 2: national overlay sources per country in the Comtrade target set ----

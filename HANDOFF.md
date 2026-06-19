@@ -84,9 +84,21 @@ sandbox 49/84 sources resolve; the rest (StatCan CIMT, DE Destatis, HK Trade IDD
 MX SIAP, PL GUS, AT STATcube, CN GACC, KR APQA/KOSIS, ...) are anti-bot/503 here and should
 firm up on the runner.
 
-**Still to do:** **Phase 3** (deepen selectively where it pays — e.g. wire a high-value free
-overlay like Mexico SENASICA or Eurostat COMEXT); **Phase 4** (swap HS code for other fruits —
-`hs_codes.csv` already seeded). Full reasoning condensed in `SOURCES.md` / `DATA.md`.
+**Phase 3 STARTED** — wired two free, no-key overlays into real fetcher modules (depth, not
+just catalogue), both added to the `atlas-refresh.yml` cron and the registry's global rows:
+- **Eurostat COMEXT** — `atlas/eurostat.py` → `data/atlas/eurostat_blueberry.csv`. HS6 081040
+  trade (imports+exports, EUR/kg) for the 9 EU members (ES/NL/PL/DE/FR/PT/BE/IT/AT) in one
+  no-key JSON-stat pull (dataset DS-045409). Flips the EU-COMEXT registry row to wired=yes.
+- **Comtrade bilateral grid** — `atlas/comtrade_matrix.py` → `data/atlas/comtrade_bilateral.csv`.
+  The global exporter×importer flow+price grid (realised USD/kg per lane) for the exporter
+  target set — generalises the Chile/Peru-only destination tables to every major origin
+  (Peru→USA is the world's top lane). Makes the "bilateral matrix" registry row real globally.
+  Gotcha baked in: keep all lanes but trust unit values only ≥~50 t (tiny-N $/kg lie).
+
+**Still to do:** finish **Phase 3** (more depth picks — e.g. USDA-FAS GAIN multi-country
+forecasts [PDF/filename-fragile, runner-only]; a free NPPO roster like Mexico SENASICA);
+**Phase 4** (swap HS code for other fruits — `hs_codes.csv` already seeded). Full reasoning
+condensed in `SOURCES.md` / `DATA.md`.
 
 ## 3. Where things stand
 

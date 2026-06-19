@@ -1,7 +1,7 @@
 """Atlas Phase-0/1 foundations: HS registry, schema, registry table, country
 lookup, and the Comtrade global sweep (offline parse + committed-table sanity)."""
 from atlas import comtrade_sweep as cs
-from atlas import countries, hs_codes, registry, schema
+from atlas import comtrade_matrix, countries, eurostat, hs_codes, registry, schema
 
 
 # ---- HS-code registry ----------------------------------------------------
@@ -82,6 +82,70 @@ def test_phase2b_importer_and_hub_overlays():
     assert len(hk) == 1 and hk.iloc[0]["access"] == "free"
     # 'both' role exists for the re-export hubs (import + re-export)
     assert "both" in set(df["role"])
+
+
+# ---- Phase 3: wired overlays (Eurostat COMEXT + Comtrade bilateral grid) ----
+
+def test_eurostat_tidy_drops_aggregates_and_computes_unit():
+    # _tidy pivots value+quantity onto one lane row, converts 100kg->kg, drops EU aggregates
+    recs = [
+        {"time": "2023", "reporter": "ES", "partner": "DE", "flow": "2",
+         "indicators": "VALUE_IN_EUROS", "_val": 1000.0},
+        {"time": "2023", "reporter": "ES", "partner": "DE", "flow": "2",
+         "indicators": "QUANTITY_IN_100KG", "_val": 2.0},          # -> 200 kg
+        {"time": "2023", "reporter": "ES", "partner": "INT_EU", "flow": "2",
+         "indicators": "VALUE_IN_EUROS", "_val": 9999.0},          # aggregate -> dropped
+    ]
+    df = eurostat._tidy(recs)
+    assert len(df) == 1
+    row = df.iloc[0]
+    assert row["partner"] == "DE" and row["net_kg"] == 200.0
+    assert row["eur_per_kg"] == 5.0                                 # 1000 / 200
+    assert not eurostat._is_country("INT_EU") and eurostat._is_country("DE")
+    assert eurostat._is_country("WORLD")
+
+
+def test_eurostat_committed_table_is_sane():
+    df = eurostat.load()
+    if df.empty:                                                    # not fetched yet
+        return
+    assert set(eurostat._COLS) == set(df.columns)
+    assert set(df["flow"]) <= {"import", "export"}
+    # validate on material lanes only -- tiny-N unit values lie (HANDOFF gotcha)
+    material = df[df["net_kg"] >= 50_000]
+    assert material["eur_per_kg"].between(0.5, 30).all()            # plausible EUR/kg
+    assert "ES" in set(df["reporter"])
+
+
+def test_comtrade_matrix_filters_and_dedups(monkeypatch, tmp_path):
+    monkeypatch.setattr(comtrade_matrix, "CACHE", tmp_path / "bi.csv")
+    monkeypatch.setattr(comtrade_matrix.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(comtrade_matrix.comtrade_sweep, "is_provisional", lambda y: False)
+
+    def fake_fetch(reporter, year, hs, retries=4):
+        return [
+            {"partnerCode": 0, "primaryValue": 9e9, "netWgt": 1e9},        # World -> skip
+            {"partnerCode": 842, "primaryValue": 1_000_000.0, "netWgt": 200_000.0},
+            {"partnerCode": 842, "primaryValue": 1_000_000.0, "netWgt": 200_000.0},  # dup
+            {"partnerCode": 528, "primaryValue": 50.0, "netWgt": 5.0},     # < _MIN_KG -> drop
+        ]
+    monkeypatch.setattr(comtrade_matrix, "_fetch", fake_fetch)
+    df = comtrade_matrix.refresh([2023], exporters=[604], names={604: "Peru", 842: "USA"})
+    assert list(df["importer"]) == ["USA"]                          # World+dup+trace removed
+    assert df.iloc[0]["unit_usd_kg"] == 5.0                         # 1e6 / 2e5
+    assert bool(df.iloc[0]["provisional"]) is False
+
+
+def test_comtrade_matrix_committed_grid_is_sane():
+    df = comtrade_matrix.load()
+    if df.empty:
+        return
+    assert (df["net_kg"] >= comtrade_matrix._MIN_KG).all()
+    # validate on material lanes only -- tiny-N unit values lie (HANDOFF gotcha)
+    assert df[df["net_kg"] >= 50_000]["unit_usd_kg"].between(0.5, 40).all()
+    # Peru->USA is the single largest blueberry lane in the world
+    top = comtrade_matrix.lanes(year=int(df[~df["provisional"]]["year"].max())).iloc[0]
+    assert top["exporter"] == "Peru" and top["importer"] == "USA"
 
 
 def test_probe_normalizes_bare_hostname():
