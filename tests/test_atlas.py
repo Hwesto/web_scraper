@@ -22,6 +22,35 @@ def test_hs_fresh_frozen_dried_lines_present():
     assert hs_codes.hs6("blueberry", "dried") == "081340"
 
 
+def test_usda_movement_parses_origins():
+    from atlas import usda_movement
+    sample = ("WASHINGTON  USDA  AMS  NOV 26 2024     BLUEBERRIES\n"
+              "BLUEBERRIES\n  TRUCK\n"
+              "    GEORGIA              -    -    -   4674   4038   4038\n"
+              "    TOTAL                -    -    3  20832  18530  18561\n"
+              "  U.S. TOTAL            -    -    3  20832  18530  18561\n"
+              "  IMPORT\n"
+              "    PERU              2062 1459 1093  13344   8829  23045\n"
+              "  IMPORT TOTAL      2188 1550 1273  19609  15122  47559\n"
+              "BLUEBERRIES - ORGANIC\n")
+    df = usda_movement._parse(sample)
+    g = {(r["origin"], r["kind"]): r for _, r in df.iterrows()}
+    assert ("Georgia", "domestic") in g and ("Peru", "import") in g
+    assert "TOTAL" not in set(df["origin"])                          # totals excluded
+    assert abs(g[("Peru", "import")]["season_t"] - 13344 * 4.53592) < 1   # 10k-lb units -> t
+    assert df["report_date"].iloc[0] == "2024-11-26"
+
+
+def test_usda_movement_committed_is_sane():
+    from atlas import usda_movement
+    df = usda_movement.load()
+    if df.empty:
+        return
+    assert set(df["kind"]) <= {"domestic", "import"}
+    pe = df[(df["origin"] == "Peru")]
+    assert len(pe) and pe.iloc[0]["season_t"] > 10000             # Peru is a major US supplier
+
+
 def test_campaigns_realtime_layer():
     from atlas import campaigns
     # current-season totals Comtrade/FAOSTAT can't reach, for every major exporter

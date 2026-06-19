@@ -60,6 +60,8 @@ jobs:
         run: python -m atlas.nasa_power || echo "nasa power refresh skipped"
       - name: Refresh USDA-FAS GAIN blueberry forecasts (Peru, Mexico)
         run: python -m atlas.usda_gain || echo "usda gain refresh skipped"
+      - name: Refresh USDA-AMS US movement by origin (WA_FV408)
+        run: python -m atlas.usda_movement || echo "usda movement refresh skipped"
       - name: Refresh M49 country-code reference
         run: python -m atlas.countries || echo "country-code refresh skipped"
       - name: Rebuild the Global Blueberry Atlas site (docs/atlas.html)

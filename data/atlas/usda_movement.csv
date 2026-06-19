@@ -1,0 +1,20 @@
+origin,kind,week_t,season_t,report_date,source
+Georgia,domestic,0.0,21200.9,2024-11-26,USDA-AMS WA_FV408
+Michigan,domestic,0.0,14365.3,2024-11-26,USDA-AMS WA_FV408
+North Carolina,domestic,0.0,13344.7,2024-11-26,USDA-AMS WA_FV408
+Washington,domestic,0.0,12115.4,2024-11-26,USDA-AMS WA_FV408
+Florida,domestic,0.0,11199.2,2024-11-26,USDA-AMS WA_FV408
+Oregon,domestic,0.0,8509.4,2024-11-26,USDA-AMS WA_FV408
+California-Central,domestic,0.0,7738.3,2024-11-26,USDA-AMS WA_FV408
+New Jersey,domestic,0.0,5438.6,2024-11-26,USDA-AMS WA_FV408
+California-South,domestic,0.0,580.6,2024-11-26,USDA-AMS WA_FV408
+Washington Expt,domestic,0.0,0.0,2024-11-26,USDA-AMS WA_FV408
+Peru,import,9353.1,60527.3,2024-11-26,USDA-AMS WA_FV408
+Canada,import,0.0,24262.6,2024-11-26,USDA-AMS WA_FV408
+Mexico,import,449.1,1796.2,2024-11-26,USDA-AMS WA_FV408
+Argentina,import,81.6,1642.0,2024-11-26,USDA-AMS WA_FV408
+Morocco,import,0.0,281.2,2024-11-26,USDA-AMS WA_FV408
+Guatemala,import,0.0,163.3,2024-11-26,USDA-AMS WA_FV408
+Ecuador,import,27.2,140.6,2024-11-26,USDA-AMS WA_FV408
+Colombia,import,9.1,122.5,2024-11-26,USDA-AMS WA_FV408
+Chile,import,4.5,13.6,2024-11-26,USDA-AMS WA_FV408

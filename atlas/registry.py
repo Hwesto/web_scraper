@@ -160,11 +160,12 @@ _SEED: list[tuple] = [
     ("Morocco", "exporter", "current-season export tracker", "free", "yes",
      "APEFEL / EastFruit (press)", "https://east-fruit.com/", "press", "2024/25", _TODAY,
      "wired via atlas/campaigns.py (~82kt ▲20%); Foodex BI is gated, so press SNAPSHOT only"),
-    ("USA", "both", "weekly shipment movement + FOB price by origin", "free", "no",
-     "USDA-AMS Market News (MyMarketNews MARS API, WA_FV408 slug 3251 + FOB reports)",
-     "https://marsapi.ams.usda.gov/services/v1.2/reports/3251", "weekly, JSON API", "current", "",
-     "the one TRUE current-season API -- weekly US movement + import arrivals (Peru/Chile/Mexico) + f.o.b. "
-     "prices; free but needs a (free) API key; keyless mirror ams.usda.gov/mnreports/wa_fv408.txt -- EASY, wire next"),
+    ("USA", "both", "weekly shipment movement + FOB price by origin", "free", "yes",
+     "USDA-AMS Market News (WA_FV408 movement; + FOB reports)", "https://www.ams.usda.gov/mnreports/wa_fv408.txt",
+     "weekly + season-to-date, by origin", "to 2024/25", _TODAY,
+     "wired via atlas/usda_movement.py -- UNIQUE: US supply by origin incl. domestic states "
+     "(Georgia 21kt, Michigan 14kt) + import arrivals (Peru 61kt, Canada 24kt) season-to-date. "
+     "Keyless TXT mirror runs to ~early-2025; LIVE weekly needs the free MARS API key (slug 3251)"),
     ("Canada", "both", "production / area / value (annual)", "free", "no",
      "Statistics Canada table 32-10-0364-01 (WDS API)", "https://www150.statcan.gc.ca/t1/tbl1/en/tv.action?pid=3210036401",
      "annual, CSV + JSON API", "2024", "", "EASY API (2024: 165.6kt; highbush 71.5kt) but annual/lagged -- backbone not frontier"),

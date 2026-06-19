@@ -434,6 +434,17 @@ def _extra_facts(name, code, iso3, fa_iso, wx) -> list[str]:
     if not w.empty:
         cold = w.groupby("month")["tmin"].mean().min()
         out.append("frost-free" if cold > 1 else f"frost risk (min {cold:.0f}°C)")
+    if name == "USA":                                     # unique AMS view: US supply by origin
+        try:
+            from atlas import usda_movement
+            mv = usda_movement.load()
+            if len(mv):
+                rd = str(mv["report_date"].iloc[0])[:7]
+                top = mv.sort_values("season_t", ascending=False).head(4)
+                bits = ", ".join(f"{r['origin']} {r['season_t']/1000:.0f}kt" for _, r in top.iterrows())
+                out.append(f"US supply by origin (AMS to {rd}): {bits}")
+        except Exception:
+            pass
     try:
         from atlas import senasica
         o = senasica.load(fruit="Arándano")
