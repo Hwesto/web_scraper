@@ -51,11 +51,26 @@ def test_usda_movement_committed_is_sane():
     assert len(pe) and pe.iloc[0]["season_t"] > 10000             # Peru is a major US supplier
 
 
+def test_berriesza_parses_ytd_table():
+    from atlas import berriesza
+    sample = ("Blueberries Exports from South Africa\nSeason 2025/2026 - Week  4\n"
+              "Year To Date (24/25 vs 25/26)\n"
+              "Europe 1 745,75 9 171,62 10 917,37 2 364,72 6 541,23 8 905,95 22,6%\n"
+              "Middle East 1 972,79 1 278,52 3 251,31 0 0 0 0\n"
+              "Total 7 250,29 18 506,23 25 756,52 0 0 0 0\n")
+    df = berriesza._parse(sample)
+    g = {r["region"]: r for _, r in df.iterrows()}
+    assert abs(g["Europe"]["total_t"] - 10917.37) < 0.1     # nbsp/space thousands handled
+    assert abs(g["Total"]["total_t"] - 25756.52) < 0.1
+    assert df["season"].iloc[0] == "2025/2026" and int(df["week"].iloc[0]) == 4
+
+
 def test_campaigns_realtime_layer():
     from atlas import campaigns
     # current-season totals Comtrade/FAOSTAT can't reach, for every major exporter
     cs_countries = set(campaigns.countries())
-    assert {"Peru", "Chile", "South Africa", "Argentina", "Mexico", "Spain", "Morocco"} <= cs_countries
+    # South Africa is now live-parsed (atlas/berriesza.py), the rest are curated snapshots
+    assert {"Peru", "Chile", "Argentina", "Mexico", "Spain", "Morocco"} <= cs_countries
     pe = campaigns.latest("Peru")
     assert float(pe[pe["metric"] == "export_total"]["value"].iloc[0]) > 300000
     for c in cs_countries:

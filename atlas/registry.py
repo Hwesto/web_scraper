@@ -144,8 +144,10 @@ _SEED: list[tuple] = [
      "REAL-TIME -- wired via atlas/campaigns.py (2025/26 fresh ~92kt; frozen 72kt); weekly PDF, predictable URL (MEDIUM)"),
     ("South Africa", "exporter", "current-season export tracker", "free", "yes",
      "Berries ZA (formerly SABPA) export reports", "https://berriesza.co.za/export-reports/",
-     "weekly PDF", "2025/26", _TODAY,
-     "REAL-TIME -- wired via atlas/campaigns.py (25.8kt to wk4 ▲14%); clean weekly PDF, /download/<id>/ (MEDIUM)"),
+     "weekly PDF, AUTO-PARSED", "2025/26", _TODAY,
+     "REAL-TIME AUTOMATED -- atlas/berriesza.py finds the latest weekly PDF and parses the "
+     "year-to-date-by-region table (2025/26 wk4: 25.8kt; Europe 11kt, UK 10kt, ME 3kt); the runner "
+     "re-parses each week. The one committee PDF that's a clean table (Chile=charts, Argentina=stale)"),
     ("Argentina", "exporter", "current-season export tracker", "free", "yes",
      "ABC -- Argentine Blueberry Committee", "https://www.argblueberry.com/home/en/reportes/",
      "weekly PDF", "2025", _TODAY,

@@ -411,10 +411,21 @@ def _extra_facts(name, code, iso3, fa_iso, wx) -> list[str]:
     """Adaptive 'small facts' — only the ones that exist for this country."""
     out = []
     try:                                                  # the real-time campaign layer leads
-        from atlas import campaigns
-        h = campaigns.headline(name)
-        if h:
-            out.append(f'<b style="color:#2f6f4e">current season — {h}</b>')
+        if name == "South Africa":                        # live-parsed weekly PDF
+            from atlas import berriesza
+            h = berriesza.headline()
+            if h:
+                out.append(f'<b style="color:#2f6f4e">current season — {h}</b>')
+                reg = berriesza.load()
+                reg = reg[reg["region"] != "Total"].sort_values("total_t", ascending=False).head(3)
+                if len(reg):
+                    out.append("by region: " + ", ".join(f"{r['region']} {r['total_t']/1000:.0f}kt"
+                                                          for _, r in reg.iterrows()))
+        else:
+            from atlas import campaigns
+            h = campaigns.headline(name)
+            if h:
+                out.append(f'<b style="color:#2f6f4e">current season — {h}</b>')
     except Exception:
         pass
     if iso3 is not None:
