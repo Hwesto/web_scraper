@@ -29,10 +29,11 @@ https://fas.usda.gov/data/spotlight-morocco-fruit-exports,auth,HTTP 403,,,1,Moro
 https://inspection.canada.ca/en/plant-health/horticulture/exports,reachable,"HTTP 200, 2048b sniffed",free,,1,Canada,authorised export orchards/packhouses (phyto)
 https://ised-isde.canada.ca/site/trade-data-online/en,reachable,"HTTP 200, 2047b sniffed",free,,1,Canada,national customs trade detail (HS8 export / HS10 import)
 https://kita.org/kStat/byCount_AllCount.do,reachable,"HTTP 200, 2036b sniffed",free,,1,South Korea,national customs trade detail (HSK 10-digit)
-https://kosis.kr/eng/,unreachable,timed out,,,1,South Korea,domestic blueberry area/production
+https://kosis.kr/eng/,reachable,"HTTP 200, 2002b sniffed",free,,1,South Korea,domestic blueberry area/production
 https://lekiosque.finances.gouv.fr/,reachable,"HTTP 200, 2047b sniffed",free,,1,France,national customs trade detail (NC8)
 https://nube.agricultura.gob.mx/cierre_agricola/,reachable,"HTTP 200, 2045b sniffed",free,,1,Mexico,orchard / planted-area by state/variety
 https://opendata.cbs.nl/,reachable,"HTTP 200, 2048b sniffed",free,,2,Netherlands,national customs trade detail (re-export split)
+https://power.larc.nasa.gov/api/temporal/monthly/point,error,HTTP 422,,,1,*,growing-region weather / frost / precipitation
 https://ppecb.com/,reachable,"HTTP 200, 2048b sniffed",free,,1,South Africa,authorised export orchards/packhouses (phyto)
 https://quickstats.nass.usda.gov/,reachable,"HTTP 200, 2048b sniffed",free,,1,USA,orchard / planted-area by state
 https://services.oc.gov.ma/DataBase/CommerceExterieur/login,reachable,"HTTP 200, 2042b sniffed",free,,1,Morocco,national customs trade detail (by product)
@@ -62,8 +63,8 @@ https://www.fas.usda.gov/data/mexico-blueberry-annual-voluntary,auth,HTTP 403,,,
 https://www.fas.usda.gov/data/search,auth,HTTP 403,,,1,USA,production/export forecast
 https://www.fas.usda.gov/regions/serbia,auth,HTTP 403,,,1,Serbia,production/export forecast
 https://www.fasfc.be,reachable,"HTTP 200, 2048b sniffed",free,,1,Belgium,plant export/re-export certification (phyto)
-https://www.gob.mx/senasica/documentos/huertos-registrados,reachable,"HTTP 200, 1912b sniffed",free,,1,Mexico,authorised export orchards (phyto)
-https://www.ine.pt,auth,HTTP 403,,,2,Portugal,national customs trade detail (CN)
+https://www.gob.mx/senasica/documentos/huertos-registrados,reachable,"HTTP 200, 1916b sniffed",free,,1,Mexico,authorised export orchards (phyto)
+https://www.ine.pt,reachable,"HTTP 200, 2042b sniffed",free,,2,Portugal,national customs trade detail (CN)
 https://www.inegi.org.mx/rnm/index.php/catalog/1082,reachable,"HTTP 200, 1999b sniffed",free,,1,Mexico,national customs trade detail (NICO 8-10 digit)
 https://www.maff.go.jp/pps/j/introduction/english.html,reachable,"HTTP 200, 1972b sniffed",free,,1,Japan,phyto import requirements
 https://www.mapa.gob.es/es/estadistica/temas/estadisticas-agrarias/agricultura/esyrce/,reachable,"HTTP 200, 2034b sniffed",free,,1,Spain,orchard / planted-area by region/variety
