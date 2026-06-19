@@ -628,6 +628,39 @@ def gaps(access: str | None = None, wired: str | None = None) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
+def coverage_buckets() -> dict:
+    """Honest split of what 'free but unwired' actually means, so the count isn't read
+    as untapped datasets. A free data-point is one of:
+      held         -- free + wired (we hold it)
+      base_covered -- unwired, but its AXIS is already measured globally by a wired base
+                      layer (national customs -> Comtrade/COMEXT flow; national area ->
+                      FAOSTAT; weather -> NASA POWER). Finer granularity, not new signal.
+      headroom     -- genuinely unwired *new* signal (mostly fragile/marginal: demand
+                      scrapes, origin daily/weekly, phyto rosters, border detail)
+      info_only    -- wired='na': an info/process page, not a dataset to wire
+    plus the paid ceiling and structural-gap (none) totals.
+    """
+    df = load()
+    dp = df["data_point"].str.lower()
+    free = df["access"] == "free"
+    held = free & df["wired"].isin(["yes", "derived"])
+    info = free & (df["wired"] == "na")
+    unwired = free & ~held & ~info
+    is_customs = dp.str.contains("customs trade detail", na=False)
+    is_area = (dp.str.contains("area", na=False) | dp.str.contains("production", na=False)) \
+        & ~dp.str.contains("forecast", na=False)
+    is_cond = dp.str.contains("weather|ndvi|drought|frost", regex=True, na=False)
+    base = unwired & (is_customs | is_area | is_cond)
+    return {
+        "held": int(held.sum()),
+        "base_covered": int((base).sum()),
+        "headroom": int((unwired & ~base).sum()),
+        "info_only": int(info.sum()),
+        "paid": int((df["access"] == "paid").sum()),
+        "none": int((df["access"] == "none").sum()),
+    }
+
+
 def coverage() -> pd.DataFrame:
     """access x wired counts -- the one-glance shape of the catalogue."""
     df = load()

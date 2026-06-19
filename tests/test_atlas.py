@@ -84,6 +84,18 @@ def test_coverage_counts_every_row():
     assert int(registry.coverage()["n"].sum()) == len(registry.load())
 
 
+def test_coverage_buckets_are_honest_and_total():
+    b = registry.coverage_buckets()
+    df = registry.load()
+    # the four free buckets partition every free row (no double-count, no gaps)
+    free_total = int((df["access"] == "free").sum())
+    assert b["held"] + b["base_covered"] + b["headroom"] + b["info_only"] == free_total
+    assert b["paid"] == int((df["access"] == "paid").sum())
+    assert b["none"] == int((df["access"] == "none").sum())
+    # the honest point: most 'unwired' is base-covered or info-only, not untapped data
+    assert b["base_covered"] > b["headroom"]
+
+
 def test_phase2_national_overlays_catalogued():
     df = registry.load()
     # the top exporters beyond the Chile/Peru reference lanes are now catalogued

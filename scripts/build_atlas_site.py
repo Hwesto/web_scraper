@@ -307,18 +307,23 @@ def _coverage_matrix_html(order: list[str]) -> str:
 
 
 def _ceiling_html() -> str:
-    df = registry.load()
-    fw = df["wired"].isin(["yes", "derived"]).sum()
-    fu = ((df["access"] == "free") & (~df["wired"].isin(["yes", "derived"]))).sum()
-    paid = (df["access"] == "paid").sum()
-    none = (df["access"] == "none").sum()
-    bars = [("free &amp; wired", fw, "#2f6f4e"), ("free, not yet wired", fu, "#86b08f"),
-            ("paid only", paid, "#b8860b"), ("no source (structural gap)", none, "#9c4221")]
-    tot = fw + fu + paid + none
+    b = registry.coverage_buckets()
+    bars = [
+        ("held — free &amp; wired", b["held"], "#2f6f4e"),
+        ("axis covered by a base layer*", b["base_covered"], "#6f9e7e"),
+        ("true headroom (unwired, mostly fragile)", b["headroom"], "#b8a86a"),
+        ("info-only — not a dataset", b["info_only"], "#c9c2b6"),
+        ("paid only", b["paid"], "#b8860b"),
+        ("no source (structural gap)", b["none"], "#9c4221"),
+    ]
+    tot = sum(n for _, n, _ in bars)
     out = ['<div class="ceiling">']
     for label, n, col in bars:
         out.append(f'<div class="cbar"><span>{label}</span>'
                    f'<i style="width:{n/tot*100:.0f}%;background:{col}"></i><b>{n}</b></div>')
+    out.append('<p class="stamp">*national customs → Comtrade/COMEXT · national area → '
+               'FAOSTAT · weather → NASA POWER: the data-point’s axis is already measured '
+               'globally; the national source would add only granularity, not new signal.</p>')
     out.append("</div>")
     return "".join(out)
 
