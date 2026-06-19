@@ -73,6 +73,7 @@ MODIS_BAND = "250m_16_days_NDVI"
 NDVI_REGIONS = {
     "Spain":   {"lat": 37.25, "lon": -6.95, "label": "Huelva"},
     "Morocco": {"lat": 35.18, "lon": -6.15, "label": "Larache"},
+    "Chile":   {"lat": -36.9, "lon": -72.2, "label": "Ñuble/Bío Bío"},
 }
 
 # -- Rejected alt-data methods (kept so the rationale is not re-litigated) --

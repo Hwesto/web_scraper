@@ -40,10 +40,16 @@ def _fetch_point(lat: float, lon: float, year: int, km: int = 3) -> list[tuple[s
         url = (f"{_BASE}/{MODIS_PRODUCT}/subset?latitude={lat}&longitude={lon}"
                f"&band={MODIS_BAND}&startDate=A{year}{grp[0]:03d}&endDate=A{year}{grp[-1]:03d}"
                f"&kmAboveBelow={km}&kmLeftRight={km}")
-        try:
-            payload = requests.get(url, headers=_HEADERS, timeout=60).json()
-        except Exception:
-            continue
+        payload = None
+        for attempt in range(4):                      # ORNL throttles bulk runs
+            try:
+                r = requests.get(url, headers=_HEADERS, timeout=40)
+                if r.status_code == 200:
+                    payload = r.json()
+                    break
+            except Exception:                          # noqa: BLE001 -- retry transient
+                pass
+            time.sleep(1.5 * (attempt + 1))
         if not isinstance(payload, dict):
             continue
         for row in payload.get("subset", []):
@@ -51,7 +57,7 @@ def _fetch_point(lat: float, lon: float, year: int, km: int = 3) -> list[tuple[s
             vals = vals[vals > _FILL_FLOOR]
             if vals.size:
                 out.append((row["calendar_date"], float(vals.mean()) * _SCALE))
-        time.sleep(0.3)
+        time.sleep(0.5)                                # polite between composites
     return out
 
 
