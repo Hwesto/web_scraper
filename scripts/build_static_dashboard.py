@@ -168,18 +168,20 @@ def chart_league(vol):
     return _png(fig)
 
 
-def chart_peru(vol):
-    """Peru's UK arrival profile -- Britain's autumn baton-carrier."""
-    pv = vol[vol["key"] == "Peru"].copy()
+def chart_origin_season(vol, origin):
+    """An origin's UK arrival profile -- avg tonnes/month, peak months highlighted."""
+    pv = vol[vol["key"] == origin].copy()
     ny = max(1, pv["d"].dt.year.nunique())
     prof = pv.groupby("m")["value"].sum().reindex(range(1, 13), fill_value=0) / ny
+    base = ORIGIN_COLOURS.get(origin, ACCENT)
+    peak = prof.max() * 0.5
+    cols = [base if prof[m] >= peak else "#d8d3cc" for m in range(1, 13)]
     fig, ax = plt.subplots(figsize=(9.2, 3.6))
     x = np.arange(12)
-    peak = {9, 10, 11, 12, 1}
-    cols = [ORIGIN_COLOURS["Peru"] if m in peak else "#aeb6e2" for m in range(1, 13)]
     ax.bar(x, prof.values, color=cols, zorder=3, width=0.72)
     ax.set_xticks(x); ax.set_xticklabels(MONTHS)
-    ax.set_yticks(np.arange(0, prof.values.max() + 1000, 1000))   # whole-kt ticks
+    step = 1000 if prof.max() < 8000 else 2000
+    ax.set_yticks(np.arange(0, prof.values.max() + step, step))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v/1000:.0f}k"))
     ax.set_ylabel("avg tonnes landed per month")
     _bare(ax)
@@ -374,6 +376,41 @@ def origin_wedge_block() -> str:
     return _ORIGIN_TPL.format(chart=chart_origin_wedge(w), year=int(w["year"].iloc[0]))
 
 
+def origin_uk_block(vol, origin: str) -> str:
+    """Generic <origin>→UK block: arrival seasonality + landed/FOB price, from held data.
+    Returns "" if we have no UK volume for the origin (keeps the cell honestly empty)."""
+    pv = vol[vol["key"] == origin]
+    if pv.empty or pv["value"].sum() <= 0:
+        return ""
+    ny = max(1, pv["d"].dt.year.nunique())
+    prof = pv.groupby("m")["value"].sum() / ny
+    peak_month = MONTHS[int(prof.idxmax()) - 1]
+
+    cif = price.import_unit_value(origin).dropna()
+    cif_recent = (cif[cif.index >= cif.index.max() - pd.DateOffset(months=11)].mean()
+                  if len(cif) else float("nan"))
+    pr = origin_prices.load()
+    pr = pr[(pr["origin"] == origin) & (pr["dest"] == "United Kingdom")].sort_values("year")
+
+    price_line, fob_cap = "", ""
+    if pd.notna(cif_recent):
+        price_line = f"It lands at about <em>£{cif_recent:.2f}/kg</em> CIF"
+        if len(pr):
+            fob = float(pr["fob_usd_kg"].iloc[-1]); yr = int(pr["year"].iloc[-1])
+            wedge = cif_recent - fob * 0.79
+            price_line += (f", from an export price near <em>${fob:.2f}/kg</em> FOB "
+                           f"({yr}) — a freight wedge of about <em>£{wedge:.2f}/kg</em>")
+            fob_cap = f"Export FOB: UN Comtrade {origin}→UK {yr} (${fob:.2f}/kg); "
+        price_line += "."
+    return f"""
+<h2>{origin} → Britain</h2>
+<p class="deck">When {origin} supplies British shelves, and at what price.</p>
+<p>{origin}'s arrivals into the UK peak around <em>{peak_month}</em>. {price_line}</p>
+<figure><img src="{chart_origin_season(vol, origin)}" alt="{origin} blueberry arrivals into the UK by month">
+<figcaption>Average monthly {origin} arrivals (HMRC, 08104050), peak months highlighted.
+{fob_cap}landed CIF: HMRC {origin} unit value, last 12 months.</figcaption></figure>"""
+
+
 def asia_access_block() -> str:
     """The phyto-access chapter -- empty until the SAG roster is fetched by the cron."""
     s = asia_access.summary()
@@ -389,7 +426,7 @@ def asia_access_block() -> str:
 # ----------------------------- assemble -----------------------------
 # Vocabulary for the two selectors. Adding a new exporter/importer is just a
 # string here plus block(s) tagged to it; empty cells show honestly in the matrix.
-EXPORTERS = ["Global", "Chile", "Peru"]
+EXPORTERS = ["Global", "Chile", "Peru", "Morocco", "South Africa", "Spain", "Netherlands"]
 IMPORTERS = ["Global", "UK", "US", "China", "Netherlands"]
 DEFAULT = ("Global", "UK")
 
@@ -529,28 +566,10 @@ hub — a distribution valve, not a final table.</p>
 after freight, width is how much the market absorbs (log scale), bubble size is total
 value. Observed (UN Comtrade, HS 081040); freight from reefer rate ÷ ~11 t payload.</figcaption></figure>""")
 
-    # Peru -> UK: lights up its matrix cell from data we already hold
-    pcif = price.import_unit_value("Peru").dropna()
-    pcif_recent = pcif[pcif.index >= pcif.index.max() - pd.DateOffset(months=11)].mean()
-    pr = origin_prices.load()
-    pr = pr[(pr["origin"] == "Peru") & (pr["dest"] == "United Kingdom")].sort_values("year")
-    if len(pr) and pd.notna(pcif_recent):
-        fob_usd = float(pr["fob_usd_kg"].iloc[-1]); fob_yr = int(pr["year"].iloc[-1])
-        wedge = pcif_recent - fob_usd * 0.79
-        add("Peru", "UK", "HMRC + Comtrade", f"""
-<h2>Peru — Britain's autumn supplier</h2>
-<p class="deck">The other deep-sea giant. Peru carries the back half of the year
-into Britain, peaking October–December — the mirror image of Morocco's spring.</p>
-<p>Peru is among the largest sources of Britain's blueberries by tonnage, and its
-arrivals are strongly seasonal: a heavy autumn surge from <em>September</em> through
-<em>December</em>, fading to almost nothing by late spring. Its fruit leaves Peru at
-about <em>${fob_usd:.2f}/kg</em> ({fob_yr}, FOB to the UK) and lands at roughly
-<em>£{pcif_recent:.2f}/kg</em> CIF — a freight-and-insurance wedge near
-<em>£{wedge:.2f}/kg</em>, the deep-sea signature it shares with Chile.</p>
-<figure><img src="{chart_peru(vol)}" alt="Peru blueberry arrivals into the UK by month">
-<figcaption>Average monthly Peru arrivals into the UK (HMRC, 08104050); autumn months
-highlighted. Export FOB: UN Comtrade Peru→UK {fob_yr} (${fob_usd:.2f}/kg); landed CIF:
-HMRC Peru unit value, last 12 months. Annual FOB vs recent CIF — wedge is indicative.</figcaption></figure>""")
+    # Per-origin <origin>→UK blocks, all from held data (HMRC seasonality + CIF,
+    # Comtrade FOB). Lights up a matrix cell per major supplier; empties stay empty.
+    for origin in ["Peru", "Morocco", "South Africa", "Spain", "Netherlands"]:
+        add(origin, "UK", "HMRC + Comtrade", origin_uk_block(vol, origin))
 
     add("Chile", "China", "SAG + Comtrade", asia_access_block())
 
