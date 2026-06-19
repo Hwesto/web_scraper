@@ -83,7 +83,7 @@ https://www.fas.usda.gov/data/search,auth,HTTP 403,,,1,USA,production/export for
 https://www.fas.usda.gov/regions/serbia,auth,HTTP 403,,,1,Serbia,production/export forecast
 https://www.fasfc.be,reachable,"HTTP 200, 2048b sniffed",free,,1,Belgium,plant export/re-export certification (phyto)
 https://www.fepex.es/datos-del-sector/exportacion-importacion-espanola-frutas-hortalizas,reachable,"HTTP 200, 2047b sniffed",free,,1,Spain,current-season export tracker
-https://www.gob.mx/senasica/documentos/huertos-registrados,reachable,"HTTP 200, 1916b sniffed",free,,1,Mexico,authorised export orchards (phyto)
+https://www.gob.mx/senasica/documentos/huertos-registrados,reachable,"HTTP 200, 1912b sniffed",free,,1,Mexico,authorised export orchards (phyto)
 https://www.gov.ie/en/organisation/department-of-agriculture-food-and-the-marine/,auth,HTTP 403,,,1,Ireland,plant-health import authority
 https://www.ine.pt,reachable,"HTTP 200, 2042b sniffed",free,,2,Portugal,national customs trade detail (CN)
 https://www.inegi.org.mx/rnm/index.php/catalog/1082,reachable,"HTTP 200, 1999b sniffed",free,,1,Mexico,national customs trade detail (NICO 8-10 digit)
