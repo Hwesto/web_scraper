@@ -95,10 +95,17 @@ just catalogue), both added to the `atlas-refresh.yml` cron and the registry's g
   (Peru→USA is the world's top lane). Makes the "bilateral matrix" registry row real globally.
   Gotcha baked in: keep all lanes but trust unit values only ≥~50 t (tiny-N $/kg lie).
 
-**Still to do:** finish **Phase 3** (more depth picks — e.g. USDA-FAS GAIN multi-country
-forecasts [PDF/filename-fragile, runner-only]; a free NPPO roster like Mexico SENASICA);
-**Phase 4** (swap HS code for other fruits — `hs_codes.csv` already seeded). Full reasoning
-condensed in `SOURCES.md` / `DATA.md`.
+Phase 3 also wired the **monthly seasonality grid** (`atlas/comtrade_monthly.py` →
+`comtrade_monthly.csv`; the counter-season relay — Chile Jan, Peru Oct, Spain May, ...) and
+the **first free entity-level overlay**: **Mexico SENASICA** registered berry orchards
+(`atlas/senasica.py` → `mx_registered_orchards.csv`) — the SAG-China analogue, parsed from
+the gob.mx bilingual PDF (pypdf): 71 berry orchards (30 blueberry) by name, SAGARPA code,
+area-ha, municipio, estado. Flips Mexico's phyto row to wired=yes. (USDA-FAS GAIN
+multi-country forecasts considered but skipped — PDF/filename-fragile, runner-only.)
+
+**Still to do:** more Phase-3 depth as it pays (e.g. SENASICA Korea/EU lists; Morocco ONSSA
+packing-station PDF; sub-annual where a lane warrants it); **Phase 4** (swap HS code for
+other fruits — `hs_codes.csv` already seeded). Full reasoning in `SOURCES.md` / `DATA.md`.
 
 ## 3. Where things stand
 

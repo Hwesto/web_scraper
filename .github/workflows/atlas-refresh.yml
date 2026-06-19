@@ -39,7 +39,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install deps
-        run: pip install requests pandas pyarrow
+        run: pip install requests pandas pyarrow pypdf
       - name: Refresh Comtrade global ranking
         run: python -m atlas.comtrade_sweep || echo "comtrade sweep skipped"
       - name: Refresh Comtrade bilateral flow+price grid
@@ -48,6 +48,8 @@ jobs:
         run: python -m atlas.comtrade_monthly || echo "comtrade monthly skipped"
       - name: Refresh Eurostat COMEXT EU blueberry trade
         run: python -m atlas.eurostat || echo "eurostat refresh skipped"
+      - name: Refresh SENASICA registered berry orchards (Mexico)
+        run: python -m atlas.senasica || echo "senasica refresh skipped"
       - name: Refresh M49 country-code reference
         run: python -m atlas.countries || echo "country-code refresh skipped"
       - name: Re-probe overlay source reachability (clean egress)

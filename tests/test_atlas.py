@@ -1,7 +1,8 @@
 """Atlas Phase-0/1 foundations: HS registry, schema, registry table, country
 lookup, and the Comtrade global sweep (offline parse + committed-table sanity)."""
 from atlas import comtrade_sweep as cs
-from atlas import comtrade_matrix, comtrade_monthly, countries, eurostat, hs_codes, registry, schema
+from atlas import (comtrade_matrix, comtrade_monthly, countries, eurostat,
+                   hs_codes, registry, schema, senasica)
 
 
 # ---- HS-code registry ----------------------------------------------------
@@ -171,6 +172,34 @@ def test_comtrade_monthly_committed_is_sane():
         return
     assert df["month"].between(1, 12).all()
     assert df[df["net_kg"] >= 50_000]["unit_usd_kg"].between(0.5, 40).all()
+
+
+def test_senasica_parses_bilingual_orchard_rows():
+    # canned rows mirroring the gob.mx PDF: glued vs spaced 中文 state, multi-word names/states
+    text = (
+        "No. Registro SAGARPA Nombre del predio Superficie (Ha) Municipio Estado Fruto\n"
+        "1 PRE03/06/010/0001 Arándanos de Colima 29.73 Villa de Álvarez Colima 科利马州 Arándano蓝莓\n"
+        "2 PRE03/14/005/0001 Sur Loma 56.41 Amatitán Jalisco哈利斯科州 Arándano蓝莓\n"
+        "3 PRE04/14/119/0001 El Briseño 64 Zacoalco Jalisco哈利斯科州 Frambuesa树莓\n"
+        "ignore this footer line\n"
+    )
+    df = senasica._parse_text(text)
+    assert len(df) == 3
+    bb = df[df["fruto"] == "Arándano"]
+    assert set(bb["estado"]) == {"Colima", "Jalisco"}
+    r0 = df.iloc[0]
+    assert r0["predio"] == "Arándanos de Colima" and r0["area_ha"] == 29.73
+    assert r0["municipio"] == "Villa de Álvarez" and r0["destination"] == "China"
+
+
+def test_senasica_committed_roster_is_sane():
+    df = senasica.load()
+    if df.empty:                                       # not fetched yet
+        return
+    assert set(senasica._COLS) == set(df.columns)
+    assert (df["area_ha"] > 0).all()
+    bb = senasica.load(fruit="Arándano")
+    assert len(bb) > 0 and bb["estado"].notna().all()  # blueberry orchards, all geocoded
 
 
 def test_probe_normalizes_bare_hostname():
