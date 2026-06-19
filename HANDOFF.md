@@ -67,10 +67,26 @@ key_gated / auth / tls_blocked etc., handling the "200 + Missing Key" case). Fin
   MX SIAP, MA Office des Changes — **re-probe on the clean-egress runner** (`verified_date`
   left blank for these). Query: `registry.gaps(access=…, wired=…)`.
 
-**Still to do:** Phase 2 importer-side overlays + remaining exporters (HK/Germany/France/
-Portugal/Serbia/Belgium re-export hubs); **Phase 3** (deepen selectively where it pays);
-**Phase 4** (swap HS code for other fruits — `hs_codes.csv` already seeded).
-Full reasoning condensed in `SOURCES.md` / `DATA.md`.
+**Phase 2b DONE** — importer-side + re-export-hub overlays for **Germany, France, China,
+Hong Kong, Switzerland, South Korea, Japan, Belgium, Portugal, Italy, Austria, Serbia**
+(registry now **141 rows**). Findings: **Hong Kong is the only stats system with a clean
+re-export flow split** (EU/DE/FR fold re-exports into total exports — hub activity must be
+inferred); **China CIFER** is a free registered-overseas-producer query; **no NPPO publishes
+a per-fruit blueberry approved-orchard list** (USDA-FAS GAIN is the best free who-ships-where
+summary); domestic blueberry area is official for PT/DE/KR, industry-sourced for IT/RS/CN.
+
+**Runner re-probe wired** — `.github/workflows/atlas-refresh.yml` (Mon 06:41 UTC + dispatch)
+runs on the clean-egress runner: refreshes the Comtrade global ranking and re-probes every
+catalogued source via `scripts/probe_overlays.py` → `data/atlas/probe_log.csv` (the live
+reachability record, kept separate from the seed-generated `registry.csv`). `atlas/probe.py`
+classifies reachable/key_gated/auth/tls_blocked and normalises bare hostnames. From the
+sandbox 49/84 sources resolve; the rest (StatCan CIMT, DE Destatis, HK Trade IDDS, MA ONSSA,
+MX SIAP, PL GUS, AT STATcube, CN GACC, KR APQA/KOSIS, ...) are anti-bot/503 here and should
+firm up on the runner.
+
+**Still to do:** **Phase 3** (deepen selectively where it pays — e.g. wire a high-value free
+overlay like Mexico SENASICA or Eurostat COMEXT); **Phase 4** (swap HS code for other fruits —
+`hs_codes.csv` already seeded). Full reasoning condensed in `SOURCES.md` / `DATA.md`.
 
 ## 3. Where things stand
 

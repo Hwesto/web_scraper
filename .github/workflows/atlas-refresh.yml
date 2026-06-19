@@ -1,0 +1,58 @@
+name: Atlas refresh (global ranking + overlay probe)
+
+# Runs the atlas's network-facing maintenance on a GitHub runner (CLEAN EGRESS).
+# Two jobs only the runner can do well:
+#   1. Comtrade global sweep  -> data/atlas/comtrade_global_ranking.csv
+#      (re-ranks every blueberry exporter/importer; picks up newly-final years).
+#   2. Overlay reachability re-probe -> data/atlas/probe_log.csv
+#      Many catalogued national sources (StatCan CIMT, PL GUS/PIORIN, MA ONSSA,
+#      MX SIAP, DE Destatis, HK Trade IDDS, ...) are real but anti-bot/503/TLS-
+#      blocked from the Claude sandbox; they typically resolve from clean egress.
+#      This is the authoritative live-reachability record for the registry.
+#
+# registry.csv itself is seed-generated (catalogue metadata) and only changes when
+# the seed code changes, so this workflow never fights the seed -- it commits the
+# two machine-generated artifacts.
+
+on:
+  push:
+    paths:
+      - ".github/workflows/atlas-refresh.yml"
+  workflow_dispatch:
+    inputs:
+      only_blank:
+        description: "probe only sources with an empty verified_date (cheaper)"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "41 6 * * 1"   # Mondays 06:41 UTC (after the Chile cron at 06:17)
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install requests pandas pyarrow
+      - name: Refresh Comtrade global ranking
+        run: python -m atlas.comtrade_sweep || echo "comtrade sweep skipped"
+      - name: Refresh M49 country-code reference
+        run: python -m atlas.countries || echo "country-code refresh skipped"
+      - name: Re-probe overlay source reachability (clean egress)
+        run: |
+          ONLY_BLANK=""
+          if [ "${{ github.event.inputs.only_blank }}" = "true" ]; then ONLY_BLANK="--only-blank"; fi
+          python scripts/probe_overlays.py $ONLY_BLANK || echo "overlay probe skipped"
+      - name: Commit atlas data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/atlas/ || true
+          git diff --staged --quiet || git commit -m "atlas: refresh global ranking + overlay reachability"
+          git push

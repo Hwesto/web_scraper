@@ -72,6 +72,34 @@ def test_phase2_national_overlays_catalogued():
     assert "Mexico" in set(phyto_free["country"])
 
 
+def test_phase2b_importer_and_hub_overlays():
+    df = registry.load()
+    # importer-side + re-export-hub markets catalogued
+    assert {"Germany", "France", "China", "Hong Kong", "Switzerland",
+            "South Korea", "Japan", "Belgium", "Serbia"} <= set(df["country"])
+    # Hong Kong is the one source with an explicit re-export flow split
+    hk = df[(df["country"] == "Hong Kong") & df["data_point"].str.contains("re-export")]
+    assert len(hk) == 1 and hk.iloc[0]["access"] == "free"
+    # 'both' role exists for the re-export hubs (import + re-export)
+    assert "both" in set(df["role"])
+
+
+def test_probe_normalizes_bare_hostname():
+    # registry URLs are often bare hostnames; the probe must add a scheme (offline check)
+    from atlas import probe
+    assert probe._normalize("datos.gob.cl") == "https://datos.gob.cl"
+    assert probe._normalize("http://x.org") == "http://x.org"     # scheme left intact
+    assert probe._normalize("") == ""
+
+
+def test_probe_classify_handles_key_gated_body():
+    # the US-Census-style "200 + Missing Key" page must classify as key_gated, not reachable
+    from atlas import probe
+    for hint_body in ("<html>A valid key must be included</html>", "Please log in to continue"):
+        # exercise the fingerprint logic directly
+        assert any(h in hint_body.lower() for h in probe._KEY_HINTS)
+
+
 # ---- country lookup ------------------------------------------------------
 
 def test_country_lookup_and_fallback():

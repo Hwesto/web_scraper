@@ -373,10 +373,149 @@ _SEED_PHASE2: list[tuple] = [
      "n/a", "", "", "Stone Fruits Annual excludes blueberry; no season-ahead PL forecast found"),
 ]
 
+# ---- Phase 2b: importer-side + re-export-hub overlays (target-set continued) ----
+# The big importers and re-export hubs beyond the exporters above. Same discipline
+# (probe, don't wire). verified_date set where a live 200 was seen from this sandbox.
+# Recurring findings: (1) re-exports are a distinct flow ONLY in Hong Kong's stats --
+# EU/Germany/France fold them into total exports, so hub activity must be inferred;
+# (2) no NPPO publishes a clean per-fruit approved-orchard list for blueberries --
+# USDA-FAS GAIN is the best free summary of who may ship where.
+_SEED_PHASE2B: list[tuple] = [
+    # ---- Germany (#3 importer 2023; producer + re-export) ----
+    ("Germany", "both", "national customs trade detail (CN8)", "free", "no",
+     "Destatis GENESIS (51000) + Eurostat COMEXT", "https://www-genesis.destatis.de/genesis/online",
+     "monthly, CN8 x partner, value+qty", "", "",
+     "imports vs exports only -- re-exports folded into exports; 403 to bots from sandbox"),
+    ("Germany", "importer", "plant-health import interceptions", "free", "no",
+     "EU EUROPHYT/TRACES + JKI (NPPO)", "https://agrinfo.eu/book-of-reports/",
+     "by commodity/origin/pest, monthly summaries", "", _TODAY,
+     "live TRACES gated (authorities); EUROPHYT annual reports + AGRINFO free"),
+    ("Germany", "exporter", "domestic blueberry area/harvest (Heidelbeeren)", "free", "no",
+     "Destatis Strauchbeeren (412) + BMEL", "https://www.bmel-statistik.de/landwirtschaft/gartenbau/obstanbau/strauchbeeren",
+     "national + Bundesland, ha + t", "", _TODAY, "real producer (~3,450 ha 2025)"),
+
+    # ---- France (#10 importer 2023; producer + re-export) ----
+    ("France", "both", "national customs trade detail (NC8)", "free", "no",
+     "Le Kiosque (DGDDI) + Eurostat COMEXT", "https://lekiosque.finances.gouv.fr/",
+     "monthly, NC8 x partner", "", _TODAY,
+     "imports vs exports; no discrete re-export flow; open dumps on data.gouv.fr"),
+    ("France", "importer", "plant-health import controls/interceptions", "free", "no",
+     "SIVEP/DGAL + EU EUROPHYT/TRACES", "https://agrinfo.eu/book-of-reports/",
+     "by commodity/origin", "", _TODAY, "no national interception dataset; EUROPHYT is the free fallback"),
+    ("France", "exporter", "domestic blueberry area/production (myrtilles)", "free", "no",
+     "Agreste (SSP) + FranceAgriMer", "https://agreste.agriculture.gouv.fr/",
+     "national/regional, area+production", "", "",
+     "myrtilles within 'petits fruits rouges'; small; 403 from sandbox"),
+
+    # ---- China (#6 importer 2023; huge domestic producer) ----
+    ("China", "importer", "national customs trade detail (HS8)", "free", "no",
+     "GACC China Customs Statistics", "http://stats.customs.gov.cn/",
+     "monthly, HS8 x partner", "", "",
+     "Chinese-language, registration+CAPTCHA; English mirror aggregate; yearbook paid"),
+    ("China", "importer", "registered overseas producers (phyto import access)", "free", "no",
+     "GACC CIFER", "https://ciferquery.singlewindow.cn", "registered enterprise by product/country",
+     "", _TODAY, "public query, free; blueberry orchards are per-country protocol annexes, no consolidated list"),
+    ("China", "exporter", "domestic blueberry area/production", "none", "na",
+     "NBS (no blueberry line); China Blueberry Branch (industry)", "https://data.stats.gov.cn/english/",
+     "national/province, not broken out", "", "",
+     "NBS folds blueberry into general fruit; industry ~73k ha 2024 via USDA"),
+    ("China", "importer", "production/import forecast", "free", "no",
+     "USDA-FAS GAIN (Beijing ATO)", "https://www.fas.usda.gov/data/china-fresh-deciduous-fruit-annual-5",
+     "season-ahead", "", "", "dedicated China Blueberry Annual (voluntary) + Fresh Deciduous Annual; 403 to bots"),
+
+    # ---- Hong Kong (#4-ish re-export hub 2023) ----
+    ("Hong Kong", "both", "customs trade detail (import / domestic-export / re-export)", "free", "no",
+     "HK Census & Statistics Dept -- Trade IDDS", "https://tradeidds.censtatd.gov.hk",
+     "monthly, HKHS 8-digit x partner; re-exports split", "", "",
+     "the only clean re-export split in the catalogue; HS 0810.40; 403 from sandbox"),
+    ("Hong Kong", "importer", "plant import control", "free", "na",
+     "AFCD plant import licence", "https://www.afcd.gov.hk/english/quarantine/qua_plants/qua_plants_pq/qua_plants_pq_imp/qua_plants_pq_imp.html",
+     "per-consignment licence + phyto cert", "", _TODAY,
+     "no orchard whitelist; AFCD issues re-export phyto certs (hub role)"),
+
+    # ---- Switzerland (#7 importer 2023) ----
+    ("Switzerland", "importer", "national customs trade detail (8-digit Zolltarif)", "free", "no",
+     "Swiss-Impex (BAZG/FOCBS)", "https://www.bazg.admin.ch/en/foreign-trade-statistics",
+     "monthly back to 1988, by partner", "", _TODAY,
+     "free dashboard (Dec 2025); custom extracts paid; HS 0810.40"),
+    ("Switzerland", "importer", "plant-health import requirements", "free", "na",
+     "FOAG/BLW plant protection", "https://www.blw.admin.ch/en/importing-plants",
+     "import rules by genus/origin", "", _TODAY,
+     "phyto cert required non-EU; no blueberry approved-country list"),
+
+    # ---- South Korea (#10 importer 2023; ~3,300 ha domestic) ----
+    ("South Korea", "importer", "national customs trade detail (HSK 10-digit)", "free", "no",
+     "KITA K-Stat (English) / KCS / KATI", "https://kita.org/kStat/byCount_AllCount.do",
+     "monthly, HSK10 x partner", "", _TODAY, "K-Stat is the English route; KCS/KATI thinner in English"),
+    ("South Korea", "importer", "phyto import access (positive-list/PRA)", "free", "no",
+     "APQA (Animal & Plant Quarantine Agency)", "https://www.qia.go.kr", "approved origins per PRA",
+     "", "", "positive-list; blueberry eligibility per-origin; Korean-only DB; 403 from sandbox"),
+    ("South Korea", "exporter", "domestic blueberry area/production", "free", "no",
+     "KOSIS (Statistics Korea)", "https://kosis.kr/eng/", "crop area/production", "", "",
+     "~3,300 ha 2022; import-dependent; 403 from sandbox"),
+
+    # ---- Japan (#15 importer 2023) ----
+    ("Japan", "importer", "national customs trade detail (HS 9-digit)", "free", "no",
+     "Japan Customs Trade Statistics + e-Stat", "https://www.customs.go.jp/toukei/srch/indexe.htm",
+     "monthly, HS9 x partner; English", "", _TODAY, "e-Stat API mirror; HS 0810.40"),
+    ("Japan", "importer", "phyto import requirements", "free", "na",
+     "MAFF Plant Protection Station", "https://www.maff.go.jp/pps/j/introduction/english.html",
+     "import conditions by origin", "", _TODAY, "phyto cert + inspection; condition DB partly JP-only"),
+
+    # ---- Belgium (re-export hub) ----
+    ("Belgium", "both", "national customs trade detail (CN8)", "free", "no",
+     "NBB.Stat (National Bank of Belgium)", "https://stat.nbb.be",
+     "monthly, CN8; national+community concept", "", "",
+     "trade stats at NBB, NOT StatBel; mainly re-export; 403 from sandbox"),
+    ("Belgium", "both", "plant export/re-export certification (phyto)", "free", "na",
+     "FASFC/FAVV-AFSCA", "https://www.fasfc.be", "operator-registered certificates", "", _TODAY,
+     "designated NPPO; issues re-export phyto certs"),
+
+    # ---- Portugal (EU; real producer/exporter) ----
+    ("Portugal", "exporter", "national customs trade detail (CN)", "free", "no",
+     "INE Portugal + Eurostat COMEXT", "https://www.ine.pt", "CN-level intl trade in goods", "", _TODAY, ""),
+    ("Portugal", "exporter", "domestic blueberry area/production (mirtilo)", "free", "no",
+     "INE Portugal -- agricultural production", "https://www.ine.pt", "national/regional, ha + t",
+     "2013->now", _TODAY, "fast-growing: 534 ha (2013) -> ~2,627 ha, ~21,000 t (2023)"),
+    ("Portugal", "exporter", "phyto export register", "free", "na",
+     "DGAV", "https://www.dgav.pt", "operator phyto-register", "", _TODAY, "national NPPO"),
+
+    # ---- Italy (importer; some production) ----
+    ("Italy", "importer", "national customs trade detail (CN)", "free", "no",
+     "ISTAT Foreign Trade warehouse + Eurostat COMEXT", "https://esploradati.istat.it/coeweb/databrowser/#/en",
+     "Intrastat+Extrastat, CN-level", "", _TODAY, "Coeweb retired Sep 2025 -> esploradati warehouse"),
+    ("Italy", "exporter", "domestic blueberry area/production", "none", "na",
+     "ISTAT ag DB (no confirmed blueberry line); ItalianBerry (industry)", "https://esploradati.istat.it/",
+     "~1,390 ha (industry est.)", "", "", "official blueberry series not confirmed; industry-sourced"),
+
+    # ---- Austria (importer) ----
+    ("Austria", "importer", "national customs trade detail (CN8)", "free", "no",
+     "Statistics Austria STATcube + Eurostat COMEXT", "https://www.statistik.at/en/databases/statcube-statistical-database",
+     "Intrastat+Extrastat", "", "", "Guest Access limited; full CN8 depth paid; 403 from sandbox"),
+    ("Austria", "importer", "plant-health (phyto) authority", "free", "na",
+     "BAES (Bundesamt fuer Ernaehrungssicherheit)", "https://www.baes.gv.at/en/admission/phytosanitary-service",
+     "NPPO", "", "", "designated NPPO; 403 from sandbox"),
+
+    # ---- Serbia (non-EU exporter; NOT in COMEXT) ----
+    ("Serbia", "exporter", "national customs trade detail (HS 10-digit)", "free", "no",
+     "SORS External Trade + Customs Administration", "https://data.stat.gov.rs",
+     "monthly preliminary + annual final, HS10", "", _TODAY,
+     "not in COMEXT (non-EU); HS 0810 isolable"),
+    ("Serbia", "exporter", "domestic blueberry area/production (borovnica)", "free", "no",
+     "SORS Agriculture (annual crop survey)", "https://www.stat.gov.rs/en-us/oblasti/poljoprivreda-sumarstvo-i-ribarstvo/",
+     "~2,500 ha; EUROSTAT-harmonised", "", "", "blueberry line not confirmed in public browser; verify in ag DB"),
+    ("Serbia", "exporter", "phyto export authority", "free", "na",
+     "Plant Protection Directorate (Uprava za zastitu bilja)", "https://uzb.minpolj.gov.rs",
+     "export phyto certs", "", _TODAY, "national NPPO"),
+    ("Serbia", "exporter", "production/export forecast", "none", "na",
+     "USDA-FAS GAIN (Belgrade)", "https://www.fas.usda.gov/regions/serbia", "n/a", "", "",
+     "no Serbia blueberry GAIN; covered in EU Fresh Deciduous Annual if at all"),
+]
+
 
 def _records() -> list[dict]:
     rows = []
-    for t in _SEED + _SEED_PHASE2:
+    for t in _SEED + _SEED_PHASE2 + _SEED_PHASE2B:
         rec = {"commodity": _COMMODITY, "hs_code": _HS}
         rec.update(dict(zip(_FIELDS, t)))
         rows.append(rec)

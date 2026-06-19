@@ -32,8 +32,18 @@ _KEY_HINTS = ("missing key", "valid key", "api key", "api_key", "sign up for a k
               "access denied", "register for an api")
 
 
+def _normalize(url: str) -> str:
+    """Many catalogue URLs are bare hostnames (e.g. 'datos.gob.cl'); add a scheme
+    so urllib can resolve them instead of raising 'unknown url type'."""
+    u = url.strip()
+    if u and "://" not in u:
+        u = "https://" + u
+    return u
+
+
 def classify(url: str, timeout: int = 30) -> tuple[str, str]:
     """Return (status, detail) for a single URL. Never raises."""
+    url = _normalize(url)
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=timeout) as r:
