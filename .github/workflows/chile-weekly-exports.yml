@@ -71,6 +71,9 @@ jobs:
       - name: Refresh per-origin export prices (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: python -m nowcast.market.origin_prices || echo "origin prices refresh skipped"
+      - name: Refresh USD->GBP FX rate (collect only)
+        if: ${{ env.MODE == 'collect' }}
+        run: python -m nowcast.market.fx || echo "fx refresh skipped"
       - name: Refresh SAG China orchard roster (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: python scripts/fetch_sag_china.py --mode collect || echo "sag-china fetch skipped"

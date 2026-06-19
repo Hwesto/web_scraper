@@ -28,7 +28,7 @@ from matplotlib.ticker import FuncFormatter
 from nowcast.backtest.within_month import calibrated_run
 from nowcast.config import REPO_ROOT
 from nowcast import price
-from nowcast.market import asia_access, comtrade, netback, origin_prices
+from nowcast.market import asia_access, comtrade, fx, netback, origin_prices
 from nowcast.store import vintage
 
 OUT = REPO_ROOT / "docs" / "index.html"
@@ -341,6 +341,34 @@ def chart_shelf(vol, prod):
     return _png(fig)
 
 
+_RENEWAL_COHORTS = ["≤2010", "2011–15", "2016–19", "2020–23", "2024+"]
+_RENEWAL_COLS = ["#cfcabf", "#b9a9d6", "#9a78c0", "#7a4fb0", "#4a2f96"]   # old grey → new purple
+
+
+def chart_renewal(cat: pd.DataFrame):
+    """What Chile is planting: hectares by variety, split by planting period (renewal)."""
+    cat = cat[cat["hectares"].notna() & cat["planting_year"].notna()].copy()
+    cat["cohort"] = pd.cut(cat["planting_year"], bins=[0, 2010, 2015, 2019, 2023, 2100],
+                           labels=_RENEWAL_COHORTS)
+    top = cat.groupby("variedad")["hectares"].sum().sort_values().tail(7)
+    piv = (cat[cat["variedad"].isin(top.index)]
+           .pivot_table(index="variedad", columns="cohort", values="hectares",
+                        aggfunc="sum", observed=False).reindex(top.index).fillna(0))
+    fig, ax = plt.subplots(figsize=(9.2, 4.1))
+    y = np.arange(len(top)); left = np.zeros(len(top))
+    for c, col in zip(_RENEWAL_COHORTS, _RENEWAL_COLS):
+        vals = piv[c].values
+        ax.barh(y, vals, left=left, color=col, height=0.72, zorder=3, label=c)
+        left += vals
+    ax.set_yticks(y)
+    ax.set_yticklabels([str(v).title() for v in top.index], fontsize=11.5, color=INK)
+    ax.set_xlabel("hectares planted (Catastro Frutícola), coloured by planting period")
+    ax.legend(title="planted", ncol=5, fontsize=8.5, frameon=False,
+              loc="upper center", bbox_to_anchor=(0.5, -0.18), columnspacing=1.1)
+    _bare(ax, grid="x")
+    return _png(fig)
+
+
 def chart_origin_wedge(w: pd.DataFrame):
     """Dumbbell: each origin's export price (FOB) -> UK landed price (CIF); gap = freight."""
     d = w.sort_values("net_kg").tail(8)
@@ -397,7 +425,7 @@ def origin_uk_block(vol, origin: str) -> str:
         price_line = f"It lands at about <em>£{cif_recent:.2f}/kg</em> CIF"
         if len(pr):
             fob = float(pr["fob_usd_kg"].iloc[-1]); yr = int(pr["year"].iloc[-1])
-            wedge = cif_recent - fob * 0.79
+            wedge = cif_recent - fob * fx.gbp_per_usd()
             price_line += (f", from an export price near <em>${fob:.2f}/kg</em> FOB "
                            f"({yr}) — a freight wedge of about <em>£{wedge:.2f}/kg</em>")
             fob_cap = f"Export FOB: UN Comtrade {origin}→UK {yr} (${fob:.2f}/kg); "
@@ -551,6 +579,27 @@ premium club varieties <em>Blue Ribbon</em> and <em>Draper</em>.</p>
 <figure><img src="{chart_varieties(prod)}" alt="Chilean blueberry varieties shipped to the UK">
 <figcaption>From {n_named} named Chilean exporters in the DUS customs feed. Cultivar is
 declared on roughly half of shipments — this is the named subset.</figcaption></figure>""")
+
+    import glob as _glob
+    _catf = _glob.glob(str(REPO_ROOT / "data" / "farm" / "*catastro*.parquet"))
+    if _catf:
+        cat = pd.read_parquet(_catf[0])
+        add("Chile", "UK", "Catastro Frutícola", f"""
+<h2>What Chile is planting next</h2>
+<p class="deck">The orchard census, read by planting year — which varieties Chile is
+putting in the ground, and which it's quietly abandoning.</p>
+<p>Today's punnet is yesterday's planting decision, so the census is a forward look. The
+old workhorses are <em>aging out</em>: <em>Legacy</em> and <em>Duke</em> still dominate the
+ground, but almost none has been planted since 2019, and <em>Brigitta</em>/<em>Elliot</em>
+are pure legacy. The replant is going to the premium club varieties — <em>Blue Ribbon</em>
+barely existed before 2010 and is now the standout of recent plantings, with
+<em>Suziblue</em> and <em>Top Shelf</em> behind. As those young blocks reach full bearing,
+the mix Britain buys will tilt the same way — better-travelling, higher-value fruit, the
+move Chile is making to answer Peru.</p>
+<figure><img src="{chart_renewal(cat)}" alt="Chilean blueberry hectares by variety and planting period">
+<figcaption>Hectares by variety, coloured by planting period (CIREN-ODEPA Catastro
+Frutícola, latest survey per region). Grey = old plantings, purple = recent — the colour
+shift down each bar is the renewal. Area, not yield; young blocks bear little yet.</figcaption></figure>""")
 
     add("Chile", "Global", "UN Comtrade", f"""
 <h2>Where in the world to sell it</h2>
@@ -737,15 +786,15 @@ _ORIGIN_TPL = """
 (FOB) and what it's worth landed in Britain (CIF). The gap is mostly ocean freight.</p>
 <p>Same fruit, two ends of the journey. The grey dot is each origin's own export price;
 the purple dot is what Britain pays for it at the border ({year}). The distance between
-them is the freight-and-insurance wedge — wide for the deep-sea origins (Chile, South
-Africa, Argentina ride ~£0.5–1.6/kg of shipping), barely there for short-haul Europe
-(Spain ≈ £0). Where the wedge goes <em>negative</em> the country is a re-export hub, not
-a true grower — Dutch and Portuguese "exports" are largely fruit landed elsewhere first,
-so their FOB sits above the UK border price. A clean tell for which origins actually
-grow what they ship.</p>
+them is the freight-and-insurance wedge — wide for the <em>deep-sea</em> origins (Chile
+and South Africa carry roughly £0.7–1.7/kg of shipping), slim for near-Europe. Where the
+wedge goes <em>negative</em> the country is a <em>re-export hub</em>, not a true grower —
+the Netherlands' "exports" are largely fruit landed elsewhere first, so its FOB sits
+above the UK border price. A clean tell for which origins actually grow what they ship.
+(Lanes under ~250 t/yr are dropped — Comtrade revises their unit values too heavily.)</p>
 <figure><img src="{chart}" alt="Origin export price vs UK landed price, by country">
 <figcaption>Origin export FOB (UN Comtrade, reporter=origin, HS 081040) vs UK-landed CIF
-(HMRC, value÷volume), {year}, USD→GBP at a single notional rate. Annual; Comtrade
+(HMRC, value÷volume), {year}, USD→GBP at the live ECB rate. Annual; Comtrade
 reporter coverage lags, so some origins are absent in the latest year.</figcaption></figure>
 """
 

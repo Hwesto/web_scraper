@@ -35,11 +35,14 @@ def import_unit_value(origin: str | None = None, start: str = "2022-01-01") -> p
     return m.pivot_table(index="d", columns="key", values="gbp_per_kg")
 
 
-def chile_fob_weekly(gbp: bool = False, usd_gbp: float = 0.79) -> pd.Series:
-    """Weekly Chilean FOB price (USD/kg, or GBP/kg if gbp=True via a notional FX).
+def chile_fob_weekly(gbp: bool = False, usd_gbp: float | None = None) -> pd.Series:
+    """Weekly Chilean FOB price (USD/kg, or GBP/kg if gbp=True at the real ECB rate).
     Indexed by ISO-week Monday. Empty until the cron has produced the file."""
     if not FOB_CSV.exists():
         return pd.Series(dtype=float, name="chile_fob")
+    if usd_gbp is None:
+        from nowcast.market import fx
+        usd_gbp = fx.gbp_per_usd()
     df = pd.read_csv(FOB_CSV)
     df["d"] = df["iso_week"].map(
         lambda s: pd.Timestamp.fromisocalendar(int(s[:4]), int(s.split("-W")[1]), 1))

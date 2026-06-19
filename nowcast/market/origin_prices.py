@@ -116,19 +116,25 @@ def _hmrc_cif_annual(year: int) -> pd.Series:
     return (g["gbp"] / (g["t"] * KG_PER_TONNE)).rename("cif_gbp_kg")
 
 
-def wedge(year: int | None = None, usd_gbp: float = 0.79) -> pd.DataFrame:
+def wedge(year: int | None = None, usd_gbp: float | None = None,
+          min_kg: float = 250_000) -> pd.DataFrame:
     """Per-origin origin-export FOB vs UK-landed CIF, and the gap between them.
 
     cif_gbp_kg - fob_gbp_kg is ~ocean freight + insurance per kg (both are
     pre-importer, at-border prices) -- plus the usual Comtrade/HMRC mirror gap, so
-    read it as an order-of-magnitude wedge, not an exact freight quote. FX is a
-    single notional rate (documented). Only origins present on both sides.
+    read it as an order-of-magnitude wedge, not an exact freight quote. Converts at
+    the real ECB USD→GBP rate (fx.py). Drops sub-`min_kg` lanes whose unit value is a
+    tiny-sample artifact (Comtrade revises these heavily). Origins present on both sides.
     """
+    if usd_gbp is None:
+        from nowcast.market import fx
+        usd_gbp = fx.gbp_per_usd()
     fob = by_country(year, dest="United Kingdom")
     if fob.empty:
         return fob
     year = int(fob["year"].iloc[0])
     cif = _hmrc_cif_annual(year)
+    fob = fob[fob["net_kg"] >= min_kg]                  # drop tiny-sample lanes
     df = fob[["origin", "fob_usd_kg", "net_kg"]].copy()
     df["fob_gbp_kg"] = (df["fob_usd_kg"] * usd_gbp).round(3)
     df["cif_gbp_kg"] = df["origin"].map(cif).round(3)
