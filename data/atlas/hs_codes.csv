@@ -1,0 +1,13 @@
+commodity,hs6,jurisdiction,national_code,level,fresh,description,verified,note
+blueberry,081040,WCO,081040,HS6,fresh,"Cranberries, bilberries & other fruits of genus Vaccinium, fresh",yes,The free global Comtrade base layer is keyed on this HS6 line
+blueberry,081040,UK,08104050,CN8,fresh,"Fruit of Vaccinium macrocarpon / corymbosum (cultivated blueberry + large cranberry), fresh",yes,The UK customs split HMRC reports; the commercial blueberry line
+blueberry,081040,EU,08104050,CN8,fresh,"Vaccinium macrocarpon / corymbosum, fresh",yes,EU CN8 mirrors UK split (shared Combined Nomenclature pre-Brexit)
+blueberry,081040,UK,08104010,CN8,fresh,"Vaccinium vitis-idaea (cowberry / lingonberry), fresh",yes,NOT commercial blueberry — distinct Vaccinium line; excluded
+blueberry,081040,UK,08104090,CN8,fresh,"Other genus Vaccinium fruit, fresh",yes,Residual Vaccinium; minor for blueberry trade
+blueberry,081040,US,0810400024,HTS10,fresh,"Blueberries, cultivated, fresh",partial,US HTS 0810.40.00 with statistical suffix for cultivated blueberries
+blueberry,081190,WCO,081190,HS6,frozen,"Fruit & nuts, frozen, nes (incl. frozen blueberries)",partial,Frozen blueberry rides this line — separate from fresh 081040
+strawberry,081010,WCO,081010,HS6,fresh,"Strawberries, fresh",no,Other-fruit extension seed (HS6 only; not yet catalogued)
+raspberry_blackberry,081020,WCO,081020,HS6,fresh,"Raspberries, blackberries, mulberries & loganberries, fresh",no,Other-fruit extension seed
+cherry,080929,WCO,080929,HS6,fresh,"Cherries (other than sour), fresh",no,Other-fruit extension seed; pre-2012 sweet cherries were 080920
+grape_table,080610,WCO,080610,HS6,fresh,"Grapes, fresh",no,Other-fruit extension seed
+avocado,080440,WCO,080440,HS6,fresh,"Avocados, fresh or dried",no,Other-fruit extension seed

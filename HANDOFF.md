@@ -25,20 +25,36 @@ entire global flow+price matrix is one source. Everything else (producer identit
 structure, variety, phyto, retail, demand, sub-monthly) is an **overlay** on specific cells.
 So "global" is a Comtrade sweep, not lane-by-lane labour.
 
-## 2. Immediate next step (Phase 0 + 1)
+## 2. Immediate next step
 
-1. **Registry schema** — a machine-readable atlas table (CSV/parquet), the real deliverable:
-   `commodity · hs_code · country · role(exporter/importer) · data_point · access(free|paid|none) · source · url · granularity · depth · verified_date`.
-   Markdown baselines (`baseline_*.md`) don't scale to global × multi-fruit — replace with this.
-2. **HS-code registry** — `commodity → HS6 + national CN8/CN10 splits`. The join key for the
-   whole atlas and for the other-fruit extension. (Blueberry = HS 081040; UK CN8 08104050.)
-3. **Comtrade global sweep + ranking** — rank all blueberry exporters & importers by value
-   → defines the "global" target set (e.g. cover countries making up 95% of trade) and
-   populates every lane's flow+price at once. `comtrade.py` already fetches any reporter.
+**Phase 0 + 1 are DONE** (this session) — see the new `atlas/` package:
+1. ✅ **Registry schema + seed** — `atlas/schema.py` + `atlas/registry.py` →
+   `data/atlas/registry.csv` (68 rows). The machine-readable atlas:
+   `commodity · hs_code · country · role · data_point · access(free|paid|none) · wired · source · url · granularity · depth · verified_date · notes`.
+   Seeded by transcribing `baseline_*.md` (Chile deep, Peru, UK importer side, global). Query
+   with `registry.gaps(access=…, wired=…)` and `registry.coverage()`. This supersedes the
+   markdown baselines as the scalable atlas (baselines kept as the prose reference).
+2. ✅ **HS-code registry** — `atlas/hs_codes.py` → `data/atlas/hs_codes.csv`. `commodity →
+   HS6 + national CN8/HTS10 splits` (blueberry verified: HS 081040, UK CN8 08104050; other
+   fruits seeded as HS6 for the Phase-4 swap, marked `verified=no`).
+3. ✅ **Comtrade global sweep + ranking** — `atlas/comtrade_sweep.py` →
+   `data/atlas/comtrade_global_ranking.csv`. One call per flow (`reporterCode=` empty,
+   `partnerCode=0`, **`partner2Code=0`** — see below) ranks every exporter & importer by
+   value. `target_set(role)` returns the ~95%-of-trade set (2023 final: **16 exporters** led
+   by Peru 33%; **26 importers** led by USA 35%, UK #4). `atlas/countries.py` is the M49→name map.
 
-Then **Phase 2** (catalogue national overlays per country — *probe reachability, don't
-wire*), **Phase 3** (deepen selectively), **Phase 4** (swap HS code for other fruits).
-Full reasoning in the chat that produced this; condensed in `SOURCES.md` / `DATA.md`.
+**Phase 1 gotchas learned (do NOT relearn):**
+- The empty-reporter preview also returns **per-secondary-partner (`partner2Code`) breakdown
+  rows**, which blow past the **500-row cap** and *silently truncate* big reporters (the USA,
+  #1 importer, vanished). Pin **`partner2Code=0`** → one aggregate row per reporter, uncapped.
+- Comtrade annual data is **staggered**: the latest ~2 years are provisional (in mid-2026 the
+  2024 sweep still missed Peru, rank 50; 2023 was complete). `comtrade_sweep.FINAL_LAG_YEARS=3`;
+  `ranking`/`target_set` default to the latest **non-provisional** year.
+
+Then **Phase 2** (catalogue national overlays per country in `target_set` — *probe
+reachability, don't wire*; one registry row each), **Phase 3** (deepen selectively),
+**Phase 4** (swap HS code for other fruits — `hs_codes.csv` already seeded).
+Full reasoning condensed in `SOURCES.md` / `DATA.md`.
 
 ## 3. Where things stand
 
@@ -53,6 +69,10 @@ Full reasoning in the chat that produced this; condensed in `SOURCES.md` / `DATA
 
 ## 4. Repo map
 
+- `atlas/` — **the breadth-first deliverable (Phase 0/1)**: `schema.py` (registry columns +
+  `validate`), `registry.py` (`seed`/`load`/`gaps`/`coverage`), `hs_codes.py` (commodity→HS6
+  + national splits), `comtrade_sweep.py` (global exporter/importer ranking + `target_set`),
+  `countries.py` (M49↔name). Reads/writes `data/atlas/*.csv`. Tests: `tests/test_atlas.py`.
 - `nowcast/data/` — SignalSources (HMRC, DEFRA, ONS, retail, NDVI, job_boards) + `base.py`
   (tidy schema) ; `nowcast/store/vintage.py` — append-only vintage store (look-ahead-free).
 - `nowcast/market/` — `comtrade.py` (destinations, any reporter), `origin_prices.py`
