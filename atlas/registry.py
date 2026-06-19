@@ -211,6 +211,11 @@ _SEED: list[tuple] = [
      "annual, by country", "1961->now", _TODAY,
      "the global production base layer (FAO is to growing what Comtrade is to trade); "
      "wired via atlas/faostat.py -> data/atlas/faostat_blueberry.csv; FAO area incl. wild lowbush for US/CA"),
+    ("*", "global", "growing-region weather / frost / precipitation", "free", "yes",
+     "NASA POWER (monthly, AG community)", "https://power.larc.nasa.gov/api/temporal/monthly/point",
+     "monthly, per growing region (temp/min/max, precip)", "1981->now", _TODAY,
+     "the condition base layer; wired via atlas/nasa_power.py -> data/atlas/weather_regions.csv; "
+     "14 regions, frost risk via T2M_MIN; finer NDVI layers on top"),
     ("*", "global", "FX USD/GBP (and crosses)", "free", "yes",
      "Frankfurter / ECB", "api.frankfurter.app", "daily", "daily", _TODAY,
      "replaces notional 0.79"),
@@ -424,7 +429,8 @@ _SEED_PHASE2B: list[tuple] = [
      "Chinese-language, registration+CAPTCHA; English mirror aggregate; yearbook paid"),
     ("China", "importer", "registered overseas producers (phyto import access)", "free", "no",
      "GACC CIFER", "https://ciferquery.singlewindow.cn", "registered enterprise by product/country",
-     "", _TODAY, "public query, free; blueberry orchards are per-country protocol annexes, no consolidated list"),
+     "", _TODAY, "public JS query (verified reachable) but no clean machine API found from sandbox "
+     "-- needs JS/network inspection; blueberry orchards live in per-country protocol annexes"),
     ("China", "exporter", "domestic blueberry area/production", "none", "na",
      "NBS (no blueberry line); China Blueberry Branch (industry)", "https://data.stats.gov.cn/english/",
      "national/province, not broken out", "", "",

@@ -2,7 +2,7 @@
 lookup, and the Comtrade global sweep (offline parse + committed-table sanity)."""
 from atlas import comtrade_sweep as cs
 from atlas import (comtrade_matrix, comtrade_monthly, countries, eurostat,
-                   faostat, hs_codes, registry, schema, senasica)
+                   faostat, hs_codes, nasa_power, registry, schema, senasica)
 
 
 # ---- HS-code registry ----------------------------------------------------
@@ -172,6 +172,34 @@ def test_comtrade_monthly_committed_is_sane():
         return
     assert df["month"].between(1, 12).all()
     assert df[df["net_kg"] >= 50_000]["unit_usd_kg"].between(0.5, 40).all()
+
+
+def test_nasa_power_parses_months_and_skips_fill():
+    param = {
+        "T2M": {"202401": 17.3, "202402": 16.8, "202413": 17.0},     # 13 = annual, skip
+        "T2M_MIN": {"202401": 9.6, "202402": -999.0},                # -999 = missing, drop
+        "PRECTOTCORR": {"202401": 0.1, "202402": 0.2},
+    }
+    reg = {"origin": "Peru", "region": "La Libertad", "lat": -8.1, "lon": -79.0}
+    rows = nasa_power._parse(param, reg)
+    assert [r["month"] for r in rows] == [1, 2]                      # annual rollup dropped
+    assert rows[0]["t2m"] == 17.3 and rows[0]["tmin"] == 9.6
+    assert "tmin" not in rows[1]                                     # -999 fill skipped
+    assert rows[0]["origin"] == "Peru" and rows[0]["year"] == 2024
+
+
+def test_nasa_power_committed_climatology_is_sane():
+    df = nasa_power.load()
+    if df.empty:
+        return
+    assert set(nasa_power._COLS) == set(df.columns)
+    assert df["month"].between(1, 12).all()
+    assert df["t2m"].between(-40, 45).all()                          # plausible monthly mean C
+    clim = nasa_power.climatology()
+    # Poland (continental) must have a sub-zero winter month; frost lens works
+    pl = clim[clim["origin"] == "Poland"]
+    if len(pl):
+        assert pl["tmin"].min() < 0
 
 
 def test_faostat_pivots_and_drops_aggregates():
