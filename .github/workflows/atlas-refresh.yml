@@ -42,7 +42,7 @@ jobs:
         run: pip install requests pandas pyarrow pypdf
       - name: Refresh Comtrade global ranking
         run: python -m atlas.comtrade_sweep || echo "comtrade sweep skipped"
-      - name: Refresh Comtrade bilateral flow+price grid
+      - name: Refresh Comtrade bilateral grid (both flows + mirror)
         run: python -m atlas.comtrade_matrix || echo "comtrade matrix skipped"
       - name: Refresh Comtrade monthly seasonality grid
         run: python -m atlas.comtrade_monthly || echo "comtrade monthly skipped"

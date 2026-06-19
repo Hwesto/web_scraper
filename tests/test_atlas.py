@@ -15,6 +15,13 @@ def test_blueberry_hs6_and_uk_split():
     assert "blueberry" in hs_codes.commodities(verified_only=True)
 
 
+def test_hs_fresh_frozen_dried_lines_present():
+    # the join key is complete across product states
+    assert hs_codes.hs6("blueberry", "fresh") == "081040"
+    assert hs_codes.hs6("blueberry", "frozen") == "081190"
+    assert hs_codes.hs6("blueberry", "dried") == "081340"
+
+
 def test_hs_other_fruit_seed_present_but_unverified():
     # the other-fruit extension key exists (Phase 4) but isn't catalogued yet
     coms = hs_codes.commodities()
@@ -123,7 +130,7 @@ def test_comtrade_matrix_filters_and_dedups(monkeypatch, tmp_path):
     monkeypatch.setattr(comtrade_matrix.time, "sleep", lambda *_: None)
     monkeypatch.setattr(comtrade_matrix.comtrade_sweep, "is_provisional", lambda y: False)
 
-    def fake_fetch(reporter, year, hs, retries=4):
+    def fake_fetch(reporter, year, hs, flow, retries=4):
         return [
             {"partnerCode": 0, "primaryValue": 9e9, "netWgt": 1e9},        # World -> skip
             {"partnerCode": 842, "primaryValue": 1_000_000.0, "netWgt": 200_000.0},
@@ -131,10 +138,34 @@ def test_comtrade_matrix_filters_and_dedups(monkeypatch, tmp_path):
             {"partnerCode": 528, "primaryValue": 50.0, "netWgt": 5.0},     # < _MIN_KG -> drop
         ]
     monkeypatch.setattr(comtrade_matrix, "_fetch", fake_fetch)
-    df = comtrade_matrix.refresh([2023], exporters=[604], names={604: "Peru", 842: "USA"})
+    # exporter-only pull (importers=[] disables the import side) -> Peru->USA, export-reported
+    df = comtrade_matrix.refresh([2023], exporters=[604], importers=[],
+                                 names={604: "Peru", 842: "USA"})
     assert list(df["importer"]) == ["USA"]                          # World+dup+trace removed
     assert df.iloc[0]["unit_usd_kg"] == 5.0                         # 1e6 / 2e5
+    assert df.iloc[0]["flow"] == "exporter"
     assert bool(df.iloc[0]["provisional"]) is False
+
+
+def test_comtrade_matrix_both_flows_orient_and_mirror(monkeypatch, tmp_path):
+    monkeypatch.setattr(comtrade_matrix, "CACHE", tmp_path / "bi.csv")
+    monkeypatch.setattr(comtrade_matrix.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(comtrade_matrix.comtrade_sweep, "is_provisional", lambda y: False)
+
+    def fake_fetch(reporter, year, hs, flow, retries=4):
+        # Peru(604) exports to USA(842); USA imports from Peru -> same lane, mirror values
+        if flow == "X":
+            return [{"partnerCode": 842, "primaryValue": 1_000_000.0, "netWgt": 200_000.0}]
+        return [{"partnerCode": 604, "primaryValue": 1_100_000.0, "netWgt": 210_000.0}]
+    monkeypatch.setattr(comtrade_matrix, "_fetch", fake_fetch)
+    df = comtrade_matrix.refresh([2023], exporters=[604], importers=[842],
+                                 names={604: "Peru", 842: "USA"})
+    # both rows orient Peru->USA, tagged by reporting side
+    assert set(df["flow"]) == {"exporter", "importer"}
+    assert (df["exporter"] == "Peru").all() and (df["importer"] == "USA").all()
+    mc = comtrade_matrix.mirror_check(2023, min_value=500_000)
+    assert len(mc) == 1
+    assert mc.iloc[0]["ratio"] == round(1_000_000.0 / 1_100_000.0, 2)
 
 
 def test_comtrade_matrix_committed_grid_is_sane():

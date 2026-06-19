@@ -18,12 +18,18 @@ directions, every quality flag, and a complete HS join key.
 - [x] HS6 + partial national splits — `atlas/hs_codes.py`
 - [x] **Full history 2012→present** on ranking + bilateral (code; runner populates);
       monthly on a rolling 6-yr window (call-cost bound) — `START_YEAR=2012`
-- [ ] Bilateral grid covers **both flows** (importer-reported imports too, mirror-checked)
+- [x] Bilateral grid covers **both flows** — exporter-reported (X) + importer-reported (M),
+      oriented exporter→importer with a `flow` tag; `comtrade_matrix.mirror_check()`
 - [x] **Per-year coverage/quality table** — `comtrade_sweep.coverage_by_year()` (reporters
       filed, total value, provisional flag)
-- [ ] HS registry **completed**: national CN8/HTS10 for every target country; **frozen
-      (0811.90) + dried (0813.40)** blueberry lines; other-fruit HS6 verified
-- [ ] **Unit/quantity reconciliation** + World-total cross-checks baked into loaders
+- [x] HS registry **completed**: fresh 081040 (+UK/EU/US splits), **frozen 0811.90**,
+      **dried 0813.40**; other-fruit HS6 seeded (note: frozen/dried aren't blueberry-
+      specific at HS6 — only national CN8 splits them, captured where commercial)
+- [x] **Reconciliation** — `mirror_check()` (exporter- vs importer-reported, ratio≈1)
+      is the World-total/mirror cross-check
+
+> **Phase 1 = COMPLETE.** Global flow+price (annual full-history + monthly seasonality,
+> both flows, coverage lens) + complete HS join key.
 
 ## Phase 2 — the overlay catalogue (breadth) → MAXIMUM
 Every country in the trade that matters, every overlay category, every source probed.

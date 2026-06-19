@@ -6,6 +6,9 @@ blueberry,081040,UK,08104010,CN8,fresh,"Vaccinium vitis-idaea (cowberry / lingon
 blueberry,081040,UK,08104090,CN8,fresh,"Other genus Vaccinium fruit, fresh",yes,Residual Vaccinium; minor for blueberry trade
 blueberry,081040,US,0810400024,HTS10,fresh,"Blueberries, cultivated, fresh",partial,US HTS 0810.40.00 with statistical suffix for cultivated blueberries
 blueberry,081190,WCO,081190,HS6,frozen,"Fruit & nuts, frozen, nes (incl. frozen blueberries)",partial,Frozen blueberry rides this line — separate from fresh 081040
+blueberry,081190,US,0811902020,HTS10,frozen,"Blueberries (cultivated), frozen, not sweetened",partial,US HTS frozen-blueberry stat line under 0811.90
+blueberry,081190,EU,08119050,CN8,frozen,"Fruits of genus Vaccinium, frozen, no added sugar",partial,EU/UK frozen Vaccinium split under 0811.90
+blueberry,081340,WCO,081340,HS6,dried,"Fruit, dried, nes (incl. dried blueberries)",partial,Dried blueberry rides this HS6 line
 strawberry,081010,WCO,081010,HS6,fresh,"Strawberries, fresh",no,Other-fruit extension seed (HS6 only; not yet catalogued)
 raspberry_blackberry,081020,WCO,081020,HS6,fresh,"Raspberries, blackberries, mulberries & loganberries, fresh",no,Other-fruit extension seed
 cherry,080929,WCO,080929,HS6,fresh,"Cherries (other than sour), fresh",no,Other-fruit extension seed; pre-2012 sweet cherries were 080920
