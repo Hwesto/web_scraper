@@ -92,3 +92,45 @@ residual, leave-one-out) · a one-page GO/NO-GO memo on signal strength after Ph
 
 > Standing rule honoured: STAC access verified before scoping; S3 COG pixel reads to be
 > verified in Phase 2a before any pipeline build.
+
+---
+
+## Phase 2a — RESULT (probe run: `scripts/sentinel_probe.py`)
+
+**Egress (the open question): solved in-sandbox.** GDAL/rasterio COG reads are blocked
+here — the egress proxy MITMs S3 with a self-signed cert, the rasterio wheel's bundled
+libcurl ignores `CURL_CA_BUNDLE`/`GDAL_HTTP_CABUNDLE`, and disabling verification is
+(correctly) denied. But `urllib`/`requests`/`aiohttp` trust the egress CA, so reading COG
+overviews via **`tifffile` + `fsspec`** works. No GDAL, no cron dependency for reads.
+*(deps: tifffile, imagecodecs, fsspec, aiohttp, pyproj.)*
+
+**Method (crude on purpose).** 3 AOIs (Ñuble/Chillán, Bío Bío/Los Ángeles, Maule/Linares),
+least-cloudy Dec–Feb scene, ~80 m overview, SCL-masked median NDVI, AOI-mean per season.
+Target: Chile→UK arrivals Jan–Apr (HMRC).
+
+| season-end | NDVI | UK-Chile Jan–Apr (t) |
+|---|---|---|
+| 2019 | 0.565 | 8,115 |
+| 2020 | 0.505 | 6,124 |
+| 2021 | 0.542 | 8,495 |
+| 2022 | 0.307 | 6,092 |
+| 2023 | 0.496 | 5,878 |
+| 2024 | 0.501 | 5,952 |
+| 2025 | 0.532 | 5,305 |
+| 2026 | 0.517 | 5,525 |
+
+- Test A (raw exports): Spearman **+0.31** — weak (raw volume is dominated by Chile's
+  structural decline, which NDVI shouldn't track).
+- Test B (detrended residual — the condition test): Spearman **+0.83** (Pearson +0.42);
+  **+0.71 excluding the 2022 low-NDVI outlier** (n=7). The year-to-year vigour wiggle
+  tracks the year-to-year export wiggle.
+
+**Verdict: cautious GO.** The signal shows up on the *correct* test, exactly as predicted,
+and survives outlier removal. Honest caveats: **n=8 is low power**; there's researcher
+degrees-of-freedom (choosing to detrend / inspect 2022); and this crude single-scene,
+coarse, unmasked probe likely *understates* the achievable signal. The **2022 anomaly**
+(NDVI 0.307) needs checking — real bad season vs cloud contamination.
+
+**→ Proceed to Phase 2b** to firm it: integrated seasonal metric (greenness-days) instead
+of one scene, WorldCover cropland mask, capacity-model residual as the target, and all
+blueberry comunas. Only then consider Tier 3.
