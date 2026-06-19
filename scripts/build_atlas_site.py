@@ -17,6 +17,7 @@ import base64
 import datetime as _dt
 import io
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -364,20 +365,24 @@ def _country_fig(name, code, ex, im, primary, bil, named) -> str:
         if p == "vol":
             series = [s for s in (("exports", ex, ACCENT), ("imports", im, "#6a8caf")) if len(s[1])]
             for label, d, col in series:
-                ax.plot(d["year"], d["net_kg"] / 1e6, color=col, lw=1.8, label=label, zorder=4)
+                vy = (d["net_kg"] / 1e6).where(d["net_kg"] > 0)     # mask quantity-gap years
+                ax.plot(d["year"], vy, color=col, lw=1.8, label=label, zorder=4)
             if len(series) == 2:                                    # fill the SMALLER flow
                 small = min(series, key=lambda s: s[1]["net_kg"].iloc[-1])
-                ax.fill_between(small[1]["year"], small[1]["net_kg"] / 1e6, color=small[2], alpha=0.32, zorder=2)
+                ax.fill_between(small[1]["year"], (small[1]["net_kg"] / 1e6).where(small[1]["net_kg"] > 0),
+                                color=small[2], alpha=0.32, zorder=2)
                 ax.legend(fontsize=7, frameon=False, loc="upper left", handlelength=1.0)
             elif series:
                 d, col = series[0][1], series[0][2]
-                ax.fill_between(d["year"], d["net_kg"] / 1e6, color=col, alpha=0.85, zorder=2)
+                ax.fill_between(d["year"], (d["net_kg"] / 1e6).where(d["net_kg"] > 0),
+                                color=col, alpha=0.85, zorder=2)
             yrs = sorted(set(ex["year"].tolist() + im["year"].tolist()))
             ax.set_xticks([yrs[0], yrs[-1]] if yrs else []); ax.set_ylim(bottom=0)
             ax.set_title("volume · kt", fontsize=9.5, color=SUBTLE, loc="left")
         elif p == "price":
             d = ex if primary == "exporter" else im
-            ax.plot(d["year"], d["unit_usd_kg"], color="#b8860b", lw=2.0, marker="o", ms=3, zorder=4)
+            py = d["unit_usd_kg"].where(d["net_kg"] > 0)            # $/kg is meaningless where qty=0
+            ax.plot(d["year"], py, color="#b8860b", lw=2.0, marker="o", ms=3, zorder=4)
             ax.set_xticks([int(d["year"].min()), int(d["year"].max())])
             ax.set_title(f"avg $/kg · customs {'FOB' if primary=='exporter' else 'CIF'}",
                          fontsize=9.5, color=SUBTLE, loc="left")
@@ -432,6 +437,10 @@ def _extra_facts(name, code, iso3, fa_iso, wx) -> list[str]:
     return out
 
 
+def _slug(name: str) -> str:
+    return "c-" + re.sub(r"[^a-z0-9]", "", name.lower())
+
+
 def _country_card(name, code, cname, iso3, reg, fa_iso, wx, bil) -> str:
     sub = cs.load()
     sub = sub[sub["reporter_code"] == code] if code else sub.iloc[0:0]
@@ -440,18 +449,22 @@ def _country_card(name, code, cname, iso3, reg, fa_iso, wx, bil) -> str:
     lv = lambda d: float(d["value_usd"].iloc[-1]) if len(d) else 0.0
     role, ts, verb = ("exporter", ex, "export") if lv(ex) >= lv(im) else ("importer", im, "import")
     cov = _coverage_card_html(name, reg)
+    sid = _slug(name)
     if ts.empty:
-        return (f'<div class="profile"><h3>{name}</h3>{cov}'
+        return (f'<div class="profile" id="{sid}"><h3>{name}</h3>{cov}'
                 f'<p class="lead">No trade series yet (small / non-reporting market).</p></div>')
-    last, first = ts.iloc[-1], ts.iloc[0]
-    yoy = (last["net_kg"] / ts.iloc[-2]["net_kg"] - 1) * 100 if len(ts) >= 2 and ts.iloc[-2]["net_kg"] else None
-    grow = (last["net_kg"] / first["net_kg"] - 1) * 100 if len(ts) >= 2 and first["net_kg"] else None
+    tsq = ts[ts["net_kg"] > 0]                            # headline from years with real quantity
+    tsq = tsq if len(tsq) else ts
+    last, first = tsq.iloc[-1], tsq.iloc[0]
+    prov = bool(last.get("provisional", False))           # headline the latest year, but flag it
+    yoy = (last["net_kg"] / tsq.iloc[-2]["net_kg"] - 1) * 100 if len(tsq) >= 2 and tsq.iloc[-2]["net_kg"] else None
+    grow = (last["net_kg"] / first["net_kg"] - 1) * 100 if len(tsq) >= 2 and first["net_kg"] else None
     val = last["value_usd"]; vstr = f"${val/1e9:.2f}B" if val >= 1e9 else f"${val/1e6:.0f}M"
     def stat(b, l):
         return f'<div><b>{b}</b><span>{l}</span></div>'
     yoy_s = f' <i class="{"up" if yoy>=0 else "dn"}">{"▲" if yoy>=0 else "▼"}{abs(yoy):.0f}%</i>' if yoy is not None else ""
     strip = ('<div class="stats">'
-             + stat(f"{last['net_kg']/1e6:.0f} kt", f"{verb} vol {int(last['year'])}{yoy_s}")
+             + stat(f"{last['net_kg']/1e6:.0f} kt", f"{verb} vol {int(last['year'])}{' ·prov' if prov else ''}{yoy_s}")
              + stat(vstr, "value")
              + stat(f"${last['unit_usd_kg']:.2f}", "$/kg")
              + stat(f"{last['share']*100:.0f}%", f"world share · #{int(last['rank'])}")
@@ -466,7 +479,7 @@ def _country_card(name, code, cname, iso3, reg, fa_iso, wx, bil) -> str:
     deep = '<a href="./index.html">deep dive ↗</a>' if name in ("United Kingdom", "Chile", "Peru") else ""
     facts_html = f'<p class="facts">{" · ".join(facts)}{(" · " + deep) if (facts and deep) else deep}</p>' if (facts or deep) else ""
     badge = f'<span class="badge">{role} · #{int(last["rank"])}</span>'
-    return f'<div class="profile"><h3>{name} {badge}</h3>{strip}{img}{facts_html}{cov}</div>'
+    return f'<div class="profile" id="{sid}"><h3>{name} {badge}</h3>{strip}{img}{facts_html}{cov}</div>'
 
 
 def _coverage_card_html(reg_name: str, df: pd.DataFrame) -> str:
@@ -529,6 +542,80 @@ def _trade_order() -> list[str]:
     return [c for c, _ in sorted(score.items(), key=lambda kv: -kv[1])]
 
 
+# ----------------------------- the index (compare) -----------------------------
+def _index_table_html(order: list[str]) -> str:
+    """One sortable row per country — the bird's-eye 'see it all (and what's missing)'.
+    Empty cells are the gaps; the coverage column shows the source mix."""
+    reg = registry.load()
+    n2c, c2i = _reg_code_map(), _code_to_iso3()
+    rank, fa_iso = cs.load(), _faostat_iso()
+    try:
+        from atlas import usda_gain
+        fc = usda_gain.load()
+    except Exception:
+        fc = pd.DataFrame(columns=["country", "metric", "value_mt", "year"])
+    names = [c for c in order if c != "*"] + \
+            [c for c in sorted(reg["country"].unique()) if c not in order and c != "*"]
+    rows = []
+    for name in names:
+        code = n2c.get(name)
+        if not code:
+            continue
+        sub = rank[rank["reporter_code"] == code]
+        ex = sub[sub["role"] == "exporter"].sort_values("year")
+        im = sub[sub["role"] == "importer"].sort_values("year")
+        lv = lambda d: float(d["value_usd"].iloc[-1]) if len(d) else 0.0
+        if ex.empty and im.empty:
+            continue
+        prim = ex if lv(ex) >= lv(im) else im
+        role = "exp+imp" if (len(ex) and len(im) and min(lv(ex), lv(im)) > 0.15 * max(lv(ex), lv(im))) \
+            else ("exp" if lv(ex) >= lv(im) else "imp")
+        primq = prim[prim["net_kg"] > 0]
+        primq = primq if len(primq) else prim
+        last = primq.iloc[-1]
+        prov = bool(last.get("provisional", False))
+        vol = last["net_kg"] / 1e6
+        yoy = (last["net_kg"] / primq.iloc[-2]["net_kg"] - 1) * 100 if len(primq) >= 2 and primq.iloc[-2]["net_kg"] else None
+        usd = last["unit_usd_kg"]; share = last["share"] * 100
+        # production (FAOSTAT) + forecast (USDA) — blank = a visible gap
+        iso3 = c2i.get(code)
+        f = fa_iso[fa_iso["iso3"] == iso3] if iso3 else fa_iso.iloc[0:0]
+        prod = f.sort_values("year")["production_t"].iloc[-1] / 1000 if len(f) else None
+        fcr = fc[(fc["country"] == name) & (fc["metric"] == "production")]
+        fore = fcr["value_mt"].iloc[0] / 1000 if len(fcr) else None
+        # coverage mix
+        rc = reg[reg["country"] == name]
+        wired = int(rc["wired"].isin(["yes", "derived"]).sum())
+        free = int(((rc["access"] == "free") & (~rc["wired"].isin(["yes", "derived"]))).sum())
+        paid = int((rc["access"] == "paid").sum()); none = int((rc["access"] == "none").sum())
+
+        def num(v, fmt, arrow=False):
+            if v is None:
+                return '<td data-v="" class="miss">—</td>'
+            if arrow:
+                cl = "up" if v >= 0 else "dn"
+                return f'<td data-v="{v:.1f}"><i class="{cl}">{"▲" if v>=0 else "▼"}{abs(v):.0f}%</i></td>'
+            return f'<td data-v="{v:.3f}">{fmt.format(v)}</td>'
+        covbar = (f'<span class="mini"><i style="flex:{wired};background:#2f6f4e"></i>'
+                  f'<i style="flex:{free};background:#86b08f"></i>'
+                  f'<i style="flex:{paid};background:#b8860b"></i>'
+                  f'<i style="flex:{none};background:#cdb4b0"></i></span>'
+                  f'<small>✅{wired} 🟢{free} 💷{paid} ⛔{none}</small>')
+        rows.append((vol, f'<tr>'
+            f'<td data-v="{name}"><a href="#{_slug(name)}">{name}</a></td>'
+            f'<td data-v="{role}">{role}</td>'
+            + f'<td data-v="{vol:.3f}">{vol:.0f} kt{"ᵖ" if prov else ""}</td>'
+            + num(yoy, "", arrow=True) + num(usd, "${:.2f}")
+            + num(share, "{:.0f}%") + num(prod, "{:.0f} kt") + num(fore, "{:.0f} kt")
+            + f'<td data-v="{wired}" class="covcell">{covbar}</td></tr>'))
+    body = "".join(r for _, r in sorted(rows, key=lambda x: -x[0]))
+    heads = ["Country", "Role", "Volume", "YoY", "$/kg", "Share", "Produces", "Forecast", "Coverage"]
+    numeric = [0, 0, 1, 1, 1, 1, 1, 1, 1]
+    th = "".join(f'<th onclick="sortIdx({i},{n})">{h}</th>' for i, (h, n) in enumerate(zip(heads, numeric)))
+    return (f'<table class="index" id="indexTable" data-sortcol="2" data-sortdir="desc">'
+            f'<thead><tr>{th}</tr></thead><tbody>{body}</tbody></table>')
+
+
 # ----------------------------- assembly -----------------------------
 def _stamp(txt: str) -> str:
     return f'<p class="stamp">{txt}</p>'
@@ -571,11 +658,12 @@ def build() -> Path:
     ])
 
     order = _trade_order()
+    index = _index_table_html(order)
     profiles = _country_sections(order)
     matrix = _coverage_matrix_html(order)
     ceiling = _ceiling_html()
 
-    html = _PAGE.format(today=today, year=yr, kpis=kpis, the_year=the_year,
+    html = _PAGE.format(today=today, year=yr, kpis=kpis, the_year=the_year, index=index,
                         profiles=profiles, matrix=matrix, ceiling=ceiling,
                         n_countries=profiles.count('class="profile"'))
     OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -625,6 +713,16 @@ nav a{{color:var(--accent);text-decoration:none;font-weight:600;margin-right:18p
 .matrix th{{font-weight:600;padding:5px 7px;text-align:center;color:var(--subtle);font-size:.8rem}}
 .matrix th.rh{{text-align:right;white-space:nowrap;color:var(--ink);font-size:.84rem}}
 .matrix td{{text-align:center;padding:5px 7px;border:1px solid #efece6;font-size:1rem}}
+.index{{border-collapse:collapse;width:100%;font-size:.9rem}}
+.index th{{text-align:right;padding:7px 9px;color:var(--subtle);font-size:.82rem;cursor:pointer;
+ border-bottom:2px solid var(--ink);white-space:nowrap;user-select:none}}
+.index th:first-child,.index td:first-child{{text-align:left}} .index th:hover{{color:var(--accent)}}
+.index td{{text-align:right;padding:6px 9px;border-bottom:1px solid var(--line);white-space:nowrap}}
+.index td a{{color:var(--ink);text-decoration:none;font-weight:600}} .index td a:hover{{color:var(--accent)}}
+.index tr:hover td{{background:#fbfaf7}} .index .miss{{color:#cdc7bd}}
+.index .covcell{{display:flex;align-items:center;gap:6px;justify-content:flex-end}}
+.mini{{display:inline-flex;width:62px;height:11px;border-radius:3px;overflow:hidden}}
+.mini i{{display:block}} .index small{{color:var(--subtle);font-size:.7rem}}
 .ceiling{{margin:6px 0 2px}} .cbar{{display:flex;align-items:center;gap:10px;margin:5px 0;font-size:.86rem}}
 .cbar span{{width:170px;color:var(--subtle)}} .cbar i{{height:14px;border-radius:3px;display:inline-block}} .cbar b{{color:var(--ink)}}
 footer{{max-width:1060px;margin:0 auto;padding:20px 22px 50px;color:var(--subtle);font-size:.82rem;border-top:1px solid var(--line)}}
@@ -635,10 +733,16 @@ footer{{max-width:1060px;margin:0 auto;padding:20px 22px 50px;color:var(--subtle
 you can know about it for free. <b>Reference year {year}.</b></p>
 <div class="kpis">{kpis}</div>
 </header>
-<nav><a href="#year">The year</a><a href="#countries">Countries</a><a href="#atlas">The atlas</a><a href="./index.html">Deep dive: UK ↗</a></nav>
+<nav><a href="#year">The year</a><a href="#index">The index</a><a href="#countries">Countries</a><a href="#atlas">The atlas</a><a href="./index.html">Deep dive: UK ↗</a></nav>
 <main>
 <h2 id="year">The year</h2>
 {the_year}
+<h2 id="index">The index</h2>
+<p class="lead">Every country on one screen — <b>click any column to sort</b>, click a name to jump to
+its card. Blank cells (—) are the gaps: no FAOSTAT production, no forecast; <b>ᵖ</b> = provisional latest
+year (Comtrade still finalising). The coverage bar shows
+each country's source mix (✅ wired · 🟢 free · 💷 paid · ⛔ none).</p>
+{index}
 <h2 id="countries">Countries &amp; coverage <span style="font-size:.8rem;color:#a59e93">({n_countries} profiles)</span></h2>
 <p class="lead">Each country leads with the facts everyone wants — <b>volume</b> (exports &amp; imports
 on one axis, the smaller flow shaded) and <b>price</b> — then partners, depth, and a coverage card.
@@ -656,6 +760,20 @@ Built {today} from free, public sources (UN Comtrade · FAOSTAT · USDA-FAS · N
 Eurostat · national NPPOs). Every figure is stamped with its source and access. Latest
 ~2 years of trade are provisional. · The Global Blueberry Atlas · fruit is a parameter.
 </footer>
+<script>
+function sortIdx(n, numeric){{
+  var t=document.getElementById('indexTable'), tb=t.tBodies[0], rows=Array.prototype.slice.call(tb.rows);
+  var dir = (t.getAttribute('data-sortcol')==n && t.getAttribute('data-sortdir')=='asc') ? 'desc' : 'asc';
+  rows.sort(function(a,b){{
+    var x=a.cells[n].getAttribute('data-v'), y=b.cells[n].getAttribute('data-v');
+    if(numeric){{ x=(x===''?-Infinity:parseFloat(x)); y=(y===''?-Infinity:parseFloat(y));
+      return dir=='asc' ? x-y : y-x; }}
+    return dir=='asc' ? (''+x).localeCompare(''+y) : (''+y).localeCompare(''+x);
+  }});
+  rows.forEach(function(r){{ tb.appendChild(r); }});
+  t.setAttribute('data-sortcol',n); t.setAttribute('data-sortdir',dir);
+}}
+</script>
 </body></html>"""
 
 

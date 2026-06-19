@@ -121,15 +121,26 @@ def refresh(years: list[int], commodity: str = "blueberry") -> pd.DataFrame:
     hs = hs_codes.hs6(commodity)
     names = countries.name_map()
     out = _cache(commodity)
-    parts = []
+    parts, done = [], set()
     for year in years:
+        ok = True
         for role in ("exporter", "importer"):
-            parts.append(_rank_one(role, year, hs, names))
+            try:                                       # resilient: a failed/empty year (rate-
+                df = _rank_one(role, year, hs, names)   # limit, too-recent) is skipped, not fatal,
+                if not df.empty:                        # so the full history still lands
+                    parts.append(df)
+            except Exception as e:                     # noqa: BLE001
+                print(f"sweep skip {role} {year}: {type(e).__name__} {str(e)[:60]}")
+                ok = False
             time.sleep(0.5)                            # polite between calls
+        if ok:
+            done.add(year)
+    if not parts:
+        raise RuntimeError("comtrade sweep produced no rows for any year")
     fresh = pd.concat(parts, ignore_index=True)
-    if out.exists() and not fresh.empty:
+    if out.exists():                                   # only replace the years we re-fetched cleanly
         old = pd.read_csv(out)
-        old = old[~old["year"].isin(years)]            # replace refreshed years wholesale
+        old = old[~old["year"].isin(done)]
         fresh = pd.concat([old, fresh], ignore_index=True)
     fresh = fresh.sort_values(["year", "role", "rank"]).reset_index(drop=True)
     out.parent.mkdir(parents=True, exist_ok=True)
