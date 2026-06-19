@@ -39,7 +39,7 @@ https://nube.agricultura.gob.mx/cierre_agricola/,reachable,"HTTP 200, 2045b snif
 https://opendata.cbs.nl/,reachable,"HTTP 200, 2048b sniffed",free,,2,Netherlands,national customs trade detail (re-export split)
 https://osp.stat.gov.lt/en,auth,HTTP 403,,,1,Lithuania,national customs trade detail (CN8)
 https://power.larc.nasa.gov/api/temporal/monthly/point,error,HTTP 422,,,1,*,growing-region weather / frost / precipitation
-https://ppecb.com/,unreachable,timed out,,,1,South Africa,authorised export orchards/packhouses (phyto)
+https://ppecb.com/,reachable,"HTTP 200, 2048b sniffed",free,,1,South Africa,authorised export orchards/packhouses (phyto)
 https://quickstats.nass.usda.gov/,reachable,"HTTP 200, 2048b sniffed",free,,1,USA,orchard / planted-area by state
 https://services.oc.gov.ma/DataBase/CommerceExterieur/login,reachable,"HTTP 200, 2042b sniffed",free,,1,Morocco,national customs trade detail (by product)
 https://servicio.mapa.gob.es/cexvegweb/home,reachable,"HTTP 200, 2047b sniffed",free,,1,Spain,authorised export orchards/packhouses (phyto)
@@ -73,7 +73,7 @@ https://www.fas.usda.gov/data/mexico-blueberry-annual-voluntary,auth,HTTP 403,,,
 https://www.fas.usda.gov/data/search,auth,HTTP 403,,,1,USA,production/export forecast
 https://www.fas.usda.gov/regions/serbia,auth,HTTP 403,,,1,Serbia,production/export forecast
 https://www.fasfc.be,reachable,"HTTP 200, 2048b sniffed",free,,1,Belgium,plant export/re-export certification (phyto)
-https://www.gob.mx/senasica/documentos/huertos-registrados,reachable,"HTTP 200, 1908b sniffed",free,,1,Mexico,authorised export orchards (phyto)
+https://www.gob.mx/senasica/documentos/huertos-registrados,reachable,"HTTP 200, 1912b sniffed",free,,1,Mexico,authorised export orchards (phyto)
 https://www.ine.pt,auth,HTTP 403,,,2,Portugal,national customs trade detail (CN)
 https://www.inegi.org.mx/rnm/index.php/catalog/1082,reachable,"HTTP 200, 1999b sniffed",free,,1,Mexico,national customs trade detail (NICO 8-10 digit)
 https://www.maff.go.jp/pps/j/introduction/english.html,reachable,"HTTP 200, 1972b sniffed",free,,1,Japan,phyto import requirements
@@ -82,7 +82,7 @@ https://www.mattilsynet.no/en/plants,reachable,"HTTP 200, 2048b sniffed",free,,1
 https://www.moccae.gov.ae/en/services/export-import-services/import-permit.aspx,reachable,"HTTP 200, 244b sniffed",free,,1,United Arab Emirates,plant-health import authority
 https://www.nparks.gov.sg/services/import-plant-plant-products,reachable,"HTTP 200, 2048b sniffed",free,,1,Singapore,plant-health import authority
 https://www.onssa.gov.ma/lists-of-approved-authorised-establishments/?lang=en,unreachable,[Errno 111] Connection refused,,,1,Morocco,authorised export packing stations (phyto)
-https://www.qia.go.kr,reachable,"HTTP 200, 2038b sniffed",free,,1,South Korea,phyto import access (positive-list/PRA)
+https://www.qia.go.kr,unreachable,timed out,,,1,South Korea,phyto import access (positive-list/PRA)
 https://www.sars.gov.za/customs-and-excise/trade-statistics/,reachable,"HTTP 200, 2048b sniffed",free,,1,South Africa,national customs trade detail (HS x partner)
 https://www.scb.se/en/finding-statistics/statistics-by-subject-area/business-activities-and-foreign-trade/foreign-trade/foreign-trade-in-goods/,reachable,"HTTP 200, 2048b sniffed",free,,1,Sweden,national customs trade detail (CN8)
 https://www.ssb.no/en/statbank/list/muh,reachable,"HTTP 200, 1937b sniffed",free,,1,Norway,national customs trade detail (HS)
