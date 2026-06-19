@@ -529,9 +529,69 @@ _SEED_PHASE2B: list[tuple] = [
 ]
 
 
+# ---- Phase 2c: tail importer markets in the 95% set (<1% each) ----
+# Completes "every country in the 95% set". EU members' CN8 trade is already wired via
+# the global Eurostat COMEXT row, so here it's the national office + the import-side NPPO.
+# verified_date left blank -- research-confirmed URLs, to be probed on the runner.
+_SEED_PHASE2C: list[tuple] = [
+    # ---- non-EU (re-distribution markets / hubs) ----
+    ("Singapore", "both", "national customs trade detail (HS, re-export)", "free", "no",
+     "SingStat Table Builder + Singapore Customs", "https://tablebuilder.singstat.gov.sg/",
+     "HS-level merchandise trade, monthly", "", "", "re-distribution hub; free interactive"),
+    ("Singapore", "importer", "plant-health import authority", "free", "na",
+     "NParks Animal & Veterinary Service (AVS)", "https://www.nparks.gov.sg/services/import-plant-plant-products",
+     "import permit + phyto", "", "", ""),
+    ("Norway", "importer", "national customs trade detail (HS)", "free", "no",
+     "Statistics Norway (SSB) StatBank 08799", "https://www.ssb.no/en/statbank/list/muh",
+     "HS x partner, monthly", "", "", ""),
+    ("Norway", "importer", "plant-health import authority", "free", "na",
+     "Mattilsynet (Norwegian Food Safety Authority)", "https://www.mattilsynet.no/en/plants",
+     "import rules", "", "", ""),
+    ("United Arab Emirates", "both", "national customs trade detail (HS, re-export)", "free", "no",
+     "FCSC UAE.Stat International Trade", "https://uaestat.fcsc.gov.ae/",
+     "HS-level, by partner", "", "", "re-export hub; JS portal (browser/runner)"),
+    ("United Arab Emirates", "importer", "plant-health import authority", "free", "na",
+     "MOCCAE import permit", "https://www.moccae.gov.ae/en/services/export-import-services/import-permit.aspx",
+     "import permit", "", "", ""),
+    # ---- EU members (CN8 trade already wired via the global COMEXT row) ----
+    ("Czechia", "importer", "national customs trade detail (CN8)", "free", "no",
+     "Eurostat COMEXT + Czech Statistical Office (CZSO)", "https://www.czso.cz/csu/czso/databases-registers",
+     "CN8 via COMEXT (wired); national DB", "", "", "EU -- CN8 trade covered by the wired COMEXT row"),
+    ("Czechia", "importer", "plant-health import authority", "free", "na",
+     "UKZUZ", "https://ukzuz.gov.cz/public/portal/ukzuz/en/import-export/index-1", "NPPO", "", "", ""),
+    ("Denmark", "importer", "national customs trade detail (CN8)", "free", "no",
+     "Eurostat COMEXT + Statistics Denmark (DST)", "https://www.statbank.dk/",
+     "CN8 via COMEXT (wired); national DB", "", "", "EU -- COMEXT-covered"),
+    ("Denmark", "importer", "plant-health import authority", "free", "na",
+     "Danish Agricultural Agency (Landbrugsstyrelsen)", "https://en.lbst.dk/", "NPPO", "", "", ""),
+    ("Romania", "importer", "national customs trade detail (CN8)", "free", "no",
+     "Eurostat COMEXT + INSSE TEMPO-Online", "https://insse.ro/cms/en",
+     "CN8 via COMEXT (wired); national DB", "", "", "EU -- COMEXT-covered"),
+    ("Romania", "importer", "plant-health import authority", "free", "na",
+     "National Phytosanitary Authority (ANF)", "https://anfdf.ro/", "NPPO", "", "", ""),
+    ("Sweden", "importer", "national customs trade detail (CN8)", "free", "no",
+     "Eurostat COMEXT + Statistics Sweden (SCB)",
+     "https://www.scb.se/en/finding-statistics/statistics-by-subject-area/business-activities-and-foreign-trade/foreign-trade/foreign-trade-in-goods/",
+     "CN8 via COMEXT (wired); national DB", "", "", "EU -- COMEXT-covered"),
+    ("Sweden", "importer", "plant-health import authority", "free", "na",
+     "Swedish Board of Agriculture (Jordbruksverket)",
+     "https://jordbruksverket.se/languages/english/swedish-board-of-agriculture/plants", "NPPO", "", "", ""),
+    ("Lithuania", "importer", "national customs trade detail (CN8)", "free", "no",
+     "Eurostat COMEXT + Statistics Lithuania (OSP)", "https://osp.stat.gov.lt/en",
+     "CN8 via COMEXT (wired); national DB", "", "", "EU -- COMEXT-covered"),
+    ("Lithuania", "importer", "plant-health import authority", "free", "na",
+     "State Plant Service (VATZUM)", "https://vatzum.lrv.lt/en/", "NPPO", "", "", ""),
+    ("Slovakia", "importer", "national customs trade detail (CN8)", "free", "no",
+     "Eurostat COMEXT + Statistical Office (SUSR DATAcube)", "https://datacube.statistics.sk/",
+     "CN8 via COMEXT (wired); national DB", "", "", "EU -- COMEXT-covered"),
+    ("Slovakia", "importer", "plant-health import authority", "free", "na",
+     "UKSUP", "https://www.uksup.sk/en", "NPPO", "", "", ""),
+]
+
+
 def _records() -> list[dict]:
     rows = []
-    for t in _SEED + _SEED_PHASE2 + _SEED_PHASE2B:
+    for t in _SEED + _SEED_PHASE2 + _SEED_PHASE2B + _SEED_PHASE2C:
         rec = {"commodity": _COMMODITY, "hs_code": _HS}
         rec.update(dict(zip(_FIELDS, t)))
         rows.append(rec)

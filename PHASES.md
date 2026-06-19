@@ -36,7 +36,8 @@ Every country in the trade that matters, every overlay category, every source pr
 
 - [x] Top 8 exporters catalogued — registry Phase 2
 - [x] 12 importer/hub countries catalogued — registry Phase 2b
-- [~] **Every country in the 95% set, both roles** (gaps: some importers — SG/DK/UAE/IE/JP rows)
+- [x] **Every country in the 95% set, both roles** — exporter + importer target sets fully
+      catalogued (tail markets SG/NO/UAE + EU CZ/DK/RO/SE/LT/SK added; test-enforced)
 - [ ] **All 5 overlay categories filled** per country (customs · shipment/BoL · phyto ·
       area census · forecast) — no blank category without a "none found" verdict
 - [ ] **Every source URL probed**, verified_date or documented block (runner re-probe covers

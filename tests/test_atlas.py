@@ -80,6 +80,20 @@ def test_phase2_national_overlays_catalogued():
     assert "Mexico" in set(phyto_free["country"])
 
 
+def test_phase2_covers_full_target_set_both_roles():
+    df = registry.load()
+    cat = set(df["country"])
+    alias = {"China, Hong Kong SAR": "Hong Kong", "Rep. of Korea": "South Korea"}
+    for role in ("exporter", "importer"):
+        ts = cs.target_set(role)
+        if ts.empty:
+            continue
+        for c in ts["country"]:
+            if "nes" in c:                              # skip "Other Asia, nes" aggregate
+                continue
+            assert alias.get(c, c) in cat, f"{role} target-set country uncatalogued: {c}"
+
+
 def test_phase2b_importer_and_hub_overlays():
     df = registry.load()
     # importer-side + re-export-hub markets catalogued
