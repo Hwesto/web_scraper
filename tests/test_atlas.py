@@ -22,13 +22,16 @@ def test_hs_fresh_frozen_dried_lines_present():
     assert hs_codes.hs6("blueberry", "dried") == "081340"
 
 
-def test_peru_campaign_realtime_layer():
-    from atlas import peru_campaign
-    m = peru_campaign.latest()
-    assert m.get("season") == "2025/26"
-    assert float(m["season_total"]) > 300000               # current-season tonnage Comtrade lacks
-    h = peru_campaign.headline()
-    assert h and "season" in h and "kt" in h
+def test_campaigns_realtime_layer():
+    from atlas import campaigns
+    # current-season totals Comtrade/FAOSTAT can't reach, for every major exporter
+    cs_countries = set(campaigns.countries())
+    assert {"Peru", "Chile", "South Africa", "Argentina", "Mexico", "Spain", "Morocco"} <= cs_countries
+    pe = campaigns.latest("Peru")
+    assert float(pe[pe["metric"] == "export_total"]["value"].iloc[0]) > 300000
+    for c in cs_countries:
+        h = campaigns.headline(c)
+        assert h and "kt" in h                              # every country resolves a headline
 
 
 def test_peru_exporters_depth_frontier():

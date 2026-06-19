@@ -410,14 +410,13 @@ def _country_fig(name, code, ex, im, primary, bil, named) -> str:
 def _extra_facts(name, code, iso3, fa_iso, wx) -> list[str]:
     """Adaptive 'small facts' — only the ones that exist for this country."""
     out = []
-    if name == "Peru":                                    # the real-time campaign layer leads
-        try:
-            from atlas import peru_campaign
-            h = peru_campaign.headline()
-            if h:
-                out.append(f'<b style="color:#2f6f4e">{h}</b>')
-        except Exception:
-            pass
+    try:                                                  # the real-time campaign layer leads
+        from atlas import campaigns
+        h = campaigns.headline(name)
+        if h:
+            out.append(f'<b style="color:#2f6f4e">current season — {h}</b>')
+    except Exception:
+        pass
     if iso3 is not None:
         f = fa_iso[fa_iso["iso3"] == iso3]
         if len(f):
