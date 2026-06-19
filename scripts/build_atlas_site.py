@@ -572,6 +572,30 @@ def _trade_order() -> list[str]:
 
 
 # ----------------------------- the index (compare) -----------------------------
+def _latest_season(name: str):
+    """Current-season total (kt) + season label + source — the data that runs into 2026
+    (committee/customs basis), where annual Comtrade stops at 2024."""
+    try:
+        if name == "South Africa":
+            from atlas import berriesza
+            t = berriesza.load()
+            t = t[t["region"] == "Total"]
+            if len(t):
+                return float(t.iloc[0]["total_t"]) / 1000, str(t.iloc[0]["season"]), "Berries ZA"
+            return None
+        from atlas import campaigns
+        s = campaigns.latest(name)
+        if s.empty:
+            return None
+        for mt in ("export_total", "export_total_fresh", "export_ytd", "huelva_production", "production_total"):
+            row = s[s["metric"] == mt]
+            if len(row):
+                return float(row.iloc[0]["value"]) / 1000, str(row.iloc[0]["season"]), str(row.iloc[0]["source"])
+    except Exception:
+        return None
+    return None
+
+
 def _index_table_html(order: list[str]) -> str:
     """One sortable row per country — the bird's-eye 'see it all (and what's missing)'.
     Empty cells are the gaps; the coverage column shows the source mix."""
@@ -636,16 +660,20 @@ def _index_table_html(order: list[str]) -> str:
                   f'<i style="flex:{paid};background:#b8860b"></i>'
                   f'<i style="flex:{none};background:#cdb4b0"></i></span>'
                   f'<small>✅{wired} 🟢{free} 💷{paid} ⛔{none}</small>')
+        ls = _latest_season(name)
+        ls_cell = (f'<td data-v="{ls[0]:.3f}" title="{ls[1]} · {ls[2]}"><b>{ls[0]:.0f} kt</b><br>'
+                   f'<small>{ls[1]}</small></td>') if ls else '<td data-v="" class="miss">—</td>'
         rows.append((vol, f'<tr>'
             f'<td data-v="{name}"><a href="#{_slug(name)}">{name}</a></td>'
             f'<td data-v="{role}">{role}</td>'
             + f'<td data-v="{vol:.3f}">{vol:.0f} kt{"ᵖ" if prov else ""}</td>'
+            + ls_cell
             + num(yoy, "", arrow=True) + num(fiveyr, "", arrow=True) + num(usd, "${:.2f}")
             + num(share, "{:.0f}%") + num(prod, "{:.0f} kt") + num(fore, "{:.0f} kt")
             + f'<td data-v="{wired}" class="covcell">{covbar}</td></tr>'))
     body = "".join(r for _, r in sorted(rows, key=lambda x: -x[0]))
-    heads = ["Country", "Role", "Volume", "YoY", "5yr", "$/kg", "Share", "Produces", "Forecast", "Coverage"]
-    numeric = [0, 0, 1, 1, 1, 1, 1, 1, 1, 1]
+    heads = ["Country", "Role", "Volume", "Latest season", "YoY", "5yr", "$/kg", "Share", "Produces", "Forecast", "Coverage"]
+    numeric = [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     th = "".join(f'<th onclick="sortIdx({i},{n})">{h}</th>' for i, (h, n) in enumerate(zip(heads, numeric)))
     return (f'<table class="index" id="indexTable" data-sortcol="2" data-sortdir="desc">'
             f'<thead><tr>{th}</tr></thead><tbody>{body}</tbody></table>')
@@ -791,7 +819,9 @@ you can know about it for free. <b>Reference year {year}.</b></p>
 {the_year}
 <h2 id="index">The index</h2>
 <p class="lead">Every country on one screen — <b>click any column to sort</b>, click a name to jump to
-its card. <b>YoY</b> and <b>5yr</b> are volume change (1- and 5-year). Blank cells (—) are the gaps:
+its card. <b>Volume</b> is official Comtrade (annual, to 2024); <b>Latest season</b> is the current-season
+committee/customs figure that runs into 2026 (Peru 2025/26, South Africa live, …). <b>YoY</b> and <b>5yr</b>
+are volume change (1- and 5-year). Blank cells (—) are the gaps:
 no FAOSTAT production, no forecast; <b>ᵖ</b> = provisional latest year (Comtrade still finalising). The coverage bar shows
 each country's source mix (✅ wired · 🟢 free · 💷 paid · ⛔ none).</p>
 {index}
