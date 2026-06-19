@@ -344,58 +344,83 @@ def _faostat_iso() -> pd.DataFrame:
     return fa
 
 
-def _profile_fig(reg_name, code, cname, iso3, bil, mon, fa_iso, wx) -> str:
-    panels = []
-    # production trend
-    if iso3:
-        f = fa_iso[fa_iso["iso3"] == iso3].sort_values("year")
-        if len(f) >= 3:
-            panels.append(("prod", f))
-    # export destinations
-    d = bil[(bil["exporter_code"] == code)] if "exporter_code" in bil.columns else bil.iloc[0:0]
-    if not d.empty:
-        dy = d[d["year"] == d["year"].max()].sort_values("value_usd", ascending=False).head(5)
-        if not dy.empty:
-            panels.append(("dest", dy))
-    # seasonality
-    s = mon[mon["exporter"] == cname] if not mon.empty else mon
-    if not s.empty:
-        prof = (s.groupby(["year", "month"])["net_kg"].sum().reset_index())
-        prof["tot"] = prof.groupby("year")["net_kg"].transform("sum")
-        prof = prof.groupby("month").apply(lambda x: (x["net_kg"] / x["tot"]).mean()).reindex(range(1, 13)).fillna(0)
-        if prof.sum() > 0:
-            panels.append(("seas", prof))
-    # climate
-    w = wx[wx["origin"].isin([reg_name, cname])] if not wx.empty else wx
-    if not w.empty:
-        clim = w.groupby("month")[["tmin", "t2m"]].mean().reindex(range(1, 13))
-        panels.append(("clim", clim))
-    if not panels:
-        return ""
-    n = len(panels)
-    fig, axs = plt.subplots(1, n, figsize=(2.7 * n, 2.3))
-    axs = np.atleast_1d(axs)
-    for ax, (kind, data) in zip(axs, panels):
-        if kind == "prod":
-            ax.fill_between(data["year"], data["production_t"] / 1000, color=ACCENT, alpha=0.85)
-            ax.set_title("production 000t", fontsize=9, color=SUBTLE)
-        elif kind == "dest":
-            yv = range(len(data))
-            ax.barh(yv, data["value_usd"] / 1e6, color="#6a8caf", height=0.6)
-            ax.set_yticks(yv); ax.set_yticklabels(data["importer"], fontsize=7.5)
-            ax.invert_yaxis(); ax.set_title("top destinations $M", fontsize=9, color=SUBTLE)
-        elif kind == "seas":
-            ax.fill_between(range(1, 13), data.values * 100, color="#b8860b", alpha=0.85)
-            ax.set_xlim(1, 12); ax.set_xticks([1, 4, 7, 10]); ax.set_xticklabels(["J", "A", "J", "O"], fontsize=8)
-            ax.set_title("export season %", fontsize=9, color=SUBTLE)
-        elif kind == "clim":
-            ax.plot(range(1, 13), data["tmin"], color="#6a8caf", lw=1.6)
-            ax.axhline(0, color=BAD, lw=0.8, ls=":")
-            ax.set_xlim(1, 12); ax.set_xticks([1, 4, 7, 10]); ax.set_xticklabels(["J", "A", "J", "O"], fontsize=8)
-            ax.set_title("frost: min °C", fontsize=9, color=SUBTLE)
-        _bare(ax, grid="y" if kind in ("prod", "seas", "clim") else "x")
-        ax.tick_params(labelsize=8)
+def _vp_fig(years, vol_kt, price, verb, color) -> str:
+    """The two hard-hitting charts every country has: volume + $/kg over time."""
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(5.6, 1.9))
+    a1.fill_between(years, vol_kt, color=color, alpha=0.85, zorder=3)
+    a1.plot(years, vol_kt, color=color, lw=1.4, zorder=4)
+    a1.set_title(f"{verb} volume · kt", fontsize=9.5, color=SUBTLE, loc="left")
+    a2.plot(years, price, color="#b8860b", lw=2.0, marker="o", ms=3, zorder=4)
+    a2.set_title("price · $/kg", fontsize=9.5, color=SUBTLE, loc="left")
+    for ax in (a1, a2):
+        ax.set_xticks([years[0], years[-1]]); ax.tick_params(labelsize=8.5)
+        _bare(ax, grid="y")
+    a1.set_ylim(bottom=0)
     return _png(fig)
+
+
+def _extra_facts(name, code, iso3, fa_iso, wx) -> list[str]:
+    """Adaptive 'small facts' — only the ones that exist for this country."""
+    out = []
+    if iso3 is not None:
+        f = fa_iso[fa_iso["iso3"] == iso3]
+        if len(f):
+            fl = f.sort_values("year").iloc[-1]
+            out.append(f"produces <b>{fl['production_t']/1000:.0f} kt</b> ({fl['yield_t_ha']:.1f} t/ha)")
+    try:
+        from atlas import usda_gain
+        fc = usda_gain.load()
+        fc = fc[(fc["country"] == name) & (fc["metric"] == "production")]
+        if len(fc):
+            out.append(f"forecast <b>{fc.iloc[0]['value_mt']/1000:.0f} kt</b> ({int(fc.iloc[0]['year'])})")
+    except Exception:
+        pass
+    w = wx[wx["origin"] == name] if not wx.empty else wx
+    if not w.empty:
+        cold = w.groupby("month")["tmin"].mean().min()
+        out.append("frost-free" if cold > 1 else f"frost risk (min {cold:.0f}°C)")
+    try:
+        from atlas import senasica
+        o = senasica.load(fruit="Arándano")
+        if name == "Mexico" and len(o):
+            out.append(f"<b>{len(o)}</b> named export orchards")
+    except Exception:
+        pass
+    return out
+
+
+def _country_card(name, code, cname, iso3, reg, fa_iso, wx) -> str:
+    sub = cs.load()
+    sub = sub[sub["reporter_code"] == code] if code else sub.iloc[0:0]
+    ex = sub[sub["role"] == "exporter"].sort_values("year")
+    im = sub[sub["role"] == "importer"].sort_values("year")
+    lv = lambda d: float(d["value_usd"].iloc[-1]) if len(d) else 0.0
+    role, ts, verb = ("exporter", ex, "export") if lv(ex) >= lv(im) else ("importer", im, "import")
+    cov = _coverage_card_html(name, reg)
+    if ts.empty:
+        return (f'<div class="profile"><h3>{name}</h3>{cov}'
+                f'<p class="lead">No trade series yet (small / non-reporting market).</p></div>')
+    last, first = ts.iloc[-1], ts.iloc[0]
+    yoy = (last["net_kg"] / ts.iloc[-2]["net_kg"] - 1) * 100 if len(ts) >= 2 and ts.iloc[-2]["net_kg"] else None
+    grow = (last["net_kg"] / first["net_kg"] - 1) * 100 if len(ts) >= 2 and first["net_kg"] else None
+    val = last["value_usd"]; vstr = f"${val/1e9:.2f}B" if val >= 1e9 else f"${val/1e6:.0f}M"
+    def stat(b, l):
+        return f'<div><b>{b}</b><span>{l}</span></div>'
+    yoy_s = f' <i class="{"up" if yoy>=0 else "dn"}">{"▲" if yoy>=0 else "▼"}{abs(yoy):.0f}%</i>' if yoy is not None else ""
+    strip = ('<div class="stats">'
+             + stat(f"{last['net_kg']/1e6:.0f} kt", f"{verb} vol {int(last['year'])}{yoy_s}")
+             + stat(vstr, "value")
+             + stat(f"${last['unit_usd_kg']:.2f}", "$/kg")
+             + stat(f"{last['share']*100:.0f}%", f"world share · #{int(last['rank'])}")
+             + (stat(f"{'+' if grow>=0 else ''}{grow:.0f}%", f"since {int(first['year'])}") if grow is not None else "")
+             + "</div>")
+    color = ACCENT if role == "exporter" else "#6a8caf"
+    img = f'<img src="{_vp_fig(ts["year"].tolist(), (ts["net_kg"]/1e6).tolist(), ts["unit_usd_kg"].tolist(), verb, color)}"/>'
+    facts = _extra_facts(name, code, iso3, fa_iso, wx)
+    deep = '<a href="./index.html">deep dive ↗</a>' if name in ("United Kingdom", "Chile", "Peru") else ""
+    facts_html = f'<p class="facts">{" · ".join(facts)}{(" · " + deep) if (facts and deep) else deep}</p>' if (facts or deep) else ""
+    badge = f'<span class="badge">{role} · #{int(last["rank"])}</span>'
+    return f'<div class="profile"><h3>{name} {badge}</h3>{strip}{img}{facts_html}{cov}</div>'
 
 
 def _coverage_card_html(reg_name: str, df: pd.DataFrame) -> str:
@@ -418,7 +443,7 @@ def _country_sections(order: list[str]) -> str:
     reg = registry.load()
     n2c = _reg_code_map()
     c2i = _code_to_iso3()
-    bil, mon, wx = cmat.load(), cmth.load(), _wx_load()
+    wx = _wx_load()
     fa_iso = _faostat_iso()
     reg_countries = [c for c in order if c in set(reg["country"])]
     reg_countries += [c for c in sorted(reg["country"].unique())
@@ -428,12 +453,7 @@ def _country_sections(order: list[str]) -> str:
         code = n2c.get(name)
         cname = countries.name(code) if code else name
         iso3 = c2i.get(code) if code else None
-        fig = _profile_fig(name, code, cname, iso3, bil, mon, fa_iso, wx) if code else ""
-        card = _coverage_card_html(name, reg)
-        if not fig and not card:
-            continue
-        img = f'<img src="{fig}" alt="{name}"/>' if fig else '<p class="lead">No wired data panels yet — see coverage.</p>'
-        out.append(f'<div class="profile"><h3>{name}</h3>{card}{img}</div>')
+        out.append(_country_card(name, code, cname, iso3, reg, fa_iso, wx))
     return "".join(out)
 
 
@@ -542,8 +562,16 @@ nav{{max-width:1060px;margin:0 auto;padding:0 22px}}
 nav a{{color:var(--accent);text-decoration:none;font-weight:600;margin-right:18px;font-size:.95rem}}
 .profiles{{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}}
 .profile{{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}}
-.profile h3{{font-size:1.02rem;margin:0 0 4px}} .profile img{{width:100%;height:auto}}
-.cov{{font-size:.78rem;color:var(--subtle);margin:0 0 6px}}
+.profile h3{{font-size:1.04rem;margin:0 0 6px;display:flex;align-items:baseline;gap:8px}}
+.profile img{{width:100%;height:auto;margin:2px 0}}
+.badge{{font-size:.72rem;font-weight:600;color:#fff;background:var(--accent);border-radius:20px;padding:2px 9px;text-transform:capitalize}}
+.stats{{display:flex;flex-wrap:wrap;gap:14px;margin:2px 0 6px}}
+.stats div{{display:flex;flex-direction:column}}
+.stats b{{font-size:1.22rem;line-height:1.1}} .stats span{{font-size:.72rem;color:var(--subtle)}}
+.stats i{{font-style:normal;font-size:.8rem}} .up{{color:#2f6f4e}} .dn{{color:#9c4221}}
+.facts{{font-size:.82rem;color:var(--subtle);margin:4px 0 6px}} .facts b{{color:var(--ink)}}
+.facts a,.cov a{{color:var(--accent);text-decoration:none}}
+.cov{{font-size:.78rem;color:var(--subtle);margin:0 0 2px}}
 .cov span{{margin-right:8px;font-weight:600}} .cov .g{{color:#2f6f4e}} .cov .g2{{color:#86b08f}}
 .cov .p{{color:#b8860b}} .cov .n{{color:#9c4221}} .cov em{{display:block;color:#a59e93;font-style:normal;margin-top:2px}}
 .matrix{{border-collapse:collapse;font-size:.92rem;width:100%}}
