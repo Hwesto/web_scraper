@@ -5,6 +5,8 @@ status. `LIVE` wired & refreshing · `DERIVED` computed from another feed · `PR
 documented stand-in · `PROBE` validated, not yet a pipeline · `STUB` schema only ·
 `CANDIDATE`/`PAID` not wired. Each dashboard block is stamped with the source(s) below.
 
+> Combined **data-point × link × renewal** reference: see **`DATA.md`**.
+
 ---
 
 ## Flow & volume
