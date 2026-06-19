@@ -255,6 +255,18 @@ def test_sweep_ranks_shares_and_targets(monkeypatch, tmp_path):
     assert list(ts60["country"]) == ["Peru"]                     # 0.625 already clears 0.60
 
 
+def test_coverage_by_year_quality_lens():
+    cov = cs.coverage_by_year()
+    if cov.empty:
+        return
+    assert {"role", "year", "reporters", "total_value_usd", "provisional"} <= set(cov.columns)
+    assert set(cov["role"]) <= {"exporter", "importer"}
+    assert (cov["reporters"] > 0).all() and (cov["total_value_usd"] > 0).all()
+    # provisional flag must agree with the year rule
+    for _, r in cov.iterrows():
+        assert bool(r["provisional"]) == cs.is_provisional(int(r["year"]))
+
+
 def test_provisional_year_logic():
     import datetime as dt
     today = dt.date(2026, 6, 19)

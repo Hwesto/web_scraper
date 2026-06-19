@@ -165,6 +165,23 @@ def ranking(role: str, year: int | None = None,
     return df[df["year"] == year].sort_values("rank").reset_index(drop=True)
 
 
+def coverage_by_year(role: str | None = None) -> pd.DataFrame:
+    """Per-year data-quality lens: how many reporters filed, total trade value, and
+    whether the year is still provisional. Makes the staggered-reporting lag visible
+    (a year with far fewer reporters / much lower total is still filling in)."""
+    df = load()
+    if df.empty:
+        return df
+    if role is not None:
+        df = df[df["role"] == role]
+    g = (df.groupby(["role", "year"])
+           .agg(reporters=("reporter_code", "nunique"),
+                total_value_usd=("value_usd", "sum"))
+           .reset_index())
+    g["provisional"] = g["year"].apply(lambda y: is_provisional(int(y)))
+    return g.sort_values(["role", "year"]).reset_index(drop=True)
+
+
 def target_set(role: str, year: int | None = None, coverage: float = 0.95,
                include_provisional: bool = False) -> pd.DataFrame:
     """Countries that together make up `coverage` of trade -- the 'global' target.

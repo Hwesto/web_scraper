@@ -133,8 +133,10 @@ def seasonality(exporter: str, importer: str | None = None) -> pd.DataFrame:
 
 if __name__ == "__main__":                             # python -m atlas.comtrade_monthly
     this = _dt.date.today().year
-    df = refresh([this - 3, this - 2])                 # reasonably-complete monthly years
-    print(f"cached {len(df)} monthly lanes -> {CACHE}")
+    # monthly is call-heavy (exporters x months); a rolling ~6-year window is enough
+    # to characterise seasonality without a full-history blow-up.
+    df = refresh(list(range(this - 6, this + 1)))
+    print(f"cached {len(df)} monthly lanes ({this - 6}->{this}) -> {CACHE}")
     for who in ("Peru", "Chile", "Spain"):
         prof = seasonality(who)
         if len(prof):

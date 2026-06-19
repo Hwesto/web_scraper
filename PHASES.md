@@ -16,9 +16,11 @@ directions, every quality flag, and a complete HS join key.
 - [x] **Bilateral grid** annual (exporter target set) — `atlas/comtrade_matrix.py`
 - [x] **Monthly** bilateral (seasonality, baseline) — `atlas/comtrade_monthly.py`
 - [x] HS6 + partial national splits — `atlas/hs_codes.py`
-- [ ] **Full history 2012→present** on ranking + bilateral + monthly (not just ~3 yrs)
+- [x] **Full history 2012→present** on ranking + bilateral (code; runner populates);
+      monthly on a rolling 6-yr window (call-cost bound) — `START_YEAR=2012`
 - [ ] Bilateral grid covers **both flows** (importer-reported imports too, mirror-checked)
-- [ ] **Per-year coverage/quality table** (reporters present, World total, provisional flag)
+- [x] **Per-year coverage/quality table** — `comtrade_sweep.coverage_by_year()` (reporters
+      filed, total value, provisional flag)
 - [ ] HS registry **completed**: national CN8/HTS10 for every target country; **frozen
       (0811.90) + dried (0813.40)** blueberry lines; other-fruit HS6 verified
 - [ ] **Unit/quantity reconciliation** + World-total cross-checks baked into loaders

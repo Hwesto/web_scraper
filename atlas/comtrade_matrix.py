@@ -22,6 +22,7 @@ import urllib.request
 import pandas as pd
 
 from atlas import ATLAS_DIR, countries, comtrade_sweep, hs_codes
+from atlas.comtrade_sweep import START_YEAR
 
 CACHE = ATLAS_DIR / "comtrade_bilateral.csv"
 _URL = ("https://comtradeapi.un.org/public/v1/preview/C/A/HS"
@@ -119,8 +120,8 @@ def lanes(exporter: str | None = None, importer: str | None = None,
 
 if __name__ == "__main__":                             # python -m atlas.comtrade_matrix
     this = _dt.date.today().year
-    df = refresh([this - 4, this - 3])                 # latest non-provisional window
-    print(f"cached {len(df)} bilateral lanes -> {CACHE}")
+    df = refresh(list(range(START_YEAR, this + 1)))    # full history 2012->present
+    print(f"cached {len(df)} bilateral lanes ({START_YEAR}->{this}) -> {CACHE}")
     if len(df):
         yr = int(df[~df["provisional"]]["year"].max()) if (~df["provisional"]).any() \
             else int(df["year"].max())
