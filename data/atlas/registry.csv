@@ -32,7 +32,7 @@ blueberry,081040,Peru,exporter,orchard area by region,free,no,MIDAGRI / USDA-FAS
 blueberry,081040,Peru,exporter,per-block variety x planting-year census,none,na,,,,,,no Peruvian Catastro -- the key asymmetry; capacity/renewal cannot be built
 blueberry,081040,Peru,exporter,variety mix,none,na,committee reports (qualitative),,,,,Biloxi/Ventura/Sekoya/Rocio; not a structured feed
 blueberry,081040,Peru,exporter,realised FOB/CIF $/kg by destination,free,yes,UN Comtrade (reporter=Peru),comtradeapi.un.org,"annual, per partner",2012->2025,2026-06-19,Peru netback; US/NL/HK/UK/China destinations
-blueberry,081040,Peru,exporter,named exporter,free,no,Agrodata / SUNAT,agrodataperu.com,named,,,partly free (Camposol/Hortifrut/Agrovision/Danper); BoL detail is paid
+blueberry,081040,Peru,exporter,named exporter,free,yes,Agrodata / SUNAT (ProArandanos season),agrodataperu.com,"named, annual season",,2026-06-19,"DEPTH FRONTIER -- wired via atlas/peru_exporters.py (top-15 by volume+FOB+YoY, 2024/25: Camposol 34kt/$259M ...); annual snapshot, live SUNAT-weekly still gated"
 blueberry,081040,Peru,exporter,cultivar per shipment,none,na,,,,,,SUNAT customs does not carry cultivar (unlike Chile DUS)
 blueberry,081040,Peru,exporter,"season export progress, by week",free,no,ProArandanos,proarandanos.org,weekly campaign volumes,,,no structured feed -- 403/press/PDF only; fragile scrape
 blueberry,081040,Peru,exporter,area / production / exports + forecasts,free,yes,USDA-FAS Blueberry Annual (Lima),apps.fas.usda.gov/newgainapi,"PSD table, annual",2022/23->2026/27,2026-06-19,the Catastro substitute; manual annual bump

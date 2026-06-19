@@ -22,6 +22,16 @@ def test_hs_fresh_frozen_dried_lines_present():
     assert hs_codes.hs6("blueberry", "dried") == "081340"
 
 
+def test_peru_exporters_depth_frontier():
+    from atlas import peru_exporters
+    df = peru_exporters.load()
+    assert len(df) >= 10                                 # the named-exporter ranking
+    assert df.iloc[0]["company"] == "Camposol"           # #1 by volume
+    assert (df["volume_t"] > 0).all() and (df["fob_usd_m"] > 0).all()
+    # this is data Comtrade/FAOSTAT cannot give: company-level identity
+    assert df["company"].nunique() == len(df)
+
+
 def test_hs_fao_item_codes():
     assert hs_codes.fao_item("blueberry") == "552"
     assert hs_codes.fao_item("avocado") == "572"       # the Phase-4 production join key

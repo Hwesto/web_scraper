@@ -123,9 +123,10 @@ _SEED: list[tuple] = [
     ("Peru", "exporter", "realised FOB/CIF $/kg by destination", "free", "yes",
      "UN Comtrade (reporter=Peru)", "comtradeapi.un.org", "annual, per partner",
      "2012->2025", _TODAY, "Peru netback; US/NL/HK/UK/China destinations"),
-    ("Peru", "exporter", "named exporter", "free", "no",
-     "Agrodata / SUNAT", "agrodataperu.com", "named", "", "",
-     "partly free (Camposol/Hortifrut/Agrovision/Danper); BoL detail is paid"),
+    ("Peru", "exporter", "named exporter", "free", "yes",
+     "Agrodata / SUNAT (ProArandanos season)", "agrodataperu.com", "named, annual season", "", _TODAY,
+     "DEPTH FRONTIER -- wired via atlas/peru_exporters.py (top-15 by volume+FOB+YoY, "
+     "2024/25: Camposol 34kt/$259M ...); annual snapshot, live SUNAT-weekly still gated"),
     ("Peru", "exporter", "cultivar per shipment", "none", "na",
      "", "", "", "", "", "SUNAT customs does not carry cultivar (unlike Chile DUS)"),
     ("Peru", "exporter", "season export progress, by week", "free", "no",
