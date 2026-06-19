@@ -4,7 +4,7 @@ api.frankfurter.app,reachable,"HTTP 200, 258b sniffed",free,,1,*,FX USD/GBP (and
 api.uktradeinfo.com,reachable,"HTTP 200, 920b sniffed",free,,4,United Kingdom,import volume by origin (tonnes)
 apps.fas.usda.gov,auth,HTTP 403,,,1,*,production / export forecasts
 apps.fas.usda.gov/newgainapi,auth,HTTP 403,,,1,Peru,area / production / exports + forecasts
-comtradeapi.un.org,not_found,HTTP 404,,,4,"*, Chile, Peru",realised CIF $/kg by destination
+comtradeapi.un.org,not_found,HTTP 404,,,5,"*, Chile, Peru",realised CIF $/kg by destination
 datos.gob.cl,reachable,"HTTP 200, 2048b sniffed",free,,8,Chile,"volume Chile->UK, weekly"
 datos.odepa.gob.cl,reachable,"HTTP 200, 2039b sniffed",free,,1,Chile,orchard area by region/variety/planting-year
 dga.mop.gob.cl,reachable,"HTTP 200, 2045b sniffed",free,,1,Chile,drought / water-allocation index
@@ -32,11 +32,11 @@ https://kosis.kr/eng/,unreachable,timed out,,,1,South Korea,domestic blueberry a
 https://lekiosque.finances.gouv.fr/,reachable,"HTTP 200, 2047b sniffed",free,,1,France,national customs trade detail (NC8)
 https://nube.agricultura.gob.mx/cierre_agricola/,reachable,"HTTP 200, 2045b sniffed",free,,1,Mexico,orchard / planted-area by state/variety
 https://opendata.cbs.nl/,reachable,"HTTP 200, 2048b sniffed",free,,2,Netherlands,national customs trade detail (re-export split)
-https://ppecb.com/,unreachable,timed out,,,1,South Africa,authorised export orchards/packhouses (phyto)
-https://quickstats.nass.usda.gov/,reachable,"HTTP 200, 2048b sniffed",free,,1,USA,orchard / planted-area by state
+https://ppecb.com/,reachable,"HTTP 200, 2048b sniffed",free,,1,South Africa,authorised export orchards/packhouses (phyto)
+https://quickstats.nass.usda.gov/,auth,HTTP 403,,,1,USA,orchard / planted-area by state
 https://services.oc.gov.ma/DataBase/CommerceExterieur/login,reachable,"HTTP 200, 2042b sniffed",free,,1,Morocco,national customs trade detail (by product)
-https://servicio.mapa.gob.es/cexvegweb/home,reachable,"HTTP 200, 2047b sniffed",free,,1,Spain,authorised export orchards/packhouses (phyto)
-https://stat.gov.pl/en/topics/agriculture-forestry/agricultural-and-horticultural-crops/,reachable,"HTTP 200, 2047b sniffed",free,,1,Poland,orchard / planted-area by voivodeship
+https://servicio.mapa.gob.es/cexvegweb/home,unreachable,timed out,,,1,Spain,authorised export orchards/packhouses (phyto)
+https://stat.gov.pl/en/topics/agriculture-forestry/agricultural-and-horticultural-crops/,reachable,"HTTP 200, 2048b sniffed",free,,1,Poland,orchard / planted-area by voivodeship
 https://stat.gov.pl/en/topics/prices-trade/trade/,reachable,"HTTP 200, 2048b sniffed",free,,1,Poland,national customs trade detail (CN8)
 https://stat.nbb.be,error,RemoteDisconnected: Remote end closed connection without response,,,1,Belgium,national customs trade detail (CN8)
 https://tradeidds.censtatd.gov.hk,error,HTTP 499,,,1,Hong Kong,customs trade detail (import / domestic-export / re-export)
@@ -60,14 +60,14 @@ https://www.fas.usda.gov/data/china-fresh-deciduous-fruit-annual-5,auth,HTTP 403
 https://www.fas.usda.gov/data/mexico-blueberry-annual-voluntary,auth,HTTP 403,,,1,Mexico,production/export forecast
 https://www.fas.usda.gov/data/search,auth,HTTP 403,,,1,USA,production/export forecast
 https://www.fas.usda.gov/regions/serbia,auth,HTTP 403,,,1,Serbia,production/export forecast
-https://www.fasfc.be,unreachable,[Errno 101] Network is unreachable,,,1,Belgium,plant export/re-export certification (phyto)
-https://www.gob.mx/senasica/documentos/huertos-registrados,reachable,"HTTP 200, 1916b sniffed",free,,1,Mexico,authorised export orchards (phyto)
+https://www.fasfc.be,reachable,"HTTP 200, 2048b sniffed",free,,1,Belgium,plant export/re-export certification (phyto)
+https://www.gob.mx/senasica/documentos/huertos-registrados,reachable,"HTTP 200, 1912b sniffed",free,,1,Mexico,authorised export orchards (phyto)
 https://www.ine.pt,unreachable,timed out,,,2,Portugal,national customs trade detail (CN)
 https://www.inegi.org.mx/rnm/index.php/catalog/1082,reachable,"HTTP 200, 1999b sniffed",free,,1,Mexico,national customs trade detail (NICO 8-10 digit)
 https://www.maff.go.jp/pps/j/introduction/english.html,reachable,"HTTP 200, 1972b sniffed",free,,1,Japan,phyto import requirements
-https://www.mapa.gob.es/es/estadistica/temas/estadisticas-agrarias/agricultura/esyrce/,reachable,"HTTP 200, 2034b sniffed",free,,1,Spain,orchard / planted-area by region/variety
+https://www.mapa.gob.es/es/estadistica/temas/estadisticas-agrarias/agricultura/esyrce/,unreachable,timed out,,,1,Spain,orchard / planted-area by region/variety
 https://www.onssa.gov.ma/lists-of-approved-authorised-establishments/?lang=en,unreachable,[Errno 111] Connection refused,,,1,Morocco,authorised export packing stations (phyto)
-https://www.qia.go.kr,unreachable,timed out,,,1,South Korea,phyto import access (positive-list/PRA)
+https://www.qia.go.kr,reachable,"HTTP 200, 2038b sniffed",free,,1,South Korea,phyto import access (positive-list/PRA)
 https://www.sars.gov.za/customs-and-excise/trade-statistics/,reachable,"HTTP 200, 2048b sniffed",free,,1,South Africa,national customs trade detail (HS x partner)
 https://www.stat.gov.rs/en-us/oblasti/poljoprivreda-sumarstvo-i-ribarstvo/,reachable,"HTTP 200, 2048b sniffed",free,,1,Serbia,domestic blueberry area/production (borovnica)
 https://www.statcan.gc.ca/en/census-agriculture,reachable,"HTTP 200, 2048b sniffed",free,,1,Canada,orchard / planted-area by province
