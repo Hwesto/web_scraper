@@ -1,7 +1,7 @@
 """Atlas Phase-0/1 foundations: HS registry, schema, registry table, country
 lookup, and the Comtrade global sweep (offline parse + committed-table sanity)."""
 from atlas import comtrade_sweep as cs
-from atlas import comtrade_matrix, countries, eurostat, hs_codes, registry, schema
+from atlas import comtrade_matrix, comtrade_monthly, countries, eurostat, hs_codes, registry, schema
 
 
 # ---- HS-code registry ----------------------------------------------------
@@ -146,6 +146,31 @@ def test_comtrade_matrix_committed_grid_is_sane():
     # Peru->USA is the single largest blueberry lane in the world
     top = comtrade_matrix.lanes(year=int(df[~df["provisional"]]["year"].max())).iloc[0]
     assert top["exporter"] == "Peru" and top["importer"] == "USA"
+
+
+def test_comtrade_monthly_parses_period_and_seasonality(monkeypatch, tmp_path):
+    monkeypatch.setattr(comtrade_monthly, "CACHE", tmp_path / "m.csv")
+    monkeypatch.setattr(comtrade_monthly.time, "sleep", lambda *_: None)
+
+    def fake_fetch(reporter, periods, hs, retries=4):
+        # mirror the real API: period is a STRING; month grows toward a Dec peak
+        return [{"partnerCode": 842, "period": str(p), "primaryValue": 1e6 * (p % 100),
+                 "netWgt": 1e5 * (p % 100)} for p in periods]
+    monkeypatch.setattr(comtrade_monthly, "_fetch", fake_fetch)
+    df = comtrade_monthly.refresh([2023], exporters=[604], names={604: "Peru", 842: "USA"})
+    assert set(df["month"]) == set(range(1, 13))                    # period YYYYMM decoded
+    assert (df["unit_usd_kg"] == 10.0).all()                       # 1e6*m / (1e5*m)
+    prof = comtrade_monthly.seasonality("Peru")
+    assert len(prof) == 12 and abs(prof["share"].sum() - 1.0) < 0.01   # 4-dp rounding slack
+    assert int(prof.loc[prof["share"].idxmax(), "month"]) == 12    # Dec is the peak
+
+
+def test_comtrade_monthly_committed_is_sane():
+    df = comtrade_monthly.load()
+    if df.empty:
+        return
+    assert df["month"].between(1, 12).all()
+    assert df[df["net_kg"] >= 50_000]["unit_usd_kg"].between(0.5, 40).all()
 
 
 def test_probe_normalizes_bare_hostname():

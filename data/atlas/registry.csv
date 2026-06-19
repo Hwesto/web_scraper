@@ -64,6 +64,7 @@ blueberry,081040,United Kingdom,importer,household consumption / penetration,fre
 blueberry,081040,United Kingdom,importer,price elasticity,none,na,,,,,,derived only
 blueberry,081040,United Kingdom,importer,reviews / sentiment,free,no,retailer review scrape,,,,,noisy
 blueberry,081040,*,global,bilateral flow + price matrix (exporter x importer),free,yes,UN Comtrade (HS 081040),comtradeapi.un.org,annual; monthly many reporters,2012->2025,2026-06-19,"the free global base layer; wired via atlas/comtrade_matrix.py -> data/atlas/comtrade_bilateral.csv (realised USD/kg per lane, exporter target set)"
+blueberry,081040,*,global,bilateral MONTHLY flow + price (seasonality),free,yes,UN Comtrade monthly (HS 081040),comtradeapi.un.org,"monthly, per lane, exporter target set",2023->now,2026-06-19,the counter-season relay; wired via atlas/comtrade_monthly.py -> data/atlas/comtrade_monthly.csv; seasonality() gives each origin's monthly volume profile
 blueberry,081040,*,global,FX USD/GBP (and crosses),free,yes,Frankfurter / ECB,api.frankfurter.app,daily,daily,2026-06-19,replaces notional 0.79
 blueberry,081040,*,global,tariffs / duties into UK,free,no,UK Trade Tariff,trade-tariff.service.gov.uk,per origin,,,fresh blueberries 0% under UK-Chile / UK-Andean; confirm & note
 blueberry,081040,*,global,production / export forecasts,free,no,USDA FAS (free); iQonsulting / Frutas de Chile (paid),apps.fas.usda.gov,season-ahead,,,Peru forecast wired; Chile forecast free-partial/paid

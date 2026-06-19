@@ -44,6 +44,8 @@ jobs:
         run: python -m atlas.comtrade_sweep || echo "comtrade sweep skipped"
       - name: Refresh Comtrade bilateral flow+price grid
         run: python -m atlas.comtrade_matrix || echo "comtrade matrix skipped"
+      - name: Refresh Comtrade monthly seasonality grid
+        run: python -m atlas.comtrade_monthly || echo "comtrade monthly skipped"
       - name: Refresh Eurostat COMEXT EU blueberry trade
         run: python -m atlas.eurostat || echo "eurostat refresh skipped"
       - name: Refresh M49 country-code reference
