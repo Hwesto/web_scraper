@@ -15,6 +15,10 @@ name: Atlas refresh (global ranking + overlay probe)
 # two machine-generated artifacts.
 
 on:
+  # Manual re-run: the GitHub integration token can't workflow_dispatch (403), so the
+  # reliable trigger is a push that touches THIS file -- runs the full refresh
+  # (full-history sweep/matrix/monthly + FAOSTAT/POWER/USDA/COMEXT/SENASICA) then
+  # rebuilds docs/atlas.html from the fresh data, on clean egress.
   push:
     paths:
       - ".github/workflows/atlas-refresh.yml"
