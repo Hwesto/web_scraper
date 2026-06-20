@@ -271,6 +271,12 @@ _SEED: list[tuple] = [
      "Eurostat COMEXT (DS-045409)", "https://ec.europa.eu/eurostat/api/comext/dissemination",
      "annual, HS6 081040 x reporter x partner x flow", "2002->now", _TODAY,
      "no key; wired via atlas/eurostat.py -> data/atlas/eurostat_blueberry.csv (ES/NL/PL/DE/FR/PT/BE/IT/AT, EUR/kg)"),
+    ("*", "global", "EU MONTHLY bilateral trade (current, beats Comtrade lag)", "free", "yes",
+     "Eurostat COMEXT monthly (DS-045409, freq=M)", "https://ec.europa.eu/eurostat/api/comext/dissemination",
+     "MONTHLY, all 27 EU reporters x partner x flow", "2019->2026-04", _TODAY,
+     "wired via atlas/eurostat_monthly.py -> eurostat_monthly.csv; current to 2026-04 (~14mo ahead of "
+     "Comtrade). BACKTESTED vs Comtrade 2022-24: median |diff| 9.4% (eurostat_backtest.csv). "
+     "2025 EU imports: Peru 98kt, Morocco 54kt, Chile 35kt. The near-Comtrade current layer for the EU bloc"),
 ]
 
 # ---- Phase 2: national overlay sources per country in the Comtrade target set ----

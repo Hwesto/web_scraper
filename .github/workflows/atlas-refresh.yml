@@ -64,6 +64,8 @@ jobs:
         run: python -m atlas.usda_movement || echo "usda movement refresh skipped"
       - name: Refresh Berries ZA South Africa weekly exports (auto-parse PDF)
         run: python -m atlas.berriesza || echo "berries za refresh skipped"
+      - name: Refresh Eurostat COMEXT monthly EU trade (current, backtested)
+        run: python -m atlas.eurostat_monthly || echo "eurostat monthly refresh skipped"
       - name: Refresh M49 country-code reference
         run: python -m atlas.countries || echo "country-code refresh skipped"
       - name: Rebuild the Global Blueberry Atlas site (docs/atlas.html)

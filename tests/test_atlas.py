@@ -22,6 +22,20 @@ def test_hs_fresh_frozen_dried_lines_present():
     assert hs_codes.hs6("blueberry", "dried") == "081340"
 
 
+def test_eurostat_monthly_current_and_backtested():
+    from atlas import eurostat_monthly as em
+    df = em.load()
+    if df.empty:                                            # not pulled yet
+        return
+    assert set(df["flow"].unique()) <= {"import", "export"}
+    assert int(df["year"].max()) >= 2025                    # genuinely current (beyond Comtrade's 2024)
+    assert {"month"}.issubset(df.columns) and df["month"].between(1, 12).all()
+    bt = em.backtest()
+    if len(bt):                                             # the validation: reconciles with Comtrade
+        assert bt["diff_pct"].abs().median() < 20
+        assert {"eurostat_t", "comtrade_t", "diff_pct"} <= set(bt.columns)
+
+
 def test_usda_movement_parses_origins():
     from atlas import usda_movement
     sample = ("WASHINGTON  USDA  AMS  NOV 26 2024     BLUEBERRIES\n"
