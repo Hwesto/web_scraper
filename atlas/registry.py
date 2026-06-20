@@ -278,9 +278,11 @@ _SEED: list[tuple] = [
      "residual = Canada/Gulf/Russia. EU live(2026); US/UK one-key-or-HMRC away; Asia=Comtrade "
      "(China GACC gated -- the one bloc with no free current feed). -> data/atlas/global_reconcile.csv"),
     ("China", "importer", "blueberry imports by origin (live)", "paid", "no",
-     "China GACC customs", "http://english.customs.gov.cn/statics/report/monthly.html", "monthly", "", "",
-     "the one genuinely GATED bloc in the global picture (~China 35kt + HK 26kt of Peru). Comtrade "
-     "captures it lagged; HK C&SD / data.gov.hk + Korea KCS + Japan e-Stat are free but small & bespoke"),
+     "China GACC customs (stats.customs.gov.cn)", "http://stats.customs.gov.cn/", "monthly", "", "",
+     "the one genuinely GATED bloc. Barrier is ANTI-BOT, not language: the query portal 412/503s "
+     "automated requests (translating won't help); english.customs.gov.cn has only all-commodity "
+     "totals, no HS breakdown. Data surfaces via resellers/press (Tridge/Agronometrics: Peru->China "
+     "+153% 2025) -- a SNAPSHOT like committees. Comtrade captures it lagged (China 39kt + HK 30kt 2024)"),
     ("USA", "importer", "US imports by origin (live)", "free", "no",
      "US Census intltrade/imports/hs (HTS 0810.40)", "https://api.census.gov/data/timeseries/intltrade/imports/hs",
      "monthly, by country", "current", "",
