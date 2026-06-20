@@ -277,12 +277,11 @@ _SEED: list[tuple] = [
      "Current EU+US+Asia+UK accounted: Peru 92%, Chile 100%, S.Africa 96%, Morocco 87%, Mexico 82% -- "
      "residual = Canada/Gulf/Russia. EU live(2026); US/UK one-key-or-HMRC away; Asia=Comtrade "
      "(China GACC gated -- the one bloc with no free current feed). -> data/atlas/global_reconcile.csv"),
-    ("China", "importer", "blueberry imports by origin (live)", "paid", "no",
-     "China GACC customs (stats.customs.gov.cn)", "http://stats.customs.gov.cn/", "monthly", "", "",
-     "the one genuinely GATED bloc. Barrier is ANTI-BOT, not language: the query portal 412/503s "
-     "automated requests (translating won't help); english.customs.gov.cn has only all-commodity "
-     "totals, no HS breakdown. Data surfaces via resellers/press (Tridge/Agronometrics: Peru->China "
-     "+153% 2025) -- a SNAPSHOT like committees. Comtrade captures it lagged (China 39kt + HK 30kt 2024)"),
+    ("China", "importer", "blueberry imports by origin (live)", "free", "yes",
+     "GACC via press/resellers (Tridge/Agronometrics/Produce Report)", "http://stats.customs.gov.cn/", "annual snapshot", "2024->2025", _TODAY,
+     "SNAPSHOT -- wired via atlas/china_imports.py (2024 ~38.7kt, Peru 89%; 2025 Peru +153% Chancay). "
+     "GACC portal is JS-challenge anti-bot gated (412; translating won't help), so press-curated like "
+     "committees. Comtrade backstops lagged (mainland 39kt + HK 30kt 2024)"),
     ("USA", "importer", "US imports by origin (live)", "free", "no",
      "US Census intltrade/imports/hs (HTS 0810.40)", "https://api.census.gov/data/timeseries/intltrade/imports/hs",
      "monthly, by country", "current", "",

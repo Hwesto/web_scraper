@@ -1,0 +1,5 @@
+year,origin,imports_t,share_pct,value_musd,note,source
+2024,Peru,34400,89,,full-year (Comtrade cross-check: 34.6kt),GACC via FreshPlaza/Tridge
+2024,Chile,3870,10,,full-year,GACC via FreshPlaza
+2024,Total,38700,100,,full-year mainland (ex-Hong Kong),GACC via Blueberries Consulting/FreshPlaza
+2025,Peru,,,266,Peru->China value +153% YoY ($105M->$266M); Chancay direct route,Produce Report (GACC)
