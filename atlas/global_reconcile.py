@@ -39,6 +39,8 @@ def reconcile(years=(2022, 2023, 2024)) -> pd.DataFrame:
           .groupby(["year", "exporter"])["net_kg"].sum() / 1000)
     asia = (bil[(bil["flow"] == "importer") & (bil["importer_code"].isin(ASIA_CODES))]
             .groupby(["year", "exporter"])["net_kg"].sum() / 1000)            # Asia imports by origin
+    uk = (bil[(bil["flow"] == "importer") & (bil["importer_code"] == 826)]    # UK imports by origin
+          .groupby(["year", "exporter"])["net_kg"].sum() / 1000)
     e = em.load()
     euimp = (e[(e["flow"] == "import") & (~e["intra_eu"])]
              .groupby(["year", "partner"])["net_kg"].sum() / 1000) if not e.empty else pd.Series(dtype=float)
@@ -46,10 +48,11 @@ def reconcile(years=(2022, 2023, 2024)) -> pd.DataFrame:
     for name, (iso2, _camp) in ORIGINS.items():
         for y in years:
             x = exp.get((y, name)); w = imp.get((y, name))
-            eu = euimp.get((y, iso2)); usv = us.get((y, name)); asv = asia.get((y, name))
+            eu = euimp.get((y, iso2)); usv = us.get((y, name))
+            asv = asia.get((y, name)); ukv = uk.get((y, name))
             if not x:
                 continue
-            acc = (eu or 0) + (usv or 0) + (asv or 0)
+            acc = (eu or 0) + (usv or 0) + (asv or 0) + (ukv or 0)
             rows.append({
                 "origin": name, "year": y,
                 "exports_t": round(x),
@@ -58,6 +61,7 @@ def reconcile(years=(2022, 2023, 2024)) -> pd.DataFrame:
                 "eu_imports_t": round(eu) if eu else None,
                 "us_imports_t": round(usv) if usv else None,
                 "asia_imports_t": round(asv) if asv else None,
+                "uk_imports_t": round(ukv) if ukv else None,
                 "accounted_share": round(acc / x, 3) if acc else None,
                 "residual_share": round(1 - acc / x, 3) if acc else None,
             })
@@ -95,6 +99,9 @@ def current() -> pd.DataFrame:
     ab = b2[(b2["flow"] == "importer") & (b2["importer_code"].isin(ASIA_CODES))]
     afin = ab[~ab["provisional"]] if "provisional" in ab.columns and (~ab["provisional"]).any() else ab
     asia_by = afin[afin["year"] == int(afin["year"].max())].groupby("exporter")["net_kg"].sum() / 1000
+    ukb = b2[(b2["flow"] == "importer") & (b2["importer_code"] == 826)]        # UK (HMRC is the fresher free source)
+    ukfin = ukb[~ukb["provisional"]] if "provisional" in ukb.columns and (~ukb["provisional"]).any() else ukb
+    uk_by = ukfin[ukfin["year"] == int(ukfin["year"].max())].groupby("exporter")["net_kg"].sum() / 1000
     rows = []
     for name, (iso2, camp) in ORIGINS.items():
         exp_t, season = None, ""
@@ -108,17 +115,18 @@ def current() -> pd.DataFrame:
                 r = s[s["metric"] == mt] if not s.empty else s
                 if len(r):
                     exp_t = float(r.iloc[0]["value"]); season = str(r.iloc[0]["season"]); break
-        eu = euimp.get(iso2); usv = us_by.get(name); asv = asia_by.get(name)
-        acc = (eu or 0) + (usv or 0) + (asv or 0)
+        eu = euimp.get(iso2); usv = us_by.get(name); asv = asia_by.get(name); ukv = uk_by.get(name)
+        acc = (eu or 0) + (usv or 0) + (asv or 0) + (ukv or 0)
         rows.append({"origin": name,
                      "committee_export_kt": round(exp_t / 1000, 1) if exp_t else None,
                      "season": season,
                      f"eu_imports_{eu_year}_kt": round(eu / 1000, 1) if eu else None,
                      "us_imports_kt": round(usv / 1000, 1) if usv else None,
                      "asia_imports_kt": round(asv / 1000, 1) if asv else None,
+                     "uk_imports_kt": round(ukv / 1000, 1) if ukv else None,
                      "accounted_share": round(acc / exp_t, 3) if (acc and exp_t) else None,
                      "residual_share": round(1 - acc / exp_t, 3) if (acc and exp_t) else None})
-    print(f"(US slice source: {us_src}; Asia: Comtrade)")
+    print(f"(US slice source: {us_src}; Asia/UK: Comtrade -- UK fresher via HMRC)")
     return pd.DataFrame(rows)
 
 

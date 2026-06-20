@@ -272,10 +272,15 @@ _SEED: list[tuple] = [
      "annual, HS6 081040 x reporter x partner x flow", "2002->now", _TODAY,
      "no key; wired via atlas/eurostat.py -> data/atlas/eurostat_blueberry.csv (ES/NL/PL/DE/FR/PT/BE/IT/AT, EUR/kg)"),
     ("*", "global", "global trade reconciliation + backtest", "free", "derived",
-     "atlas/global_reconcile.py (Comtrade x Eurostat x US x Asia x committees)", "", "per-origin per-year", "2022->2026", _TODAY,
+     "atlas/global_reconcile.py (Comtrade x Eurostat x US x Asia x UK x committees)", "", "per-origin per-year", "2022->2026", _TODAY,
      "the accounting identity exports=world-imports. GLOBAL BACKTEST: mirror_ratio median 1.10. "
-     "Current EU+US+Asia-accounted share: Peru 88%, Chile 93%, Mexico 82%, Morocco 68% -- residual "
-     "(mostly UK) explicit. Asia = China 35kt + HK 26kt of Peru. -> data/atlas/global_reconcile.csv"),
+     "Current EU+US+Asia+UK accounted: Peru 92%, Chile 100%, S.Africa 96%, Morocco 87%, Mexico 82% -- "
+     "residual = Canada/Gulf/Russia. EU live(2026); US/UK one-key-or-HMRC away; Asia=Comtrade "
+     "(China GACC gated -- the one bloc with no free current feed). -> data/atlas/global_reconcile.csv"),
+    ("China", "importer", "blueberry imports by origin (live)", "paid", "no",
+     "China GACC customs", "http://english.customs.gov.cn/statics/report/monthly.html", "monthly", "", "",
+     "the one genuinely GATED bloc in the global picture (~China 35kt + HK 26kt of Peru). Comtrade "
+     "captures it lagged; HK C&SD / data.gov.hk + Korea KCS + Japan e-Stat are free but small & bespoke"),
     ("USA", "importer", "US imports by origin (live)", "free", "no",
      "US Census intltrade/imports/hs (HTS 0810.40)", "https://api.census.gov/data/timeseries/intltrade/imports/hs",
      "monthly, by country", "current", "",

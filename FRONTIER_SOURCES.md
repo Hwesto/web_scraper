@@ -40,6 +40,29 @@ companies (that's paid: Agronometrics / Agrodata / Tridge).
 - **Agrodata Perú / Tridge** — ex-customs / bills-of-lading, supplier names + prices.
 - **Mintec/Expana, Comtrade Premium** — benchmark price series / bulk HS (no company names).
 
+## Global reconciliation — destination-bloc coverage (atlas/global_reconcile.py)
+
+The accounting identity `exports = world-imports`, backtested (mirror_ratio median 1.10).
+Each origin's exports split by destination bloc, accounted from free sources:
+
+| Origin | EU | US | Asia | UK | **Accounted** | Residual |
+|---|---|---|---|---|---|---|
+| Peru | 98 | 174 | 63 | 18 | **92%** | Canada/Gulf |
+| Chile | 35 | 38 | 13 | 8 | **~100%** | — |
+| South Africa | 13 | — | 2 | 10 | **96%** | — |
+| Morocco | 54 | 0.4 | 1 | 15 | **87%** | Russia/Gulf |
+| Mexico | — | 64 | 1 | 0.2 | **82%** | Canada/Japan |
+
+Bloc currency: **EU live to 2026** (Eurostat) · **US** Comtrade now / Census one-key-away ·
+**UK** Comtrade now / HMRC fresher (wired in nowcast) · **Asia** Comtrade only.
+
+**Asia — the one gated bloc.** Mainland China (GACC) is the dominant Asian importer
+(~China 35 kt + Hong Kong 26 kt of Peru) and has **no free current feed** — the English
+GACC site is gated and Chinese-language; ITC/Tridge resell it. Hong Kong (C&SD /
+data.gov.hk) and Korea (KCS), Japan (e-Stat) are free but small and each a bespoke API.
+Comtrade captures all of them (lagged), so Asia is validated for the backtest but not
+current. This is the genuine hard limit of the free global picture.
+
 ## Next rungs (genuine wins still on the table)
 1. **USDA-AMS WA_FV408** — the only true weekly API; covers Peru/Chile/Mexico *arrivals into the US* as a free cross-check on the committee numbers. Keyless TXT mirror is reachable. **Highest-value next wire.**
 2. **Chile / South Africa / Argentina weekly PDFs** — automate the season snapshots now hand-curated in `campaigns.csv`.
