@@ -32,7 +32,9 @@ def test_global_reconcile_mirror_closes():
     cur = gr.current()
     if len(cur):
         pe = cur[cur["origin"] == "Peru"]
-        assert len(pe) and 0.1 < float(pe.iloc[0]["eu_share"]) < 0.5   # EU ~quarter of Peru's exports
+        # EU + US should account for most of Peru's exports; the residual (China/Asia) is the rest
+        assert len(pe) and 0.5 < float(pe.iloc[0]["eu_us_share"]) < 0.95
+        assert 0.05 < float(pe.iloc[0]["residual_share"]) < 0.5
 
 
 def test_eurostat_monthly_current_and_backtested():

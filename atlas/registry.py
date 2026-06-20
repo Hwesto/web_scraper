@@ -272,10 +272,15 @@ _SEED: list[tuple] = [
      "annual, HS6 081040 x reporter x partner x flow", "2002->now", _TODAY,
      "no key; wired via atlas/eurostat.py -> data/atlas/eurostat_blueberry.csv (ES/NL/PL/DE/FR/PT/BE/IT/AT, EUR/kg)"),
     ("*", "global", "global trade reconciliation + backtest", "free", "derived",
-     "atlas/global_reconcile.py (Comtrade x Eurostat x committees)", "", "per-origin per-year", "2022->2026", _TODAY,
+     "atlas/global_reconcile.py (Comtrade x Eurostat x US x committees)", "", "per-origin per-year", "2022->2026", _TODAY,
      "the accounting identity exports=world-imports. GLOBAL BACKTEST: mirror_ratio median 1.10 "
-     "(|1-ratio| ~15%) -> trade closes. Current EU-accounted share: Peru 26%, Morocco 66%, Mexico 0% "
-     "(residual=US/China/Asia). -> data/atlas/global_reconcile.csv"),
+     "(|1-ratio| ~15%) -> trade closes. Current EU+US-accounted share: Peru 71%, Chile 79%, Mexico 81%, "
+     "Morocco 67% -- residual (China/Asia/UK) explicit. -> data/atlas/global_reconcile.csv"),
+    ("USA", "importer", "US imports by origin (live)", "free", "no",
+     "US Census intltrade/imports/hs (HTS 0810.40)", "https://api.census.gov/data/timeseries/intltrade/imports/hs",
+     "monthly, by country", "current", "",
+     "atlas/uscensus.py -- the live US slice, ONE FREE KEY away (set CENSUS_API_KEY); until then "
+     "global_reconcile uses the Comtrade US slice (174kt Peru 2024). Same contract as the AMS MARS key"),
     ("*", "global", "EU MONTHLY bilateral trade (current, beats Comtrade lag)", "free", "yes",
      "Eurostat COMEXT monthly (DS-045409, freq=M)", "https://ec.europa.eu/eurostat/api/comext/dissemination",
      "MONTHLY, all 27 EU reporters x partner x flow", "2019->2026-04", _TODAY,

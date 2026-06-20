@@ -33,22 +33,28 @@ def reconcile(years=(2022, 2023, 2024)) -> pd.DataFrame:
     bil = comtrade_matrix.load()
     exp = (bil[bil["flow"] == "exporter"].groupby(["year", "exporter"])["net_kg"].sum() / 1000)
     imp = (bil[bil["flow"] == "importer"].groupby(["year", "exporter"])["net_kg"].sum() / 1000)
+    us = (bil[(bil["flow"] == "importer") & (bil["importer_code"] == 842)]    # US imports by origin
+          .groupby(["year", "exporter"])["net_kg"].sum() / 1000)
     e = em.load()
     euimp = (e[(e["flow"] == "import") & (~e["intra_eu"])]
              .groupby(["year", "partner"])["net_kg"].sum() / 1000) if not e.empty else pd.Series(dtype=float)
     rows = []
     for name, (iso2, _camp) in ORIGINS.items():
         for y in years:
-            x = exp.get((y, name)); w = imp.get((y, name)); eu = euimp.get((y, iso2))
+            x = exp.get((y, name)); w = imp.get((y, name))
+            eu = euimp.get((y, iso2)); usv = us.get((y, name))
             if not x:
                 continue
+            acc = (eu or 0) + (usv or 0)
             rows.append({
                 "origin": name, "year": y,
                 "exports_t": round(x),
                 "world_imports_t": round(w) if w else None,
                 "mirror_ratio": round(w / x, 3) if w else None,
                 "eu_imports_t": round(eu) if eu else None,
-                "eu_share": round(eu / x, 3) if eu else None,
+                "us_imports_t": round(usv) if usv else None,
+                "eu_us_share": round(acc / x, 3) if acc else None,
+                "residual_share": round(1 - acc / x, 3) if acc else None,
             })
     return pd.DataFrame(rows)
 
@@ -64,8 +70,21 @@ def current() -> pd.DataFrame:
     eu_year = int(full.max()) if len(full) else int(e["year"].max())
     euimp = (e[(e["flow"] == "import") & (~e["intra_eu"]) & (e["year"] == eu_year)]
              .groupby("partner")["net_kg"].sum() / 1000)                  # tonnes
-    from atlas import berriesza
+    from atlas import berriesza, uscensus
     sa = berriesza.load()
+    # US slice: live Census (if key set) else the latest complete Comtrade year
+    usc = uscensus.load()
+    if not usc.empty:
+        usy = int(usc["year"].max())
+        us_by = usc[usc["year"] == usy].groupby("partner")["net_kg"].sum() / 1000
+        us_src = f"Census {usy}"
+    else:
+        b = comtrade_matrix.load()
+        ub = b[(b["flow"] == "importer") & (b["importer_code"] == 842)]
+        fin = ub[~ub["provisional"]] if "provisional" in ub.columns and (~ub["provisional"]).any() else ub
+        usy = int(fin["year"].max())
+        us_by = fin[fin["year"] == usy].groupby("exporter")["net_kg"].sum() / 1000
+        us_src = f"Comtrade {usy}"
     rows = []
     for name, (iso2, camp) in ORIGINS.items():
         exp_t, season = None, ""
@@ -79,12 +98,16 @@ def current() -> pd.DataFrame:
                 r = s[s["metric"] == mt] if not s.empty else s
                 if len(r):
                     exp_t = float(r.iloc[0]["value"]); season = str(r.iloc[0]["season"]); break
-        eu = euimp.get(iso2)
+        eu = euimp.get(iso2); usv = us_by.get(name)
+        acc = (eu or 0) + (usv or 0)
         rows.append({"origin": name,
                      "committee_export_kt": round(exp_t / 1000, 1) if exp_t else None,
                      "season": season,
                      f"eu_imports_{eu_year}_kt": round(eu / 1000, 1) if eu else None,
-                     "eu_share": round(eu / exp_t, 3) if (eu and exp_t) else None})
+                     "us_imports_kt": round(usv / 1000, 1) if usv else None,
+                     "eu_us_share": round(acc / exp_t, 3) if (acc and exp_t) else None,
+                     "residual_share": round(1 - acc / exp_t, 3) if (acc and exp_t) else None})
+    print(f"(US slice source: {us_src})")
     return pd.DataFrame(rows)
 
 
