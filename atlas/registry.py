@@ -271,6 +271,11 @@ _SEED: list[tuple] = [
      "Eurostat COMEXT (DS-045409)", "https://ec.europa.eu/eurostat/api/comext/dissemination",
      "annual, HS6 081040 x reporter x partner x flow", "2002->now", _TODAY,
      "no key; wired via atlas/eurostat.py -> data/atlas/eurostat_blueberry.csv (ES/NL/PL/DE/FR/PT/BE/IT/AT, EUR/kg)"),
+    ("*", "global", "global trade reconciliation + backtest", "free", "derived",
+     "atlas/global_reconcile.py (Comtrade x Eurostat x committees)", "", "per-origin per-year", "2022->2026", _TODAY,
+     "the accounting identity exports=world-imports. GLOBAL BACKTEST: mirror_ratio median 1.10 "
+     "(|1-ratio| ~15%) -> trade closes. Current EU-accounted share: Peru 26%, Morocco 66%, Mexico 0% "
+     "(residual=US/China/Asia). -> data/atlas/global_reconcile.csv"),
     ("*", "global", "EU MONTHLY bilateral trade (current, beats Comtrade lag)", "free", "yes",
      "Eurostat COMEXT monthly (DS-045409, freq=M)", "https://ec.europa.eu/eurostat/api/comext/dissemination",
      "MONTHLY, all 27 EU reporters x partner x flow", "2019->2026-04", _TODAY,

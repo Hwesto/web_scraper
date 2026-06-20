@@ -22,6 +22,19 @@ def test_hs_fresh_frozen_dried_lines_present():
     assert hs_codes.hs6("blueberry", "dried") == "081340"
 
 
+def test_global_reconcile_mirror_closes():
+    from atlas import global_reconcile as gr
+    bt = gr.reconcile()
+    if bt.empty:
+        return
+    mr = bt["mirror_ratio"].dropna()
+    assert 0.85 <= mr.median() <= 1.35                      # world imports ~ exports (accounting closes)
+    cur = gr.current()
+    if len(cur):
+        pe = cur[cur["origin"] == "Peru"]
+        assert len(pe) and 0.1 < float(pe.iloc[0]["eu_share"]) < 0.5   # EU ~quarter of Peru's exports
+
+
 def test_eurostat_monthly_current_and_backtested():
     from atlas import eurostat_monthly as em
     df = em.load()
