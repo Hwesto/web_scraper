@@ -21,6 +21,8 @@ from atlas import eurostat_monthly as em
 from atlas import campaigns
 
 CACHE = ATLAS_DIR / "global_reconcile.csv"
+# major Asian importers (M49) -- China + the Hong Kong re-export gateway dominate
+ASIA_CODES = {156, 344, 392, 410, 490, 702, 764, 458, 704, 699, 360, 446}
 # major exporting origins: Comtrade display name -> ISO2 (Eurostat) -> campaigns name
 ORIGINS = {
     "Peru": ("PE", "Peru"), "Chile": ("CL", "Chile"), "Morocco": ("MA", "Morocco"),
@@ -35,6 +37,8 @@ def reconcile(years=(2022, 2023, 2024)) -> pd.DataFrame:
     imp = (bil[bil["flow"] == "importer"].groupby(["year", "exporter"])["net_kg"].sum() / 1000)
     us = (bil[(bil["flow"] == "importer") & (bil["importer_code"] == 842)]    # US imports by origin
           .groupby(["year", "exporter"])["net_kg"].sum() / 1000)
+    asia = (bil[(bil["flow"] == "importer") & (bil["importer_code"].isin(ASIA_CODES))]
+            .groupby(["year", "exporter"])["net_kg"].sum() / 1000)            # Asia imports by origin
     e = em.load()
     euimp = (e[(e["flow"] == "import") & (~e["intra_eu"])]
              .groupby(["year", "partner"])["net_kg"].sum() / 1000) if not e.empty else pd.Series(dtype=float)
@@ -42,10 +46,10 @@ def reconcile(years=(2022, 2023, 2024)) -> pd.DataFrame:
     for name, (iso2, _camp) in ORIGINS.items():
         for y in years:
             x = exp.get((y, name)); w = imp.get((y, name))
-            eu = euimp.get((y, iso2)); usv = us.get((y, name))
+            eu = euimp.get((y, iso2)); usv = us.get((y, name)); asv = asia.get((y, name))
             if not x:
                 continue
-            acc = (eu or 0) + (usv or 0)
+            acc = (eu or 0) + (usv or 0) + (asv or 0)
             rows.append({
                 "origin": name, "year": y,
                 "exports_t": round(x),
@@ -53,7 +57,8 @@ def reconcile(years=(2022, 2023, 2024)) -> pd.DataFrame:
                 "mirror_ratio": round(w / x, 3) if w else None,
                 "eu_imports_t": round(eu) if eu else None,
                 "us_imports_t": round(usv) if usv else None,
-                "eu_us_share": round(acc / x, 3) if acc else None,
+                "asia_imports_t": round(asv) if asv else None,
+                "accounted_share": round(acc / x, 3) if acc else None,
                 "residual_share": round(1 - acc / x, 3) if acc else None,
             })
     return pd.DataFrame(rows)
@@ -85,6 +90,11 @@ def current() -> pd.DataFrame:
         usy = int(fin["year"].max())
         us_by = fin[fin["year"] == usy].groupby("exporter")["net_kg"].sum() / 1000
         us_src = f"Comtrade {usy}"
+    # Asia slice (China/HK/Japan/Korea...) -- Comtrade only (China GACC is gated; no free fresher)
+    b2 = comtrade_matrix.load()
+    ab = b2[(b2["flow"] == "importer") & (b2["importer_code"].isin(ASIA_CODES))]
+    afin = ab[~ab["provisional"]] if "provisional" in ab.columns and (~ab["provisional"]).any() else ab
+    asia_by = afin[afin["year"] == int(afin["year"].max())].groupby("exporter")["net_kg"].sum() / 1000
     rows = []
     for name, (iso2, camp) in ORIGINS.items():
         exp_t, season = None, ""
@@ -98,16 +108,17 @@ def current() -> pd.DataFrame:
                 r = s[s["metric"] == mt] if not s.empty else s
                 if len(r):
                     exp_t = float(r.iloc[0]["value"]); season = str(r.iloc[0]["season"]); break
-        eu = euimp.get(iso2); usv = us_by.get(name)
-        acc = (eu or 0) + (usv or 0)
+        eu = euimp.get(iso2); usv = us_by.get(name); asv = asia_by.get(name)
+        acc = (eu or 0) + (usv or 0) + (asv or 0)
         rows.append({"origin": name,
                      "committee_export_kt": round(exp_t / 1000, 1) if exp_t else None,
                      "season": season,
                      f"eu_imports_{eu_year}_kt": round(eu / 1000, 1) if eu else None,
                      "us_imports_kt": round(usv / 1000, 1) if usv else None,
-                     "eu_us_share": round(acc / exp_t, 3) if (acc and exp_t) else None,
+                     "asia_imports_kt": round(asv / 1000, 1) if asv else None,
+                     "accounted_share": round(acc / exp_t, 3) if (acc and exp_t) else None,
                      "residual_share": round(1 - acc / exp_t, 3) if (acc and exp_t) else None})
-    print(f"(US slice source: {us_src})")
+    print(f"(US slice source: {us_src}; Asia: Comtrade)")
     return pd.DataFrame(rows)
 
 
