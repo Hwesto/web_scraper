@@ -197,7 +197,20 @@ def _divergence_png() -> str:
         if r["value_usd"] > 1.5e8 or r["production_t"] > 5e4:
             ax.annotate(r["country"], (r["production_t"] / 1000, r["value_usd"] / 1e6),
                         fontsize=8.5, color=INK, xytext=(4, 2), textcoords="offset points")
-    ax.set_xlabel("production  (000 t, FAOSTAT)"); ax.set_ylabel("exports  ($M, Comtrade)")
+    # China -- the world #1 producer FAOSTAT misses: grows 810kt, exports ~nothing
+    try:
+        from atlas import china
+        cp = china.latest("production", "China total")
+        ce = ex[ex["country"] == "China"]["value_usd"]
+        if cp and len(ce):
+            ax.scatter([cp / 1000], [ce.iloc[0] / 1e6], s=80, color="#9c4221", zorder=5,
+                       edgecolor="white", linewidth=0.7)
+            ax.annotate("China (#1 grower, barely exports)", (cp / 1000, ce.iloc[0] / 1e6),
+                        fontsize=8.5, color="#9c4221", fontweight="bold",
+                        xytext=(-150, 6), textcoords="offset points")
+    except Exception:
+        pass
+    ax.set_xlabel("production  (000 t · FAOSTAT + China snapshot)"); ax.set_ylabel("exports  ($M, Comtrade)")
     ax.set_xscale("log"); ax.set_yscale("log")
     _bare(ax, grid="both")
     return _png(fig)
