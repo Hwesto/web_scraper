@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- ============================================================
+       PRIMARY SEO META  (edit the bracketed values for the client)
+       ============================================================ -->
+  <title>Sarah Bennett Counselling | Counsellor in Maidstone, Kent &amp; Online</title>
+  <meta name="description" content="BACP-registered counsellor in Maidstone, Kent offering compassionate talking therapy for anxiety, depression, stress and low self-esteem. In-person and online sessions. Free 15-minute consultation." />
+  <meta name="keywords" content="counsellor Maidstone, counselling Kent, therapist near me, anxiety counselling Kent, online counselling, BACP counsellor Maidstone" />
+  <meta name="author" content="Sarah Bennett" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://www.example-counselling.co.uk/" />
+
+  <!-- Open Graph / social sharing -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Sarah Bennett Counselling | Counsellor in Maidstone, Kent &amp; Online" />
+  <meta property="og:description" content="Compassionate, BACP-registered talking therapy for anxiety, depression and stress. In-person in Maidstone, Kent, or online across the UK." />
+  <meta property="og:url" content="https://www.example-counselling.co.uk/" />
+  <meta property="og:locale" content="en_GB" />
+  <meta property="og:image" content="https://www.example-counselling.co.uk/assets/social-share.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <meta name="theme-color" content="#4a6b6f" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234a6b6f'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Georgia,serif' fill='%23fff' text-anchor='middle'%3ESB%3C/text%3E%3C/svg%3E" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" />
+  <style>
+/* ============================================================
+   Sarah Bennett Counselling — one-page therapist site
+   Palette: calming sage/teal + warm sand, high readability.
+   ============================================================ */
+
+:root {
+  --teal-900: #2f4a4d;
+  --teal-700: #4a6b6f;
+  --teal-500: #6f9396;
+  --sand-100: #f6f1ea;
+  --sand-200: #ece3d6;
+  --ink: #283133;
+  --ink-soft: #4f5b5d;
+  --white: #ffffff;
+  --accent: #c98a5e;        /* warm terracotta CTA */
+  --accent-dark: #b3744a;
+  --ring: #6f9396;
+  --radius: 14px;
+  --shadow: 0 10px 30px rgba(47, 74, 77, 0.10);
+  --shadow-sm: 0 4px 14px rgba(47, 74, 77, 0.08);
+  --maxw: 1120px;
+  --space: clamp(3.5rem, 8vw, 6rem);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation: none !important; transition: none !important; }
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--white);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, .brand-text, .price span {
+  font-family: "Fraunces", Georgia, "Times New Roman", serif;
+  line-height: 1.15;
+  color: var(--teal-900);
+  font-weight: 500;
+}
+h1 { font-size: clamp(2rem, 5vw, 3.1rem); margin: 0 0 1rem; }
+h2 { font-size: clamp(1.6rem, 3.5vw, 2.3rem); margin: 0 0 1rem; }
+h3 { font-size: 1.2rem; margin: 0 0 .4rem; }
+p  { margin: 0 0 1rem; }
+a  { color: var(--teal-700); }
+
+img { max-width: 100%; display: block; }
+
+.container { width: min(100% - 2.5rem, var(--maxw)); margin-inline: auto; }
+.narrow { width: min(100% - 2.5rem, 780px); margin-inline: auto; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.skip-link {
+  position: absolute; left: -999px; top: 0; z-index: 100;
+  background: var(--teal-900); color: #fff; padding: .7rem 1rem; border-radius: 0 0 8px 0;
+}
+.skip-link:focus { left: 0; }
+
+:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-block; text-decoration: none; font-weight: 600;
+  padding: .85rem 1.5rem; border-radius: 999px; border: 2px solid transparent;
+  cursor: pointer; font-size: 1rem; transition: transform .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn-primary { background: var(--accent); color: #fff; box-shadow: var(--shadow-sm); }
+.btn-primary:hover { background: var(--accent-dark); }
+.btn-ghost { border-color: var(--teal-500); color: var(--teal-900); background: transparent; }
+.btn-ghost:hover { background: rgba(111,147,150,.12); }
+.btn-block { display: block; width: 100%; text-align: center; }
+
+/* ---------- Header ---------- */
+.site-header {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--sand-200);
+}
+.header-inner { display: flex; align-items: center; justify-content: space-between; padding: .7rem 0; }
+.brand { display: flex; align-items: center; gap: .65rem; text-decoration: none; }
+.brand-mark {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px;
+  background: var(--teal-700); color: #fff; font-family: "Fraunces", serif; font-weight: 600;
+}
+.brand-text { font-size: 1.15rem; color: var(--teal-900); display: flex; flex-direction: column; line-height: 1.1; }
+.brand-text small { font-family: "Inter", sans-serif; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-soft); font-weight: 500; }
+
+.nav-menu { list-style: none; display: flex; gap: 1.4rem; margin: 0; padding: 0; align-items: center; }
+.nav-menu a { text-decoration: none; color: var(--ink); font-weight: 500; }
+.nav-menu a:hover { color: var(--accent-dark); }
+.nav-cta { background: var(--teal-700); color: #fff !important; padding: .5rem 1.1rem; border-radius: 999px; }
+.nav-cta:hover { background: var(--teal-900); }
+
+.nav-toggle { display: none; background: none; border: 0; cursor: pointer; padding: .5rem; }
+.nav-toggle-bar, .nav-toggle-bar::before, .nav-toggle-bar::after {
+  display: block; width: 24px; height: 2px; background: var(--teal-900); position: relative; transition: .2s;
+}
+.nav-toggle-bar::before, .nav-toggle-bar::after { content: ""; position: absolute; left: 0; }
+.nav-toggle-bar::before { top: -7px; } .nav-toggle-bar::after { top: 7px; }
+
+/* ---------- Hero ---------- */
+.hero { background: linear-gradient(160deg, var(--sand-100) 0%, #fff 70%); padding: clamp(3rem,7vw,5.5rem) 0; }
+.hero-inner { display: grid; grid-template-columns: 1.15fr .85fr; gap: clamp(2rem,5vw,4rem); align-items: center; }
+.eyebrow { color: var(--teal-700); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; font-size: .8rem; margin-bottom: .8rem; }
+.lede { font-size: 1.12rem; color: var(--ink-soft); max-width: 40ch; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: .8rem; margin: 1.4rem 0 1.2rem; }
+.trust-row { list-style: none; display: flex; flex-wrap: wrap; gap: 1.2rem; padding: 0; margin: 0; color: var(--teal-900); font-weight: 500; font-size: .95rem; }
+
+.hero-card { display: grid; }
+.hero-photo {
+  aspect-ratio: 4/5; border-radius: var(--radius); background:
+    repeating-linear-gradient(45deg, var(--sand-200), var(--sand-200) 12px, #e4d8c7 12px, #e4d8c7 24px);
+  display: grid; place-items: center; text-align: center; color: var(--ink-soft);
+  font-size: .9rem; padding: 1rem; box-shadow: var(--shadow); border: 1px solid var(--sand-200);
+}
+
+/* ---------- Sections ---------- */
+.section { padding: var(--space) 0; }
+.section-tint { background: var(--sand-100); }
+.section-head { max-width: 640px; margin-bottom: 2.5rem; }
+.section-sub { color: var(--ink-soft); font-size: 1.05rem; }
+.kicker { color: var(--accent-dark); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: .78rem; margin-bottom: .5rem; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem,5vw,3.5rem); align-items: start; }
+.grid-2-narrow { grid-template-columns: 1.2fr .8fr; align-items: center; }
+
+.card { background: #fff; border: 1px solid var(--sand-200); border-radius: var(--radius); padding: 1.6rem; box-shadow: var(--shadow-sm); }
+
+.ticks { list-style: none; padding: 0; margin: 0; }
+.ticks li { position: relative; padding-left: 1.7rem; margin-bottom: .65rem; }
+.ticks li::before { content: "✓"; position: absolute; left: 0; color: var(--teal-700); font-weight: 700; }
+
+.credentials h3 { margin-bottom: .9rem; }
+
+/* ---------- Service cards ---------- */
+.cards { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3,1fr); gap: 1.2rem; }
+.service h3 { color: var(--teal-900); }
+.service p { margin: 0; color: var(--ink-soft); }
+.service { border-top: 3px solid var(--teal-500); }
+
+/* ---------- Steps ---------- */
+.steps { list-style: none; counter-reset: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4,1fr); gap: 1.4rem; }
+.steps li { position: relative; padding-top: .5rem; }
+.step-num {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%;
+  background: var(--teal-700); color: #fff; font-family: "Fraunces", serif; font-size: 1.2rem; margin-bottom: .8rem;
+}
+.steps p { color: var(--ink-soft); margin: 0; }
+
+/* ---------- Quotes ---------- */
+.quotes { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1.4rem; }
+.quote blockquote { margin: 0 0 .8rem; font-family: "Fraunces", serif; font-size: 1.2rem; color: var(--teal-900); line-height: 1.4; }
+.quote cite { color: var(--ink-soft); font-style: normal; font-size: .92rem; }
+
+/* ---------- Price ---------- */
+.price-card { text-align: left; }
+.price { font-size: 1.1rem; color: var(--ink-soft); margin-bottom: 1.2rem; }
+.price span { font-size: 2.6rem; color: var(--teal-900); display: inline-block; }
+.price-card .btn { margin-top: 1.2rem; }
+
+/* ---------- FAQ ---------- */
+.faq details { background: #fff; border: 1px solid var(--sand-200); border-radius: 10px; margin-bottom: .8rem; padding: 0 1.2rem; }
+.faq summary { cursor: pointer; font-weight: 600; padding: 1.1rem 0; list-style: none; color: var(--teal-900); position: relative; padding-right: 2rem; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; position: absolute; right: .2rem; font-size: 1.4rem; color: var(--teal-700); transition: transform .2s; }
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details p { margin: 0 0 1.1rem; color: var(--ink-soft); }
+
+/* ---------- Contact ---------- */
+.contact-list { list-style: none; padding: 0; margin: 1.4rem 0 0; }
+.contact-list li { display: flex; gap: 1rem; padding: .6rem 0; border-bottom: 1px solid var(--sand-200); }
+.contact-label { min-width: 70px; font-weight: 600; color: var(--teal-900); }
+
+.contact-form { display: grid; gap: .9rem; }
+.form-note { font-size: .9rem; color: var(--ink-soft); margin: 0; }
+.field { display: grid; gap: .35rem; }
+.field label { font-weight: 600; font-size: .92rem; color: var(--teal-900); }
+.field .opt { font-weight: 400; color: var(--ink-soft); }
+.field input, .field textarea {
+  font: inherit; padding: .7rem .8rem; border: 1px solid #cdd6d3; border-radius: 8px; background: #fff; color: var(--ink);
+}
+.field input:focus, .field textarea:focus { border-color: var(--ring); outline: 2px solid rgba(111,147,150,.35); outline-offset: 0; }
+.form-status { font-size: .92rem; margin: .3rem 0 0; min-height: 1.2em; color: var(--teal-700); font-weight: 600; }
+
+/* ---------- Crisis ---------- */
+.crisis { background: var(--teal-900); color: #eaf1f0; }
+.crisis p { margin: 0; padding: 1.1rem 0; font-size: .95rem; }
+.crisis a { color: #fff; font-weight: 600; }
+
+/* ---------- Footer ---------- */
+.site-footer { background: var(--teal-900); color: #d7e2e0; padding-top: 2.6rem; }
+.footer-inner { display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: space-between; align-items: center; padding-bottom: 1.6rem; }
+.footer-brand { font-family: "Fraunces", serif; font-size: 1.25rem; color: #fff; margin: 0; }
+.footer-meta { margin: .3rem 0 0; font-size: .9rem; color: #aebfbd; }
+.footer-links { list-style: none; display: flex; gap: 1.3rem; padding: 0; margin: 0; }
+.footer-links a { color: #d7e2e0; text-decoration: none; }
+.footer-links a:hover { color: #fff; }
+.footer-base { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: space-between; border-top: 1px solid rgba(255,255,255,.12); padding: 1rem 0; font-size: .85rem; color: #9fb2b0; }
+.footer-base a { color: #cfe0de; }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 880px) {
+  .hero-inner { grid-template-columns: 1fr; }
+  .hero-card { max-width: 360px; }
+  .grid-2, .grid-2-narrow { grid-template-columns: 1fr; }
+  .cards { grid-template-columns: 1fr 1fr; }
+  .steps { grid-template-columns: 1fr 1fr; }
+  .quotes { grid-template-columns: 1fr; }
+
+  .nav-toggle { display: block; }
+  .nav-menu {
+    position: absolute; top: 100%; right: 1.25rem; left: 1.25rem;
+    flex-direction: column; align-items: stretch; gap: .2rem;
+    background: #fff; border: 1px solid var(--sand-200); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: .6rem; display: none;
+  }
+  .nav-menu.open { display: flex; }
+  .nav-menu li { width: 100%; }
+  .nav-menu a { display: block; padding: .7rem .8rem; border-radius: 8px; }
+  .nav-cta { text-align: center; }
+}
+
+@media (max-width: 520px) {
+  .cards, .steps { grid-template-columns: 1fr; }
+  .hero-actions .btn { width: 100%; text-align: center; }
+}
+
+</style>
+
+  <!-- ============================================================
+       STRUCTURED DATA — local business + FAQ rich results
+       This is a major local-SEO lever for "near me" searches.
+       ============================================================ -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ProfessionalService",
+    "@id": "https://www.example-counselling.co.uk/#practice",
+    "name": "Sarah Bennett Counselling",
+    "description": "BACP-registered counsellor offering talking therapy for anxiety, depression, stress and low self-esteem in Maidstone, Kent and online.",
+    "url": "https://www.example-counselling.co.uk/",
+    "telephone": "+44-1622-000000",
+    "email": "hello@example-counselling.co.uk",
+    "priceRange": "££",
+    "image": "https://www.example-counselling.co.uk/assets/social-share.jpg",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "1 Example House, High Street",
+      "addressLocality": "Maidstone",
+      "addressRegion": "Kent",
+      "postalCode": "ME14 0AA",
+      "addressCountry": "GB"
+    },
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": 51.272,
+      "longitude": 0.529
+    },
+    "areaServed": [
+      { "@type": "City", "name": "Maidstone" },
+      { "@type": "City", "name": "Tonbridge" },
+      { "@type": "City", "name": "Tunbridge Wells" },
+      { "@type": "City", "name": "Ashford" },
+      { "@type": "City", "name": "Sevenoaks" },
+      { "@type": "AdministrativeArea", "name": "Kent" }
+    ],
+    "knowsAbout": ["Anxiety", "Depression", "Stress", "Low self-esteem", "Grief and loss", "Relationship difficulties"],
+    "memberOf": { "@type": "Organization", "name": "British Association for Counselling and Psychotherapy (BACP)" },
+    "openingHoursSpecification": [
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday"],
+        "opens": "09:00",
+        "closes": "19:00"
+      }
+    ],
+    "sameAs": [
+      "https://www.counselling-directory.org.uk/",
+      "https://www.psychologytoday.com/gb"
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "How much does counselling in Maidstone cost?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Sessions are £55 for 50 minutes. The first 15-minute phone consultation is free, so you can see whether we feel like a good fit before booking." }
+      },
+      {
+        "@type": "Question",
+        "name": "Do you offer online counselling as well as in person?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. I offer face-to-face sessions in Maidstone, Kent, and secure online video sessions for clients across Kent and the wider UK." }
+      },
+      {
+        "@type": "Question",
+        "name": "Are you a qualified, registered counsellor?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. I am a registered member of the British Association for Counselling and Psychotherapy (BACP) and work to its Ethical Framework." }
+      },
+      {
+        "@type": "Question",
+        "name": "What can counselling help with?",
+        "acceptedAnswer": { "@type": "Answer", "text": "I support adults with anxiety, depression, stress and burnout, low self-esteem, grief and loss, and relationship difficulties, among other concerns." }
+      }
+    ]
+  }
+  </script>
+</head>
+
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- ===================== HEADER / NAV ===================== -->
+  <header class="site-header" id="top">
+    <div class="container header-inner">
+      <a class="brand" href="#top">
+        <span class="brand-mark" aria-hidden="true">SB</span>
+        <span class="brand-text">Sarah Bennett<small>Counselling &amp; Psychotherapy</small></span>
+      </a>
+
+      <nav class="nav" aria-label="Primary">
+        <button class="nav-toggle" aria-expanded="false" aria-controls="nav-menu">
+          <span class="sr-only">Menu</span>
+          <span class="nav-toggle-bar" aria-hidden="true"></span>
+        </button>
+        <ul id="nav-menu" class="nav-menu">
+          <li><a href="#about">About</a></li>
+          <li><a href="#help">How I help</a></li>
+          <li><a href="#process">How it works</a></li>
+          <li><a href="#fees">Fees</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a class="nav-cta" href="#contact">Get in touch</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- ===================== HERO ===================== -->
+    <section class="hero">
+      <div class="container hero-inner">
+        <div class="hero-copy">
+          <p class="eyebrow">Counsellor in Maidstone, Kent &amp; Online</p>
+          <h1>A calm, confidential space to feel more like yourself again</h1>
+          <p class="lede">
+            Life can feel overwhelming. Whether you're living with anxiety, low mood, stress or
+            a sense that something just isn't right, talking it through with someone who listens
+            without judgement can help. I'm Sarah, a BACP-registered counsellor offering warm,
+            down-to-earth therapy in Maidstone and online across Kent.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#contact">Book a free 15-min consultation</a>
+            <a class="btn btn-ghost" href="#help">How I can help</a>
+          </div>
+          <ul class="trust-row">
+            <li>✓ BACP registered</li>
+            <li>✓ In-person &amp; online</li>
+            <li>✓ Free first call</li>
+          </ul>
+        </div>
+        <div class="hero-card" aria-hidden="false">
+          <div class="hero-photo" role="img" aria-label="Photograph of Sarah Bennett, counsellor">
+            <span>Add a warm, professional<br />photo of yourself here</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ABOUT ===================== -->
+    <section id="about" class="section">
+      <div class="container grid-2">
+        <div>
+          <p class="kicker">About me</p>
+          <h2>Therapy that meets you where you are</h2>
+          <p>
+            I'm Sarah Bennett, a qualified counsellor based in Maidstone, Kent. I work with adults
+            who are going through a difficult time and want to understand themselves more deeply.
+            My approach is gentle, collaborative and tailored to you — there's no script, and no
+            pressure to have the right words.
+          </p>
+          <p>
+            I draw on a person-centred and integrative approach, which simply means I adapt the way
+            we work to suit what <em>you</em> need, rather than fitting you into one method. Many of
+            my clients come to me feeling stuck, anxious or exhausted, and leave with a clearer sense
+            of who they are and what they want.
+          </p>
+          <p>
+            Sessions are completely confidential. Everything you bring stays between us, within the
+            limits of the BACP Ethical Framework I work to.
+          </p>
+        </div>
+        <aside class="credentials card">
+          <h3>Qualifications &amp; memberships</h3>
+          <ul class="ticks">
+            <li>Registered Member, BACP (British Association for Counselling and Psychotherapy)</li>
+            <li>Diploma in Therapeutic Counselling</li>
+            <li>Enhanced DBS checked</li>
+            <li>Fully insured &amp; in regular clinical supervision</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ===================== HOW I HELP ===================== -->
+    <section id="help" class="section section-tint">
+      <div class="container">
+        <div class="section-head">
+          <p class="kicker">How I can help</p>
+          <h2>Support for what you're carrying</h2>
+          <p class="section-sub">
+            People come to counselling for all sorts of reasons. These are some of the areas I
+            work with most often — but if what you're facing isn't listed, please still get in touch.
+          </p>
+        </div>
+        <ul class="cards">
+          <li class="card service">
+            <h3>Anxiety &amp; worry</h3>
+            <p>Racing thoughts, panic, overthinking and that constant feeling of being on edge.</p>
+          </li>
+          <li class="card service">
+            <h3>Depression &amp; low mood</h3>
+            <p>Feeling flat, hopeless or disconnected from the things you used to enjoy.</p>
+          </li>
+          <li class="card service">
+            <h3>Stress &amp; burnout</h3>
+            <p>When work, caring or life pressures leave you running on empty.</p>
+          </li>
+          <li class="card service">
+            <h3>Low self-esteem</h3>
+            <p>Harsh self-criticism, people-pleasing and never feeling quite good enough.</p>
+          </li>
+          <li class="card service">
+            <h3>Grief &amp; loss</h3>
+            <p>Working through bereavement or any loss that has changed your world.</p>
+          </li>
+          <li class="card service">
+            <h3>Relationship difficulties</h3>
+            <p>Recurring patterns, family strain or feeling unheard in your relationships.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===================== HOW IT WORKS ===================== -->
+    <section id="process" class="section">
+      <div class="container">
+        <div class="section-head">
+          <p class="kicker">How it works</p>
+          <h2>Getting started is simpler than you think</h2>
+        </div>
+        <ol class="steps">
+          <li>
+            <span class="step-num">1</span>
+            <h3>Reach out</h3>
+            <p>Send a message or call. There's no need to explain everything — just say you'd like to talk.</p>
+          </li>
+          <li>
+            <span class="step-num">2</span>
+            <h3>Free 15-minute call</h3>
+            <p>We have a relaxed, no-obligation chat so you can get a feel for me and ask anything you'd like.</p>
+          </li>
+          <li>
+            <span class="step-num">3</span>
+            <h3>Your first session</h3>
+            <p>We meet in Maidstone or online. We go at your pace — there's nothing you have to get right.</p>
+          </li>
+          <li>
+            <span class="step-num">4</span>
+            <h3>Ongoing support</h3>
+            <p>Most people meet weekly. You're free to continue for as long, or as short, as feels helpful.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ===================== TESTIMONIALS ===================== -->
+    <section class="section section-tint">
+      <div class="container">
+        <div class="section-head">
+          <p class="kicker">In their words</p>
+          <h2>What clients say</h2>
+          <p class="section-sub">Shared anonymously, with permission. (Replace with your own client feedback.)</p>
+        </div>
+        <ul class="quotes">
+          <li class="card quote">
+            <blockquote>"I came in feeling completely overwhelmed. Sarah gave me space to breathe and slowly make sense of things. I finally feel like myself again."</blockquote>
+            <cite>— Client, Maidstone</cite>
+          </li>
+          <li class="card quote">
+            <blockquote>"Warm, patient and never judgemental. The free first call put me at ease straight away and made taking the first step so much easier."</blockquote>
+            <cite>— Client, online sessions</cite>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===================== FEES ===================== -->
+    <section id="fees" class="section">
+      <div class="container grid-2 grid-2-narrow">
+        <div>
+          <p class="kicker">Fees &amp; availability</p>
+          <h2>Clear, simple pricing</h2>
+          <p>
+            No hidden costs and no long contracts. The first short call is always free so you can
+            decide, without pressure, whether we're the right fit.
+          </p>
+          <p>
+            I offer a limited number of concessionary spaces for students and those on a low
+            income — please ask if cost is a barrier.
+          </p>
+        </div>
+        <div class="card price-card">
+          <p class="price"><span>£55</span> / 50-minute session</p>
+          <ul class="ticks">
+            <li>Free 15-minute introductory call</li>
+            <li>In-person in Maidstone, Kent</li>
+            <li>Secure online video sessions</li>
+            <li>Weekly daytime &amp; early-evening slots</li>
+          </ul>
+          <a class="btn btn-primary btn-block" href="#contact">Check availability</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== FAQ ===================== -->
+    <section id="faq" class="section section-tint">
+      <div class="container narrow">
+        <div class="section-head">
+          <p class="kicker">Questions</p>
+          <h2>Frequently asked questions</h2>
+        </div>
+        <div class="faq">
+          <details>
+            <summary>How much does counselling cost?</summary>
+            <p>Sessions are £55 for 50 minutes. The first 15-minute phone consultation is free, so you can see whether we feel like a good fit before booking anything.</p>
+          </details>
+          <details>
+            <summary>Do you offer online counselling as well as in person?</summary>
+            <p>Yes. I offer face-to-face sessions in Maidstone, Kent, and secure online video sessions for clients across Kent and the wider UK.</p>
+          </details>
+          <details>
+            <summary>Are you a qualified, registered counsellor?</summary>
+            <p>Yes — I'm a registered member of the BACP and work to its Ethical Framework, with regular clinical supervision and full professional insurance.</p>
+          </details>
+          <details>
+            <summary>How many sessions will I need?</summary>
+            <p>There's no fixed number. Some people come for a handful of sessions to work through something specific; others value longer-term support. We'll review regularly and you're always in control.</p>
+          </details>
+          <details>
+            <summary>Is everything I say confidential?</summary>
+            <p>Yes. What you share stays private, within the limits of the BACP Ethical Framework — which I'll explain fully in our first session.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== CONTACT ===================== -->
+    <section id="contact" class="section">
+      <div class="container grid-2">
+        <div>
+          <p class="kicker">Get in touch</p>
+          <h2>Ready to talk? I'd love to hear from you</h2>
+          <p>
+            Taking the first step is often the hardest part. There's no need to have everything
+            worked out — just send a short message and we'll take it from there.
+          </p>
+          <ul class="contact-list">
+            <li>
+              <span class="contact-label">Phone</span>
+              <a href="tel:+441622000000">01622 000000</a>
+            </li>
+            <li>
+              <span class="contact-label">Email</span>
+              <a href="mailto:hello@example-counselling.co.uk">hello@example-counselling.co.uk</a>
+            </li>
+            <li>
+              <span class="contact-label">Where</span>
+              <span>Maidstone, Kent — plus online across the UK</span>
+            </li>
+          </ul>
+        </div>
+
+        <form class="card contact-form" action="#" method="post" novalidate>
+          <p class="form-note">Your message goes straight to me and is treated in confidence.</p>
+          <div class="field">
+            <label for="name">Your name</label>
+            <input type="text" id="name" name="name" autocomplete="name" required />
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" autocomplete="email" required />
+          </div>
+          <div class="field">
+            <label for="phone">Phone <span class="opt">(optional)</span></label>
+            <input type="tel" id="phone" name="phone" autocomplete="tel" />
+          </div>
+          <div class="field">
+            <label for="message">How can I help?</label>
+            <textarea id="message" name="message" rows="4" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Send message</button>
+          <p class="form-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===================== CRISIS NOTICE ===================== -->
+    <section class="crisis">
+      <div class="container">
+        <p>
+          <strong>Need urgent help?</strong> Counselling isn't a crisis service. If you're in
+          distress or feel unsafe, please call the Samaritans free on <a href="tel:116123">116 123</a>,
+          contact NHS 111, or call 999 in an emergency.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <p class="footer-brand">Sarah Bennett Counselling</p>
+        <p class="footer-meta">Registered Member of the BACP · Counselling in Maidstone, Kent &amp; online</p>
+      </div>
+      <ul class="footer-links">
+        <li><a href="#about">About</a></li>
+        <li><a href="#fees">Fees</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </div>
+    <div class="container footer-base">
+      <p>© <span id="year">2026</span> Sarah Bennett Counselling. All rights reserved.</p>
+      <p><a href="#top">Back to top ↑</a></p>
+    </div>
+  </footer>
+
+  <script>
+/* Progressive enhancement — the site works fully without JS. */
+(function () {
+  "use strict";
+
+  // Mobile navigation toggle
+  var toggle = document.querySelector(".nav-toggle");
+  var menu = document.getElementById("nav-menu");
+  if (toggle && menu) {
+    toggle.addEventListener("click", function () {
+      var open = menu.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+    // Close the menu after choosing a link (mobile)
+    menu.addEventListener("click", function (e) {
+      if (e.target.tagName === "A" && menu.classList.contains("open")) {
+        menu.classList.remove("open");
+        toggle.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
+  // Current year in footer
+  var yearEl = document.getElementById("year");
+  if (yearEl) { yearEl.textContent = String(new Date().getFullYear()); }
+
+  // Contact form — client-side validation + friendly status message.
+  // NOTE: wire `action` to a real handler (Formspree, Netlify Forms, etc.)
+  // before going live. Until then this just confirms the message locally.
+  var form = document.querySelector(".contact-form");
+  if (form) {
+    var status = form.querySelector(".form-status");
+    form.addEventListener("submit", function (e) {
+      if (!form.checkValidity()) { return; } // let the browser show native errors
+      if (form.getAttribute("action") === "#") {
+        e.preventDefault();
+        if (status) {
+          status.textContent =
+            "Thanks — your message is ready. Connect this form to your email/form service to start receiving enquiries.";
+        }
+        form.reset();
+      }
+    });
+  }
+})();
+
+</script>
+</body>
+</html>
