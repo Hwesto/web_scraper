@@ -26,7 +26,7 @@ origin's exports, backtested (mirror 1.10). The production layer is corrected (C
 | # | Gap | Approach | Status |
 |---|---|---|---|
 | 1.1 | FAOSTAT-missing producers: China, S.Africa, Argentina | snapshots merged via `production.top_global()` | ✅ done |
-| 1.2 | Remaining FAOSTAT-missing: **Uruguay, Serbia, Georgia, Belarus** (smaller) | add to `production.csv` (IBO / national) | ⬜ low effort |
+| 1.2 | Remaining FAOSTAT-missing producers | **Serbia ~6.5kt added**; Uruguay (320t) / Belarus (wild bilberry, diff product) / Georgia too small/uncertain to wire honestly | ✅ done (material ones) |
 | 1.3 | **Current-year production** (FAOSTAT lags ~2yr) — only Peru/Mexico/China are current | USDA-NASS needs a key (🔑); StatCan WDS keyless but complex coord-system for marginal gain; add committee current (Chile/Spain-Huelva/Morocco) to `production.csv` | 🔧 partial |
 | 1.4 | **Area/yield** for snapshot producers (China/Yunnan, SA, Argentina) | extend `production.csv` (have China total/Yunnan-area, SA area) | 🔧 partial |
 | 1.5 | China production as a **time series** (only 2020 & 2025 points) | back-fill 2021-24 from press/GACC | ⬜ |
@@ -60,7 +60,7 @@ origin's exports, backtested (mirror 1.10). The production layer is corrected (C
 | # | Gap | Approach | Status |
 |---|---|---|---|
 | 5.1 | **Multi-fruit** proven (avocado) but not populated | run overlays for a 2nd fruit (cherry/avocado) — `commodity=` param | 🔧 proven |
-| 5.2 | Data-quality flags: **Chile mirror gap ~24%**, **Mexico export<US-import anomaly** | surface as confidence badges in reconciliation | ⬜ |
+| 5.2 | Data-quality flags: **Chile mirror gap ~24%**, **Mexico export<US-import anomaly** | surfaced as a caveat under the reconciliation panel | ✅ done |
 | 5.3 | 27 "true headroom" free-unwired points (fragile demand/origin detail) | wire selectively; most are low-value/fragile | ⬜ |
 | 5.4 | **Dashboard** doesn't yet show reconciliation, forecast-vs-actual, China dossier, corrected production | full surfacing pass (`PRODUCT_SPEC.md`) | ⬜ |
 | 5.5 | **Data-export JSON** layer (`docs/data/atlas.json`) | decouple data from render | ⬜ |

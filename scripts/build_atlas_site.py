@@ -840,7 +840,9 @@ def build() -> Path:
                            "so the base layer wrongly showed the USA on top.")
               + _fig_block("Where each origin's exports go", _reconcile_png(),
                            "Comtrade × Eurostat × committees · backtested (mirror 1.10)",
-                           "EU / US / Asia / UK accounted; residual = Canada/Gulf + the China-current gap.")
+                           "EU / US / Asia / UK accounted; residual = Canada/Gulf + the China-current gap. "
+                           "<b>Data-quality:</b> Chile's EU imports run ~24% above its Comtrade exports "
+                           "(mirror gap); Mexico's recorded exports under-count vs US arrivals (transit).")
               + '</div>')
     divergence_html = _divergence_html()
     index = _index_table_html(order)

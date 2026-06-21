@@ -294,6 +294,9 @@ _SEED: list[tuple] = [
     ("Argentina", "producer", "domestic production / area", "free", "yes",
      "IBO / Tridge / Statista (FAOSTAT-missing)", "https://www.argblueberry.com/", "annual snapshot", "2025", _TODAY,
      "FAOSTAT has no Argentina blueberry -- wired via atlas/production.py (~14kt; plateau, 6.7kt fresh export)"),
+    ("Serbia", "producer", "domestic production / area", "free", "yes",
+     "EastFruit / IBO / Fruitnet (FAOSTAT-missing)", "https://east-fruit.com/", "annual snapshot", "2023", _TODAY,
+     "FAOSTAT has no Serbia blueberry -- wired via atlas/production.py (~6.5kt, ~2500ha; fast-growing EU/Russia exporter)"),
     ("China", "producer", "domestic production (world #1)", "free", "yes",
      "China Daily / GACC via press (FAOSTAT has NO China blueberry)", "https://www.chinadaily.com.cn/", "annual snapshot", "2020->2025", _TODAY,
      "the world's #1 producer, INVISIBLE in FAOSTAT -- wired via atlas/china.py: 810kt 2025 (2x in 5yr; "
