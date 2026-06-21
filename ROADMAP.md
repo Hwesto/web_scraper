@@ -18,15 +18,16 @@ origin's exports, backtested (mirror 1.10). The production layer is corrected (C
 |---|---|---|---|
 | 0.1 | **US imports not live** (Comtrade-lagged) | set `CENSUS_API_KEY` → `atlas/uscensus.py` pulls current monthly US imports by origin; `global_reconcile` auto-switches | 🔑 built |
 | 0.2 | **US weekly movement stale** (keyless to early-2025) | set `AMS_API_KEY` → `atlas/usda_movement.py` MARS API (slug 3251), live weekly | 🔑 built |
-| 0.3 | **Dashboard "production≠exports" scatter reads raw FAOSTAT** (no China) | switch to `production.top_global()` so China shows as #1 | ⬜ ~30 min |
+| 0.3 | ~~Scatter reads raw FAOSTAT (no China)~~ | China added (810kt grown / $23M exported, annotated) | ✅ done |
 | 0.4 | **Reconciliation/bloc breakdown not surfaced** | add a "where each origin's exports go" panel (EU/US/Asia/UK/residual) to the dashboard | ⬜ small |
+| 0.5 | **USDA-NASS current US production** | needs free `NASS_API_KEY` (401) — build the fetcher behind it | 🔑 not built |
 
 ## P1 — Production layer completion (high value)
 | # | Gap | Approach | Status |
 |---|---|---|---|
 | 1.1 | FAOSTAT-missing producers: China, S.Africa, Argentina | snapshots merged via `production.top_global()` | ✅ done |
 | 1.2 | Remaining FAOSTAT-missing: **Uruguay, Serbia, Georgia, Belarus** (smaller) | add to `production.csv` (IBO / national) | ⬜ low effort |
-| 1.3 | **Current-year production** (FAOSTAT lags ~2yr) — only Peru/Mexico/China are current | wire **USDA-NASS** (USA) + **StatCan** (Canada) free APIs; add committee current (Chile, Spain/Huelva, Morocco) to `production.csv` | 🔧 partial |
+| 1.3 | **Current-year production** (FAOSTAT lags ~2yr) — only Peru/Mexico/China are current | USDA-NASS needs a key (🔑); StatCan WDS keyless but complex coord-system for marginal gain; add committee current (Chile/Spain-Huelva/Morocco) to `production.csv` | 🔧 partial |
 | 1.4 | **Area/yield** for snapshot producers (China/Yunnan, SA, Argentina) | extend `production.csv` (have China total/Yunnan-area, SA area) | 🔧 partial |
 | 1.5 | China production as a **time series** (only 2020 & 2025 points) | back-fill 2021-24 from press/GACC | ⬜ |
 
@@ -42,7 +43,7 @@ origin's exports, backtested (mirror 1.10). The production layer is corrected (C
 ## P3 — Forecast & the divergence tracker
 | # | Gap | Approach | Status |
 |---|---|---|---|
-| 3.1 | **Forecast-vs-actual tracker** (the divergence finder) | structure GAIN + committee projections into one table; flag where Eurostat/China actuals diverge >X% (caught Chancay, Chile-EU, Morocco reversal) | ⬜ **high value** |
+| 3.1 | ~~Forecast-vs-actual tracker~~ | `atlas/divergence.py` -> divergence.csv: flags BEAT/MISS/REVERSAL/SURPRISE (caught Peru +14% vs GAIN, Chile +31pp, Morocco reversal, Peru->China +153%) | ✅ done |
 | 3.2 | Forecasts only Peru+Mexico (GAIN) | add GAIN reports for Chile/S.Africa where they exist; treat committee `yoy_growth` as forecasts | 🔧 |
 | 3.3 | No structured **projection vs realised** per season | per-season committee projection vs final | ⬜ |
 
