@@ -929,7 +929,7 @@ you can know about it for free. <b>Reference year {year}.</b></p>
 <p class="recency">{recency}</p>
 <div class="kpis">{kpis}</div>
 </header>
-<nav><a href="#year">The year</a><a href="#shifts">The shifts</a><a href="#forecast">Forecast vs actual</a><a href="#index">The index</a><a href="#countries">Countries</a><a href="#atlas">The atlas</a></nav>
+<nav><a href="#year">The year</a><a href="#shifts">The shifts</a><a href="#forecast">Forecast vs actual</a><a href="#index">The index</a><a href="#countries">Countries</a><a href="#atlas">The atlas</a><a href="./data.html">Data catalog ↗</a></nav>
 <main>
 <h2 id="year">The year</h2>
 {the_year}
