@@ -447,10 +447,10 @@ def _extra_facts(name, code, iso3, fa_iso, wx) -> list[str]:
         out.append("frost-free" if cold > 1 else f"frost risk (min {cold:.0f}°C)")
     if name == "China":                                  # the gated bloc, as a press snapshot
         try:
-            from atlas import china_imports
-            h = china_imports.headline()
+            from atlas import china
+            h = china.headline()
             if h:
-                out.append(f'<b style="color:#2f6f4e">imports — {h}</b>')
+                out.append(f'<b style="color:#2f6f4e">{h}</b>')
         except Exception:
             pass
     if name == "USA":                                     # unique AMS view: US supply by origin

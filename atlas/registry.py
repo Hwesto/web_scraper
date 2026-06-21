@@ -279,9 +279,14 @@ _SEED: list[tuple] = [
      "(China GACC gated -- the one bloc with no free current feed). -> data/atlas/global_reconcile.csv"),
     ("China", "importer", "blueberry imports by origin (live)", "free", "yes",
      "GACC via press/resellers (Tridge/Agronometrics/Produce Report)", "http://stats.customs.gov.cn/", "annual snapshot", "2024->2025", _TODAY,
-     "SNAPSHOT -- wired via atlas/china_imports.py (2024 ~38.7kt, Peru 89%; 2025 Peru +153% Chancay). "
+     "SNAPSHOT -- wired via atlas/china.py (2024 ~38.7kt, Peru 89%; 2025 Peru +153% Chancay). "
      "GACC portal is JS-challenge anti-bot gated (412; translating won't help), so press-curated like "
      "committees. Comtrade backstops lagged (mainland 39kt + HK 30kt 2024)"),
+    ("China", "producer", "domestic production (world #1)", "free", "yes",
+     "China Daily / GACC via press (FAOSTAT has NO China blueberry)", "https://www.chinadaily.com.cn/", "annual snapshot", "2020->2025", _TODAY,
+     "the world's #1 producer, INVISIBLE in FAOSTAT -- wired via atlas/china.py: 810kt 2025 (2x in 5yr; "
+     "vs USA 402kt/Peru 354kt), Yunnan 280kt. Domestic oversupply crashed prices -50% -> a risk to the "
+     "Peru->China premium-import pivot. Snapshot (China Daily 2026-04)"),
     ("USA", "importer", "US imports by origin (live)", "free", "no",
      "US Census intltrade/imports/hs (HTS 0810.40)", "https://api.census.gov/data/timeseries/intltrade/imports/hs",
      "monthly, by country", "current", "",

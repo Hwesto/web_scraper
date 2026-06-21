@@ -22,14 +22,15 @@ def test_hs_fresh_frozen_dried_lines_present():
     assert hs_codes.hs6("blueberry", "dried") == "081340"
 
 
-def test_china_imports_snapshot():
-    from atlas import china_imports
-    df = china_imports.load()
-    assert len(df) >= 3
-    tot = df[(df["year"] == 2024) & (df["origin"] == "Total")]
-    assert len(tot) and float(tot.iloc[0]["imports_t"]) > 30000   # ~38.7kt, Comtrade cross-check
-    h = china_imports.headline()
-    assert h and "Peru" in h
+def test_china_snapshot_production_and_imports():
+    from atlas import china
+    df = china.load()
+    assert {"production", "import"} <= set(df["kind"])
+    # the world's #1 producer (810kt) -- absent from FAOSTAT, captured here
+    assert china.latest("production", "China total") > 700000
+    assert china.latest("import", "Total") > 30000               # ~38.7kt (Comtrade cross-check)
+    h = china.headline()
+    assert h and "producer" in h
 
 
 def test_global_reconcile_mirror_closes():
