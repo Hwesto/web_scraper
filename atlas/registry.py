@@ -282,6 +282,12 @@ _SEED: list[tuple] = [
      "SNAPSHOT -- wired via atlas/china.py (2024 ~38.7kt, Peru 89%; 2025 Peru +153% Chancay). "
      "GACC portal is JS-challenge anti-bot gated (412; translating won't help), so press-curated like "
      "committees. Comtrade backstops lagged (mainland 39kt + HK 30kt 2024)"),
+    ("South Africa", "producer", "domestic production / area", "free", "yes",
+     "Berries ZA / IBO / BFAP (FAOSTAT-missing)", "https://berriesza.co.za/", "annual snapshot", "2024", _TODAY,
+     "FAOSTAT has no South Africa blueberry -- wired via atlas/production.py (~30kt 2024/25, ~3000ha)"),
+    ("Argentina", "producer", "domestic production / area", "free", "yes",
+     "IBO / Tridge / Statista (FAOSTAT-missing)", "https://www.argblueberry.com/", "annual snapshot", "2025", _TODAY,
+     "FAOSTAT has no Argentina blueberry -- wired via atlas/production.py (~14kt; plateau, 6.7kt fresh export)"),
     ("China", "producer", "domestic production (world #1)", "free", "yes",
      "China Daily / GACC via press (FAOSTAT has NO China blueberry)", "https://www.chinadaily.com.cn/", "annual snapshot", "2020->2025", _TODAY,
      "the world's #1 producer, INVISIBLE in FAOSTAT -- wired via atlas/china.py: 810kt 2025 (2x in 5yr; "

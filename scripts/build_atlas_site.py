@@ -428,11 +428,21 @@ def _extra_facts(name, code, iso3, fa_iso, wx) -> list[str]:
                 out.append(f'<b style="color:#2f6f4e">current season — {h}</b>')
     except Exception:
         pass
+    produced = False
     if iso3 is not None:
         f = fa_iso[fa_iso["iso3"] == iso3]
         if len(f):
             fl = f.sort_values("year").iloc[-1]
             out.append(f"produces <b>{fl['production_t']/1000:.0f} kt</b> ({fl['yield_t_ha']:.1f} t/ha)")
+            produced = True
+    if not produced and name != "China":                  # FAOSTAT-missing producers (SA, Argentina)
+        try:
+            from atlas import production
+            p = production.latest(name, "production")
+            if p:
+                out.append(f"produces ~<b>{p/1000:.0f} kt</b> (snapshot — FAOSTAT-missing)")
+        except Exception:
+            pass
     try:
         from atlas import usda_gain
         fc = usda_gain.load()

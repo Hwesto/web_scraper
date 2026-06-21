@@ -22,6 +22,16 @@ def test_hs_fresh_frozen_dried_lines_present():
     assert hs_codes.hs6("blueberry", "dried") == "081340"
 
 
+def test_production_snapshot_corrects_world_ranking():
+    from atlas import production
+    top = production.top_global()
+    # China (FAOSTAT-missing) must be #1 once snapshots patch FAOSTAT
+    assert top.iloc[0]["country"] == "China" and top.iloc[0]["production_kt"] > 700
+    countries = set(top["country"])
+    assert "South Africa" in countries and "Argentina" in production.load()["country"].values
+    assert production.latest("South Africa", "production") > 20000
+
+
 def test_china_snapshot_production_and_imports():
     from atlas import china
     df = china.load()
