@@ -35,8 +35,8 @@ origin's exports, backtested (mirror 1.10). The production layer is corrected (C
 | # | Gap | Approach | Status |
 |---|---|---|---|
 | 2.1 | **EU** bilateral live | Eurostat monthly to 2026-04 | ✅ done |
-| 2.2 | **UK** by-origin only Comtrade-lagged | wire **HMRC OTS** by-origin (free; partly in nowcast) — fresher UK slice | 🔧 |
-| 2.3 | **Canada** import slice Comtrade-only | **StatCan WDS** free API, imports by origin | ⬜ |
+| 2.2 | **UK** by-origin only Comtrade-lagged | HMRC OTS API is keyless but finicky (403s, OData surrogate keys) — bespoke, not a quick win; UK already in reconciliation via Comtrade | ⬜ bespoke |
+| 2.3 | **Canada** import slice Comtrade-only | StatCan WDS keyless but complex coord-system; Canada already in reconciliation via Comtrade | ⬜ bespoke |
 | 2.4 | Small importers (Norway, Switzerland, Gulf, Russia) | national customs / leave to Comtrade residual | ⬜ low priority |
 | 2.5 | **China current bilateral** | GACC JS-anti-bot gated → keep press snapshot (`atlas/china.py`); paid resellers only for live | ✅ snapshot (hard limit) |
 
@@ -50,7 +50,7 @@ origin's exports, backtested (mirror 1.10). The production layer is corrected (C
 ## P4 — Condition, demand & entity depth
 | # | Gap | Approach | Status |
 |---|---|---|---|
-| 4.1 | NASA POWER only 14 regions; missing **Yunnan, more SA/Argentina/Australia** | add growing regions to `nasa_power.REGIONS` | ⬜ |
+| 4.1 | NASA POWER regions | 14 regions already cover the majors incl **Yunnan, Argentina, SA, Morocco**; only Australia (28kt) marginally missing | ✅ largely done |
 | 4.2 | **China price collapse** captured as one snapshot, not a series | track premium farm-gate ¥/kg over time | ⬜ |
 | 4.3 | Demand/retail thin (UK deep via Trolley/ONS; **US/EU/China retail unwired**) | USDA-AMS retail (US); EU/China are paid/scrape | ⬜ |
 | 4.4 | Named-exporter depth: Peru ✅; **Chile DUS RUT-anonymised** | map RUT→company; other origins paid | 🔧 |
@@ -67,6 +67,18 @@ origin's exports, backtested (mirror 1.10). The production layer is corrected (C
 | 5.6 | Open the **PR** / GitHub Pages live | merge `claude/phase-0-1-setup-0bb0sx` | ⬜ |
 
 ---
+
+## Status (2026-06, after the gap-plugging pass)
+**Done (non-key):** P0.3 scatter · P1.1 production gaps (China/SA/Argentina) · P1.2 Serbia ·
+P3.1 divergence tracker · P4.1 weather regions · P5.2 data-quality flags · P5.4 dashboard
+surfacing (shifts + forecast-vs-actual). **111 tests passing.**
+
+**Awaiting your keys** (modules built, no-op until set): `CENSUS_API_KEY` (US imports live),
+`AMS_API_KEY` (US weekly movement), `NASS_API_KEY` (US production).
+
+**Remaining = bespoke or big** (not quick wins): UK-HMRC / Canada-StatCan APIs (finicky),
+multi-fruit populate (P5.1), Chile DUS de-anonymisation (P4.4), JSON export (P5.5), PR/Pages
+(P5.6). The high- and moderate-value free work is essentially complete.
 
 ## The genuine hard limits (not closeable for free)
 - **China current bilateral** — GACC JS-anti-bot gated; only Comtrade-lagged + press snapshot.
