@@ -1,0 +1,7 @@
+entity,dimension,projection,actual,gap,flag,note,sources
+Peru,exports vs USDA-GAIN forecast,335kt,383kt,+14%,BEAT,blew past the official forecast,USDA-GAIN / committee
+Mexico,exports vs USDA-GAIN forecast,70kt,79kt,+13%,BEAT,blew past the official forecast,USDA-GAIN / committee
+Peru,EU-import growth vs committee projection,+20%,"+29% (2025), +7% (26-YTD)",+9pp,BEAT,but 2026 YTD only +7% -- diverting to China (Chancay),committee / Eurostat
+Chile,EU-import growth vs committee projection,+2%,"+33% (2025), +13% (26-YTD)",+31pp,BEAT,far above the committee's flat call -- pivoting to the EU,committee / Eurostat
+Morocco,EU-import growth vs committee projection,+20%,"+22% (2025), -11% (26-YTD)",+2pp,REVERSAL,momentum reversed in early 2026,committee / Eurostat
+Peru->China,import value (unforecast),—,+153% ($105M->$266M),+153%,SURPRISE,Chancay direct route; not in any forecast,GACC via Produce Report

@@ -22,6 +22,16 @@ def test_hs_fresh_frozen_dried_lines_present():
     assert hs_codes.hs6("blueberry", "dried") == "081340"
 
 
+def test_divergence_tracker_flags_forecast_misses():
+    from atlas import divergence
+    df = divergence.build()
+    assert len(df) >= 4
+    assert {"BEAT", "SURPRISE"} <= set(df["flag"])
+    pe = df[(df["entity"] == "Peru") & (df["dimension"].str.contains("GAIN"))]
+    assert len(pe) and pe.iloc[0]["flag"] == "BEAT"           # Peru beat its export forecast
+    assert (df["entity"] == "Peru->China").any()             # the Chancay surprise is caught
+
+
 def test_production_snapshot_corrects_world_ranking():
     from atlas import production
     top = production.top_global()

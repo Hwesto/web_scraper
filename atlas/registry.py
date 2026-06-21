@@ -271,6 +271,12 @@ _SEED: list[tuple] = [
      "Eurostat COMEXT (DS-045409)", "https://ec.europa.eu/eurostat/api/comext/dissemination",
      "annual, HS6 081040 x reporter x partner x flow", "2002->now", _TODAY,
      "no key; wired via atlas/eurostat.py -> data/atlas/eurostat_blueberry.csv (ES/NL/PL/DE/FR/PT/BE/IT/AT, EUR/kg)"),
+    ("*", "global", "forecast-vs-actual divergence tracker", "free", "derived",
+     "atlas/divergence.py (GAIN + committee projections vs Eurostat/China/committee actuals)", "",
+     "per-origin", "2025/26", _TODAY,
+     "the highest-value lens: flags BEAT/MISS/REVERSAL/SURPRISE. Caught Peru +14% over GAIN, "
+     "Chile EU +31pp over its flat projection, Morocco 2026 reversal, Peru->China +153% (Chancay). "
+     "-> data/atlas/divergence.csv"),
     ("*", "global", "global trade reconciliation + backtest", "free", "derived",
      "atlas/global_reconcile.py (Comtrade x Eurostat x US x Asia x UK x committees)", "", "per-origin per-year", "2022->2026", _TODAY,
      "the accounting identity exports=world-imports. GLOBAL BACKTEST: mirror_ratio median 1.10. "
