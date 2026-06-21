@@ -711,6 +711,73 @@ def _index_table_html(order: list[str]) -> str:
 
 
 # ----------------------------- assembly -----------------------------
+def _production_ranking_png() -> str:
+    """The TRUE world producers (FAOSTAT + China/SA/Argentina snapshots) -- China #1."""
+    from atlas import production
+    t = production.top_global(10).iloc[::-1]
+    if t.empty:
+        return ""
+    fig, ax = plt.subplots(figsize=(5.0, 3.6))
+    colors = ["#9c4221" if c == "China" else ACCENT for c in t["country"]]
+    ax.barh(range(len(t)), t["production_kt"], color=colors, height=0.7, zorder=3)
+    ax.set_yticks(range(len(t)))
+    ax.set_yticklabels([c.replace("United States of America", "USA") for c in t["country"]], fontsize=9)
+    for i, v in enumerate(t["production_kt"]):
+        ax.text(v, i, f" {v:.0f}", va="center", fontsize=8.5, color=SUBTLE)
+    ax.set_xlim(0, t["production_kt"].max() * 1.15)
+    _bare(ax, grid="x")
+    return _png(fig)
+
+
+def _reconcile_png() -> str:
+    """Where each origin's exports go -- EU / US / Asia / UK / residual (stacked)."""
+    from atlas import global_reconcile as gr
+    cur = gr.current()
+    if cur.empty:
+        return ""
+    eu_col = next((c for c in cur.columns if c.startswith("eu_imports")), None)
+    cur = cur[cur["committee_export_kt"].notna()].copy()
+    cur = cur.sort_values("committee_export_kt")
+    blocs = [("EU", eu_col, "#2f6f4e"), ("US", "us_imports_kt", "#6a8caf"),
+             ("Asia", "asia_imports_kt", "#b8860b"), ("UK", "us_imports_kt".replace("us", "uk"), "#7a5c8e")]
+    fig, ax = plt.subplots(figsize=(6.0, 3.4))
+    y = range(len(cur)); left = [0.0] * len(cur)
+    for label, col, color in blocs:
+        vals = (cur[col].fillna(0).values if col in cur.columns else [0] * len(cur))
+        ax.barh(list(y), vals, left=left, color=color, height=0.7, label=label, zorder=3)
+        left = [l + v for l, v in zip(left, vals)]
+    resid = [max(exp - l, 0) for exp, l in zip(cur["committee_export_kt"], left)]
+    ax.barh(list(y), resid, left=left, color="#d9d2c7", height=0.7, label="residual", zorder=3)
+    ax.set_yticks(list(y)); ax.set_yticklabels(cur["origin"], fontsize=9)
+    ax.set_xlabel("kt (committee export, by destination bloc)")
+    ax.legend(loc="lower right", fontsize=7.5, frameon=False, ncol=5, bbox_to_anchor=(1.0, -0.22))
+    _bare(ax, grid="x")
+    return _png(fig)
+
+
+_FLAGCLR = {"BEAT": "#2f6f4e", "MISS": "#b8860b", "REVERSAL": "#9c4221", "SURPRISE": "#7a5c8e",
+            "on-track": "#6c655c", "—": "#b9b3aa"}
+
+
+def _divergence_html() -> str:
+    from atlas import divergence
+    df = divergence.load()
+    if df.empty:
+        df = divergence.build()
+    if df.empty:
+        return ""
+    rows = []
+    for _, r in df.iterrows():
+        clr = _FLAGCLR.get(r["flag"], "#6c655c")
+        rows.append(f'<tr><td><b>{r["entity"]}</b></td><td>{r["dimension"]}</td>'
+                    f'<td class="num">{r["projection"]}</td><td class="num">{r["actual"]}</td>'
+                    f'<td><span class="flag" style="background:{clr}">{r["flag"]}</span></td>'
+                    f'<td class="note">{r["note"]}</td></tr>')
+    return ('<table class="diverge"><thead><tr><th>Origin</th><th>vs forecast/projection</th>'
+            '<th>projected</th><th>actual</th><th>verdict</th><th></th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>')
+
+
 def _stamp(txt: str) -> str:
     return f'<p class="stamp">{txt}</p>'
 
@@ -766,6 +833,16 @@ def build() -> Path:
     ])
 
     order = _trade_order()
+    shifts = ('<div class="row">'
+              + _fig_block("World's true top producers", _production_ranking_png(),
+                           "FAOSTAT + China/SA/Argentina snapshots · China #1",
+                           "China grows ~810kt and consumes almost all of it — invisible in FAOSTAT, "
+                           "so the base layer wrongly showed the USA on top.")
+              + _fig_block("Where each origin's exports go", _reconcile_png(),
+                           "Comtrade × Eurostat × committees · backtested (mirror 1.10)",
+                           "EU / US / Asia / UK accounted; residual = Canada/Gulf + the China-current gap.")
+              + '</div>')
+    divergence_html = _divergence_html()
     index = _index_table_html(order)
     profiles = _country_sections(order)
     matrix = _coverage_matrix_html(order)
@@ -773,6 +850,7 @@ def build() -> Path:
 
     html = _PAGE.format(today=today, year=yr, kpis=kpis, the_year=the_year, index=index,
                         profiles=profiles, matrix=matrix, ceiling=ceiling, recency=recency,
+                        shifts=shifts, divergence=divergence_html,
                         n_countries=profiles.count('class="profile"'))
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(html, encoding="utf-8")
@@ -833,6 +911,11 @@ nav a{{color:var(--accent);text-decoration:none;font-weight:600;margin-right:18p
 .index .covcell{{display:flex;align-items:center;gap:6px;justify-content:flex-end}}
 .mini{{display:inline-flex;width:62px;height:11px;border-radius:3px;overflow:hidden}}
 .mini i{{display:block}} .index small{{color:var(--subtle);font-size:.7rem}}
+.diverge{{border-collapse:collapse;width:100%;font-size:.9rem;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}}
+.diverge th{{text-align:left;padding:8px 11px;color:var(--subtle);font-size:.8rem;border-bottom:2px solid var(--ink)}}
+.diverge td{{padding:7px 11px;border-bottom:1px solid var(--line);vertical-align:top}}
+.diverge td.num{{text-align:right;white-space:nowrap}} .diverge td.note{{color:var(--subtle);font-size:.82rem}}
+.flag{{color:#fff;font-size:.72rem;font-weight:700;border-radius:20px;padding:2px 9px;white-space:nowrap}}
 .ceiling{{margin:6px 0 2px}} .cbar{{display:flex;align-items:center;gap:10px;margin:5px 0;font-size:.86rem}}
 .cbar span{{width:170px;color:var(--subtle)}} .cbar i{{height:14px;border-radius:3px;display:inline-block}} .cbar b{{color:var(--ink)}}
 footer{{max-width:1060px;margin:0 auto;padding:20px 22px 50px;color:var(--subtle);font-size:.82rem;border-top:1px solid var(--line)}}
@@ -844,10 +927,18 @@ you can know about it for free. <b>Reference year {year}.</b></p>
 <p class="recency">{recency}</p>
 <div class="kpis">{kpis}</div>
 </header>
-<nav><a href="#year">The year</a><a href="#index">The index</a><a href="#countries">Countries</a><a href="#atlas">The atlas</a><a href="./index.html">Deep dive: UK ↗</a></nav>
+<nav><a href="#year">The year</a><a href="#shifts">The shifts</a><a href="#forecast">Forecast vs actual</a><a href="#index">The index</a><a href="#countries">Countries</a><a href="#atlas">The atlas</a></nav>
 <main>
 <h2 id="year">The year</h2>
 {the_year}
+<h2 id="shifts">The shifts</h2>
+<p class="lead">The structural moves the headline numbers hide: who really grows the world's
+blueberries, and where each exporter's crop actually lands.</p>
+{shifts}
+<h2 id="forecast">What's changed since the forecast</h2>
+<p class="lead">Official projections (USDA-FAS GAIN · grower committees) against the fresh actuals
+(Eurostat to 2026 · committee totals · the China snapshot). <b>Where reality broke from the plan.</b></p>
+{divergence}
 <h2 id="index">The index</h2>
 <p class="lead">Every country on one screen — <b>click any column to sort</b>, click a name to jump to
 its card. <b>Volume</b> is official Comtrade (annual, to 2024); <b>Latest season</b> is the current-season
