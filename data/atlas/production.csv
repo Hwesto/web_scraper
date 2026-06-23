@@ -1,0 +1,5 @@
+country,year,metric,value,unit,note,source
+South Africa,2024,production,30000,t,2024/25 projected (26kt in 2023); FAOSTAT-missing,Berries ZA / Agronometrics / IBO
+South Africa,2024,area,3000,ha,~2800-3800 ha across 5 provinces,IBO / BFAP outlook
+Argentina,2025,production,14000,t,plateau; 6.7kt fresh export + ~4.5kt frozen; FAOSTAT-missing,IBO / Tridge / Statista
+Serbia,2023,production,6500,t,FAOSTAT-missing; ~2500ha; exports 5.5-6kt to EU/Russia,EastFruit / IBO / Fruitnet

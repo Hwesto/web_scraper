@@ -6,6 +6,8 @@ documented stand-in · `PROBE` validated, not yet a pipeline · `STUB` schema on
 `CANDIDATE`/`PAID` not wired. Each dashboard block is stamped with the source(s) below.
 
 > Combined **data-point × link × renewal** reference: see **`DATA.md`**.
+> **Machine-readable atlas** (the scalable form of this catalogue, free|paid|none per
+> commodity×country×data-point): `data/atlas/registry.csv` via the `atlas/` package.
 
 ---
 

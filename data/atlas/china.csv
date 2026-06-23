@@ -1,0 +1,8 @@
+year,kind,detail,value,unit,note,source
+2020,production,China total,347000,t,world #1 producer for the first time,China Daily/GACC
+2025,production,China total,810000,t,>2x in 5yr; world #1 by far (USA 402kt / Peru 354kt),China Daily 2026-04-15
+2025,production,Yunnan,280000,t,~30% of national; main fresh region,China Daily 2026-04-15
+2025,price,premium farm-gate,30,yuan_per_kg,-50% YoY; premium -> everyday commodity (oversupply),China Daily 2026-04-15
+2024,import,Total,38700,t,full-year mainland (ex-HK); Peru 89% / Chile 10%,GACC via FreshPlaza/Tridge
+2024,import,Peru,34400,t,89% share (Comtrade cross-check 34.6kt),GACC via Tridge
+2025,import,Peru,266,musd,import value +153% YoY ($105M->$266M); Chancay direct route,Produce Report (GACC)

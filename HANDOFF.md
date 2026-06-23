@@ -25,20 +25,87 @@ entire global flow+price matrix is one source. Everything else (producer identit
 structure, variety, phyto, retail, demand, sub-monthly) is an **overlay** on specific cells.
 So "global" is a Comtrade sweep, not lane-by-lane labour.
 
-## 2. Immediate next step (Phase 0 + 1)
+## 2. Immediate next step
 
-1. **Registry schema** — a machine-readable atlas table (CSV/parquet), the real deliverable:
-   `commodity · hs_code · country · role(exporter/importer) · data_point · access(free|paid|none) · source · url · granularity · depth · verified_date`.
-   Markdown baselines (`baseline_*.md`) don't scale to global × multi-fruit — replace with this.
-2. **HS-code registry** — `commodity → HS6 + national CN8/CN10 splits`. The join key for the
-   whole atlas and for the other-fruit extension. (Blueberry = HS 081040; UK CN8 08104050.)
-3. **Comtrade global sweep + ranking** — rank all blueberry exporters & importers by value
-   → defines the "global" target set (e.g. cover countries making up 95% of trade) and
-   populates every lane's flow+price at once. `comtrade.py` already fetches any reporter.
+**Phase 0 + 1 are DONE** (this session) — see the new `atlas/` package:
+1. ✅ **Registry schema + seed** — `atlas/schema.py` + `atlas/registry.py` →
+   `data/atlas/registry.csv` (68 rows). The machine-readable atlas:
+   `commodity · hs_code · country · role · data_point · access(free|paid|none) · wired · source · url · granularity · depth · verified_date · notes`.
+   Seeded by transcribing `baseline_*.md` (Chile deep, Peru, UK importer side, global). Query
+   with `registry.gaps(access=…, wired=…)` and `registry.coverage()`. This supersedes the
+   markdown baselines as the scalable atlas (baselines kept as the prose reference).
+2. ✅ **HS-code registry** — `atlas/hs_codes.py` → `data/atlas/hs_codes.csv`. `commodity →
+   HS6 + national CN8/HTS10 splits` (blueberry verified: HS 081040, UK CN8 08104050; other
+   fruits seeded as HS6 for the Phase-4 swap, marked `verified=no`).
+3. ✅ **Comtrade global sweep + ranking** — `atlas/comtrade_sweep.py` →
+   `data/atlas/comtrade_global_ranking.csv`. One call per flow (`reporterCode=` empty,
+   `partnerCode=0`, **`partner2Code=0`** — see below) ranks every exporter & importer by
+   value. `target_set(role)` returns the ~95%-of-trade set (2023 final: **16 exporters** led
+   by Peru 33%; **26 importers** led by USA 35%, UK #4). `atlas/countries.py` is the M49→name map.
 
-Then **Phase 2** (catalogue national overlays per country — *probe reachability, don't
-wire*), **Phase 3** (deepen selectively), **Phase 4** (swap HS code for other fruits).
-Full reasoning in the chat that produced this; condensed in `SOURCES.md` / `DATA.md`.
+**Phase 1 gotchas learned (do NOT relearn):**
+- The empty-reporter preview also returns **per-secondary-partner (`partner2Code`) breakdown
+  rows**, which blow past the **500-row cap** and *silently truncate* big reporters (the USA,
+  #1 importer, vanished). Pin **`partner2Code=0`** → one aggregate row per reporter, uncapped.
+- Comtrade annual data is **staggered**: the latest ~2 years are provisional (in mid-2026 the
+  2024 sweep still missed Peru, rank 50; 2023 was complete). `comtrade_sweep.FINAL_LAG_YEARS=3`;
+  `ranking`/`target_set` default to the latest **non-provisional** year.
+
+**Phase 2 STARTED** — national overlays catalogued for the 8 top exporters beyond
+the Chile/Peru reference lanes (**Spain, Netherlands, Morocco, USA, Mexico, Canada,
+South Africa, Poland**), 40 rows added (registry now 109). Per country, 4-5 overlay
+categories probed for reachability (`atlas/probe.py` — classifies reachable /
+key_gated / auth / tls_blocked etc., handling the "200 + Missing Key" case). Findings:
+- **No country publishes free shipment-level export data with exporter names** — that
+  identity layer is paid (brokers) everywhere, same gap as Chile/Peru.
+- **Free NPPO orchard rosters exist for Mexico (SENASICA) and Morocco (ONSSA)** — the
+  SAG-China analogue; Spain/NL/USA/Canada/Poland keep theirs gated (`access=none`).
+- **Free orchard/area census exists for all 8** (ESYRCE, NASS QuickStats, SIAP, StatCan,
+  Berries ZA, etc.) — Catastro analogues of varying granularity.
+- **Eurostat COMEXT** = the free harmonised CN8 overlay for all EU exporters (one global row).
+- Sandbox-blocked (503/anti-bot, real sources): StatCan CIMT, PL GUS/PIORIN, MA ONSSA,
+  MX SIAP, MA Office des Changes — **re-probe on the clean-egress runner** (`verified_date`
+  left blank for these). Query: `registry.gaps(access=…, wired=…)`.
+
+**Phase 2b DONE** — importer-side + re-export-hub overlays for **Germany, France, China,
+Hong Kong, Switzerland, South Korea, Japan, Belgium, Portugal, Italy, Austria, Serbia**
+(registry now **141 rows**). Findings: **Hong Kong is the only stats system with a clean
+re-export flow split** (EU/DE/FR fold re-exports into total exports — hub activity must be
+inferred); **China CIFER** is a free registered-overseas-producer query; **no NPPO publishes
+a per-fruit blueberry approved-orchard list** (USDA-FAS GAIN is the best free who-ships-where
+summary); domestic blueberry area is official for PT/DE/KR, industry-sourced for IT/RS/CN.
+
+**Runner re-probe wired** — `.github/workflows/atlas-refresh.yml` (Mon 06:41 UTC + dispatch)
+runs on the clean-egress runner: refreshes the Comtrade global ranking and re-probes every
+catalogued source via `scripts/probe_overlays.py` → `data/atlas/probe_log.csv` (the live
+reachability record, kept separate from the seed-generated `registry.csv`). `atlas/probe.py`
+classifies reachable/key_gated/auth/tls_blocked and normalises bare hostnames. From the
+sandbox 49/84 sources resolve; the rest (StatCan CIMT, DE Destatis, HK Trade IDDS, MA ONSSA,
+MX SIAP, PL GUS, AT STATcube, CN GACC, KR APQA/KOSIS, ...) are anti-bot/503 here and should
+firm up on the runner.
+
+**Phase 3 STARTED** — wired two free, no-key overlays into real fetcher modules (depth, not
+just catalogue), both added to the `atlas-refresh.yml` cron and the registry's global rows:
+- **Eurostat COMEXT** — `atlas/eurostat.py` → `data/atlas/eurostat_blueberry.csv`. HS6 081040
+  trade (imports+exports, EUR/kg) for the 9 EU members (ES/NL/PL/DE/FR/PT/BE/IT/AT) in one
+  no-key JSON-stat pull (dataset DS-045409). Flips the EU-COMEXT registry row to wired=yes.
+- **Comtrade bilateral grid** — `atlas/comtrade_matrix.py` → `data/atlas/comtrade_bilateral.csv`.
+  The global exporter×importer flow+price grid (realised USD/kg per lane) for the exporter
+  target set — generalises the Chile/Peru-only destination tables to every major origin
+  (Peru→USA is the world's top lane). Makes the "bilateral matrix" registry row real globally.
+  Gotcha baked in: keep all lanes but trust unit values only ≥~50 t (tiny-N $/kg lie).
+
+Phase 3 also wired the **monthly seasonality grid** (`atlas/comtrade_monthly.py` →
+`comtrade_monthly.csv`; the counter-season relay — Chile Jan, Peru Oct, Spain May, ...) and
+the **first free entity-level overlay**: **Mexico SENASICA** registered berry orchards
+(`atlas/senasica.py` → `mx_registered_orchards.csv`) — the SAG-China analogue, parsed from
+the gob.mx bilingual PDF (pypdf): 71 berry orchards (30 blueberry) by name, SAGARPA code,
+area-ha, municipio, estado. Flips Mexico's phyto row to wired=yes. (USDA-FAS GAIN
+multi-country forecasts considered but skipped — PDF/filename-fragile, runner-only.)
+
+**Still to do:** more Phase-3 depth as it pays (e.g. SENASICA Korea/EU lists; Morocco ONSSA
+packing-station PDF; sub-annual where a lane warrants it); **Phase 4** (swap HS code for
+other fruits — `hs_codes.csv` already seeded). Full reasoning in `SOURCES.md` / `DATA.md`.
 
 ## 3. Where things stand
 
@@ -53,6 +120,10 @@ Full reasoning in the chat that produced this; condensed in `SOURCES.md` / `DATA
 
 ## 4. Repo map
 
+- `atlas/` — **the breadth-first deliverable (Phase 0/1)**: `schema.py` (registry columns +
+  `validate`), `registry.py` (`seed`/`load`/`gaps`/`coverage`), `hs_codes.py` (commodity→HS6
+  + national splits), `comtrade_sweep.py` (global exporter/importer ranking + `target_set`),
+  `countries.py` (M49↔name). Reads/writes `data/atlas/*.csv`. Tests: `tests/test_atlas.py`.
 - `nowcast/data/` — SignalSources (HMRC, DEFRA, ONS, retail, NDVI, job_boards) + `base.py`
   (tidy schema) ; `nowcast/store/vintage.py` — append-only vintage store (look-ahead-free).
 - `nowcast/market/` — `comtrade.py` (destinations, any reporter), `origin_prices.py`

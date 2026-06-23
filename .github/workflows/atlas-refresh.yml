@@ -1,0 +1,102 @@
+name: Atlas refresh (global ranking + overlay probe)
+
+# Runs the atlas's network-facing maintenance on a GitHub runner (CLEAN EGRESS).
+# Two jobs only the runner can do well:
+#   1. Comtrade global sweep  -> data/atlas/comtrade_global_ranking.csv
+#      (re-ranks every blueberry exporter/importer; picks up newly-final years).
+#   2. Overlay reachability re-probe -> data/atlas/probe_log.csv
+#      Many catalogued national sources (StatCan CIMT, PL GUS/PIORIN, MA ONSSA,
+#      MX SIAP, DE Destatis, HK Trade IDDS, ...) are real but anti-bot/503/TLS-
+#      blocked from the Claude sandbox; they typically resolve from clean egress.
+#      This is the authoritative live-reachability record for the registry.
+#
+# registry.csv itself is seed-generated (catalogue metadata) and only changes when
+# the seed code changes, so this workflow never fights the seed -- it commits the
+# two machine-generated artifacts.
+
+on:
+  # Manual re-run: the GitHub integration token can't workflow_dispatch (403), so the
+  # reliable trigger is a push that touches THIS file -- runs the full refresh
+  # (full-history sweep/matrix/monthly + FAOSTAT/POWER/USDA/COMEXT/SENASICA) then
+  # rebuilds docs/atlas.html from the fresh data, on clean egress.
+  push:
+    paths:
+      - ".github/workflows/atlas-refresh.yml"
+  workflow_dispatch:
+    inputs:
+      only_blank:
+        description: "probe only sources with an empty verified_date (cheaper)"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "41 6 * * 1"   # Mondays 06:41 UTC (after the Chile cron at 06:17)
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install requests pandas pyarrow pypdf matplotlib
+      - name: Refresh Comtrade global ranking
+        run: python -m atlas.comtrade_sweep || echo "comtrade sweep skipped"
+      - name: Refresh Comtrade bilateral grid (both flows + mirror)
+        run: python -m atlas.comtrade_matrix || echo "comtrade matrix skipped"
+      - name: Refresh Comtrade monthly seasonality grid
+        run: python -m atlas.comtrade_monthly || echo "comtrade monthly skipped"
+      - name: Refresh Eurostat COMEXT EU blueberry trade
+        run: python -m atlas.eurostat || echo "eurostat refresh skipped"
+      - name: Refresh SENASICA registered berry orchards (Mexico)
+        run: python -m atlas.senasica || echo "senasica refresh skipped"
+      - name: Refresh FAOSTAT global blueberry production/area
+        run: python -m atlas.faostat || echo "faostat refresh skipped"
+      - name: Refresh NASA POWER growing-region weather
+        run: python -m atlas.nasa_power || echo "nasa power refresh skipped"
+      - name: Refresh USDA-FAS GAIN blueberry forecasts (Peru, Mexico)
+        run: python -m atlas.usda_gain || echo "usda gain refresh skipped"
+      - name: Refresh USDA-AMS US movement by origin (WA_FV408)
+        run: python -m atlas.usda_movement || echo "usda movement refresh skipped"
+      - name: Refresh Berries ZA South Africa weekly exports (auto-parse PDF)
+        run: python -m atlas.berriesza || echo "berries za refresh skipped"
+      - name: Refresh Eurostat COMEXT monthly EU trade (current, backtested)
+        run: python -m atlas.eurostat_monthly || echo "eurostat monthly refresh skipped"
+      - name: Refresh US Census imports by origin (live US slice; needs CENSUS_API_KEY)
+        run: python -m atlas.uscensus || echo "us census skipped (no key)"
+      - name: Rebuild global trade reconciliation + backtest
+        run: python -m atlas.global_reconcile || echo "global reconcile skipped"
+      - name: Rebuild forecast-vs-actual divergence tracker
+        run: python -m atlas.divergence || echo "divergence tracker skipped"
+      - name: Refresh M49 country-code reference
+        run: python -m atlas.countries || echo "country-code refresh skipped"
+      - name: Rebuild the Global Blueberry Atlas site (docs/atlas.html)
+        run: python scripts/build_atlas_site.py || echo "atlas site build skipped"
+      - name: Re-probe overlay source reachability (clean egress)
+        run: |
+          ONLY_BLANK=""
+          if [ "${{ github.event.inputs.only_blank }}" = "true" ]; then ONLY_BLANK="--only-blank"; fi
+          python scripts/probe_overlays.py $ONLY_BLANK || echo "overlay probe skipped"
+      - name: Commit atlas data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="${{ github.ref_name }}"
+          git add data/atlas/ docs/atlas.html || true
+          if git diff --staged --quiet; then echo "no atlas changes"; exit 0; fi
+          git commit -m "atlas: refresh data + rebuild site"
+          # The PR branch can move under us while the (~10-min) refresh runs --
+          # concurrent pushes from the dev sandbox or another run. Rebase our
+          # generated-data commit on top and retry; on a data-file conflict prefer
+          # our freshly-generated artifacts (-X theirs = the commit being replayed).
+          for i in 1 2 3 4 5; do
+            git fetch origin "$BRANCH" -q || true
+            git rebase -X theirs "origin/$BRANCH" || { git rebase --abort || true; }
+            if git push origin "HEAD:$BRANCH"; then echo "pushed"; exit 0; fi
+            sleep $((2 ** i))
+          done
+          echo "push failed after retries"; exit 1

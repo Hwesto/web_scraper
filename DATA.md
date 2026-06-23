@@ -3,7 +3,8 @@
 The combined reference: every blueberry **data point** we hold, its **source link**, time
 **depth**, **renewal cadence (ours = how often we refresh · theirs = how often the source
 publishes)**, and status. (Source-only catalogue: `SOURCES.md`; per-lane gaps:
-`baseline_*.md`.)
+`baseline_*.md`; **machine-readable atlas** that scales these to global × multi-fruit:
+`data/atlas/registry.csv` via the `atlas/` package.)
 
 Status: `LIVE` wired · `DERIVED` computed · `PROXY` stand-in · `PROBE` validated only ·
 `STUB` schema only.
