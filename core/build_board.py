@@ -244,14 +244,14 @@ def _shelf():
     try:
         r = vintage.latest(_ser("retail", "price")).copy()
     except Exception:
-        return None, float("nan"), [], 0
+        return None, float("nan"), [], 0, 0
     if r.empty:
-        return None, float("nan"), [], 0
+        return None, float("nan"), [], 0, 0
     r["d"] = pd.to_datetime(r["ref_period"])
     r = r[r["d"] == r["d"].max()]
     parts = r["key"].str.split("|", expand=True)
     r["retailer"], r["tier"], r["pack"] = parts[0], parts[1], parts[2]
-    per, big = [], []
+    per, big, big_g = [], [], []
     for ret, g in r.groupby("retailer"):              # all tiers: standard + finest/organic
         packs = [{"pack": str(t.pack), "kg": float(t.value), "tier": str(t.tier)}
                  for t in g.itertuples()]
@@ -261,12 +261,14 @@ def _shelf():
         med_src = std or packs
         if std:
             big.append(std[-1]["kg"])                 # largest STANDARD pack's £/kg
+            big_g.append(_grams(std[-1]["pack"]))     # and its size, for the headline label
         per.append({"retailer": ret,
                     "med": float(pd.Series([p["kg"] for p in med_src]).median()),
                     "packs": packs})
     per.sort(key=lambda x: x["med"])
     headline = float(pd.Series(big).median()) if big else float("nan")
-    return r["d"].max(), headline, per, int(len(r))
+    pack_g = int(pd.Series(big_g).median()) if big_g else 0   # typical headline pack size
+    return r["d"].max(), headline, per, int(len(r)), pack_g
 
 
 def _relay(v=None):
@@ -436,7 +438,7 @@ def build(fruit=BLUEBERRY) -> str:
     relay = _relay()
     s = _summary()
     landed = s["avg"]                        # 12-mo volume-weighted blended CIF £/kg
-    shelf_wk, shelf, per, n_packs = _shelf()
+    shelf_wk, shelf, per, n_packs, shelf_pack_g = _shelf()
     shelf_lbl = f"wk {pd.Timestamp(shelf_wk).strftime('%-d %b')}" if shelf_wk is not None else "this wk"
     if shelf != shelf:                       # no Trolley data → ONS monthly proxy
         shelf, shelf_lbl = _retail(cur), "ONS proxy"
@@ -489,7 +491,7 @@ def build(fruit=BLUEBERRY) -> str:
                 f'<b>gross margin, not profit</b><span class="more">why</span></summary>'
                 f'<p class="xp">{econ_full}</p></details>')
         cap = (f'<p class="cap"><b>Landed</b> is the 12-month average across all origins (volume-weighted); '
-               f'this month alone runs £{mavg:.2f}. <b>Shelf</b> is a standard 500&#8201;g punnet, {shelf_lbl}.</p>')
+               f'this month alone runs £{mavg:.2f}. <b>Shelf</b> is a standard {shelf_pack_g}&#8201;g punnet, {shelf_lbl}.</p>')
         journey = (f'<div class="bbar">{bar}</div>'
                    f'<div class="bends"><span>£{landed:.2f} landed</span>'
                    f'<span>{markup}</span><span>£{shelf:.2f} shelf</span></div>'

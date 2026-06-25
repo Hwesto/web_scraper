@@ -39,18 +39,65 @@ import requests
 from .base import SignalSource
 
 _BASE = "https://www.trolley.co.uk/product/"
-# Curated fresh-blueberry basket (retailer, tier, /product/ path). Discovered once
-# via web search; only these allowed product pages are ever fetched.
-BASKET = [
-    ("Sainsbury's", "standard", "sainsburys-blueberries/WMT802"),
-    ("Tesco", "standard", "tesco-blueberries/IBD496"),
-    ("Tesco", "standard", "tesco-blueberries/SMH653"),
-    ("Tesco", "standard", "tesco-blueberries/HRN985"),
-    ("Tesco", "organic", "tesco-organic-blueberries/JMA096"),
-    ("Tesco", "finest", "tesco-finest-blueberries-class-1/DUX280"),
-    ("Asda", "standard", "asda-sweet-bursting-blueberries/GSX127"),
-    ("Asda", "standard", "asda-sweet-bursting-blueberries/GDA152"),
-]
+# Curated retail baskets per fruit — (retailer, tier, /product/ path). Discovered
+# out-of-band via web search + sibling harvesting (NEVER /search/, which robots.txt
+# disallows) and verified to expose a clean JSON-LD price on a WEIGHT-PACKED name
+# (Xg/Xkg) so £/kg is real, not estimated. Only weight-packed fruit qualifies — berries,
+# grapes and cherries sell by pack weight. Count/loose fruit (apples by the 6, bananas
+# per kg/each) carry no reliable per-kg basis here and are left to the ONS CPI proxy
+# rather than guessed from an assumed fruit weight. Adding a product is a manual edit
+# (keeps us off /search/). Tier: standard is the headline; finest/organic are variants.
+BASKETS: dict[str, list[tuple[str, str, str]]] = {
+    "blueberry": [
+        ("Sainsbury's", "standard", "sainsburys-blueberries/WMT802"),
+        ("Tesco", "standard", "tesco-blueberries/IBD496"),
+        ("Tesco", "standard", "tesco-blueberries/SMH653"),
+        ("Tesco", "standard", "tesco-blueberries/HRN985"),
+        ("Tesco", "organic", "tesco-organic-blueberries/JMA096"),
+        ("Tesco", "finest", "tesco-finest-blueberries-class-1/DUX280"),
+        ("Asda", "standard", "asda-sweet-bursting-blueberries/GSX127"),
+        ("Asda", "standard", "asda-sweet-bursting-blueberries/GDA152"),
+    ],
+    "strawberry": [
+        ("Tesco", "standard", "tesco-strawberries/TDP116"),          # 400g
+        ("Tesco", "standard", "tesco-strawberries/WWJ415"),          # 600g
+        ("Asda", "standard", "asda-ripe-sweet-strawberries/AIQ002"), # 400g
+        ("Ocado", "standard", "ocado-strawberries/GMR122"),          # 600g British
+        ("Morrisons", "standard", "morrisons-strawberries/XSG192"),  # 400g
+        ("Tesco", "finest", "tesco-finest-british-strawberries/SCB715"),  # 600g
+        ("Tesco", "organic", "tesco-organic-strawberries/UST272"),   # 300g
+    ],
+    "raspberry": [
+        ("Tesco", "standard", "tesco-raspberries/XFX951"),           # 300g
+        ("Tesco", "standard", "tesco-raspberries/APF101"),           # 150g
+        ("Asda", "standard", "asda-sweet-plump-raspberries/XGC568"), # 250g
+        ("Morrisons", "standard", "morrisons-raspberries/EDE090"),   # 300g
+        ("Co-op", "standard", "co-op-raspberries/TPN891"),           # 300g
+        ("Waitrose", "standard", "waitrose-raspberries/TAY680"),     # 150g
+        ("Tesco", "finest", "tesco-finest-raspberries/JPR825"),      # 150g
+        ("Tesco", "organic", "tesco-organic-raspberries/SRK323"),    # 150g
+    ],
+    "grape": [
+        ("Tesco", "standard", "tesco-green-seedless-grapes-punnet/TYX162"),  # 500g
+        ("Tesco", "standard", "tesco-red-seedless-grapes-punnet/QPA117"),    # 500g
+        ("Tesco", "standard", "tesco-black-seedless-grapes/WTQ486"),         # 500g
+        ("Ocado", "standard", "ocado-green-seedless-grapes/OXG751"),         # 500g
+        ("Morrisons", "standard", "morrisons-seedless-grape-selection/CFK800"),  # 400g
+        ("Waitrose", "standard", "waitrose-green-seedless-grapes/BJD976"),   # 500g
+        ("Co-op", "standard", "co-op-seedless-green-grapes/IZW845"),         # 500g
+        ("Tesco", "finest", "tesco-finest-green-grapes-seedless/DNR493"),    # 500g
+        ("Tesco", "organic", "tesco-organic-seedless-grapes/RHX093"),        # 400g
+    ],
+    "cherry": [
+        ("Sainsbury's", "standard", "sainsburys-cherries/YDY473"),   # 500g
+        ("Sainsbury's", "standard", "sainsburys-cherries/KCQ498"),   # 250g
+        ("Tesco", "standard", "cherry-large-punnet/SXE192"),         # 400g
+        ("Tesco", "standard", "tesco-cherries-punnet/OXW513"),       # 200g
+        ("Tesco", "standard", "tesco-king-cherries/ZSP742"),         # 300g
+        ("Ocado", "standard", "ocado-cherries/GGQ295"),              # 200g
+    ],
+}
+BASKET = BASKETS["blueberry"]      # back-compat alias
 # Identify honestly with a contact URL (good scraping etiquette); we run from a
 # shared CI/datacenter IP, so we do NOT masquerade as a browser.
 _HEADERS = {
@@ -93,10 +140,18 @@ def _parse(page_html: str) -> tuple[float, float] | None:
     return price, grams
 
 
-class RetailBlueberryPrice(SignalSource):
-    series = "retail_blueberry_price"
+class RetailPrice(SignalSource):
+    """Weekly multi-retailer shelf £/kg for one fruit from its curated Trolley basket.
+    Series `retail_<slug>_price`; key `Retailer|tier|pack`. A fruit with no basket
+    emits an empty frame (the board then falls back to the ONS proxy / degrades)."""
+
     freq = "W"
     unit = "gbp_per_kg"
+
+    def __init__(self, slug: str = "blueberry"):
+        self.slug = slug
+        self.series = f"retail_{slug}_price"
+        self.basket = BASKETS.get(slug, [])
 
     def fetch(self, vintage_date: _dt.date | None = None) -> pd.DataFrame:
         vintage_date = vintage_date or _dt.date.today()
@@ -104,7 +159,7 @@ class RetailBlueberryPrice(SignalSource):
 
         records = []
         try:
-            for retailer, tier, path in BASKET:
+            for retailer, tier, path in self.basket:
                 parsed = self._fetch_product(_BASE + path)
                 time.sleep(_DELAY + random.uniform(0, 0.5))   # polite, jittered
                 if parsed is None:
@@ -118,7 +173,7 @@ class RetailBlueberryPrice(SignalSource):
         except _Refused as e:
             # If the site refuses us, stop immediately rather than pound it; keep
             # whatever we already have and surface the block (not a silent empty).
-            print(f"retail_blueberry_price: stopped early -- Trolley refused ({e}); "
+            print(f"{self.series}: stopped early -- Trolley refused ({e}); "
                   f"kept {len(records)} product(s) collected before the block.")
         return self._tidy(records, vintage_date)
 
@@ -143,11 +198,20 @@ class RetailBlueberryPrice(SignalSource):
         return None
 
 
+class RetailBlueberryPrice(RetailPrice):
+    """Back-compat shim for the pipeline/tests — the original blueberry source."""
+
+    def __init__(self):
+        super().__init__("blueberry")
+
+
 if __name__ == "__main__":
-    df = RetailBlueberryPrice().fetch()
-    if df.empty:
-        print("retail_blueberry_price: 0 rows (all products failed to parse)")
-    else:
-        print(f"retail_blueberry_price: {len(df)} products, week {df['ref_period'].iloc[0]}")
-        print(df[["key", "value"]].to_string(index=False))
-        print(f"median GBP/kg: {df['value'].median():.2f}")
+    import sys
+    slugs = sys.argv[1:] or list(BASKETS)
+    for slug in slugs:
+        df = RetailPrice(slug).fetch()
+        if df.empty:
+            print(f"retail_{slug}_price: 0 rows (no basket or all products failed)")
+        else:
+            print(f"retail_{slug}_price: {len(df)} products, week {df['ref_period'].iloc[0]}, "
+                  f"median £{df['value'].median():.2f}/kg")

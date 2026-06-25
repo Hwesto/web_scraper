@@ -17,6 +17,7 @@ from deep.store import vintage
 from deep.data import hmrc
 from deep.data.hmrc import (HmrcBlueberryImports, HmrcBlueberryImportValue,
                             HmrcBlueberryReExports)
+from deep.data.retail_price import RetailPrice, BASKETS
 from deep.market import comtrade_global, production
 from core import player_exports, uk_production
 from core.fruit import FRUITS
@@ -58,6 +59,14 @@ def fetch(fruit) -> None:
             print(f"  uk_production: {len(df)} yrs (latest {latest})")
         except Exception as exc:
             print(f"  uk_production: FAILED {type(exc).__name__}: {exc}")
+    if fruit.slug in BASKETS:
+        try:
+            df = RetailPrice(fruit.slug).fetch()
+            vintage.save(df)
+            med = f"median £{df['value'].median():.2f}/kg" if not df.empty else "0 rows"
+            print(f"  retail_{fruit.slug}_price: {len(df)} products ({med})")
+        except Exception as exc:
+            print(f"  retail_{fruit.slug}_price: FAILED {type(exc).__name__}: {exc}")
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ from .data.defra_price import DefraBlueberryPrice
 from .data.hmrc import (HmrcBlueberryImports, HmrcBlueberryImportValue,
                         HmrcBlueberryReExports)
 from .data.ons_price import OnsRetailBlueberryPrice
-from .data.retail_price import RetailBlueberryPrice
+from .data.retail_price import RetailBlueberryPrice, RetailPrice, BASKETS
 from .data.altdata.job_boards import PackhouseHiringSignal
 from .store import vintage
 from .volume.data.odepa_chile import OdepaChileExports
@@ -27,6 +27,12 @@ from .volume.validate import two_sided_crosscheck
 CORE_SOURCES = [HmrcBlueberryImports(), HmrcBlueberryImportValue(), HmrcBlueberryReExports(),
                 DefraBlueberryPrice(), OnsRetailBlueberryPrice(), OdepaChileExports()]
 COLLECT_ONLY_SOURCES = [PackhouseHiringSignal(), RetailBlueberryPrice()]
+# Atlas fruits' weekly shelf prices accrue forward history here too (same Trolley
+# basket mechanism, weekly cadence — shelf £/kg moves week-to-week, unlike the heavy
+# annual feeds that refresh monthly in core.fetch_fruit). Auto-derived from the
+# baskets, minus blueberry (already covered by RetailBlueberryPrice above).
+ATLAS_RETAIL_SOURCES = [RetailPrice(s) for s in BASKETS if s != "blueberry"]
+COLLECT_ONLY_SOURCES += ATLAS_RETAIL_SOURCES
 
 
 def cmd_ingest(_args: argparse.Namespace) -> None:
