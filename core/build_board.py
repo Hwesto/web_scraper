@@ -44,6 +44,41 @@ PRICE_FLOOR_SHARE = 0.5   # % of the month: suppress @£/kg + ▲▼ below this
 YOY_MIN_SHARE = 3.0       # % of the month  } both required for a y/y chip
 YOY_MIN_T = 500           # tonnes          } (kills big % on tiny bases)
 
+# --- Price build-up: literature margin/shrink assumptions (sourced; all ESTIMATES) ---
+# Used only to DECOMPOSE the measured border→shelf spread, never to invent a price.
+RETAIL_GROSS_MARGIN = 0.308   # realized produce-dept gross margin — NGA / Nutrition
+#                               Incentive Hub, "Retail Grocery Pricing: A Primer" (2020)
+FRESH_FRUIT_SHRINK = 0.126    # fresh-fruit retail shrink by weight — USDA ERS,
+#                               Buzby et al. EIB-155 (2016); soft berries run higher
+RETAIL_NET_MARGIN = 0.017     # food-retail net profit margin — FMI, Food Retailing
+#                               Industry Speaks (2024); berries often a loss-leader
+#                               (Richards & Hamilton, AJAE 88(3), 2006)
+
+
+def _cost_buildup(landed, shelf):
+    """Decompose a measured shelf £/kg into border cost + UK import/distribution +
+    retailer gross margin, using the NGA produce-margin benchmark. The two ends are
+    MEASURED (HMRC landed, Trolley shelf); the split is modelled. Returns
+    [(label, £/kg, pct_of_shelf, source, css)] or None, plus a loss-leader flag.
+    """
+    if not (landed == landed and shelf == shelf and shelf > 0 and landed > 0):
+        return None, False
+    into_store = shelf * (1 - RETAIL_GROSS_MARGIN)     # retailer buy-in implied by GM
+    importer = into_store - landed                     # residual: import + distribution
+    retail = shelf - into_store                        # = shelf × GM
+    # Squeeze: the border→shelf spread can't even cover landed + a benchmark retail
+    # margin, so the retailer is selling near break-even (the loss-leader case).
+    loss_leader = importer < 0
+    if loss_leader:
+        importer, retail = 0.0, shelf - landed
+    segs = [
+        ("Border — landed CIF", landed, landed / shelf * 100, "HMRC · measured", "border"),
+        ("UK import & distribution", importer, importer / shelf * 100, "implied remainder", "dist"),
+        ("Retailer gross margin", retail, retail / shelf * 100,
+         f"NGA {RETAIL_GROSS_MARGIN*100:.1f}%", "retail"),
+    ]
+    return segs, loss_leader
+
 
 def _dcode(name: str) -> str:
     code = DEST_CODE.get(name) or CODE.get(name)
@@ -171,17 +206,22 @@ def _shelf():
     r = r[r["d"] == r["d"].max()]
     parts = r["key"].str.split("|", expand=True)
     r["retailer"], r["tier"], r["pack"] = parts[0], parts[1], parts[2]
-    std = r[r["tier"] == "standard"]
-    base = std if not std.empty else r
     per, big = [], []
-    for ret, g in base.groupby("retailer"):
-        packs = [{"pack": str(t.pack), "kg": float(t.value)} for t in g.itertuples()]
-        packs.sort(key=lambda p: _grams(p["pack"]))   # small -> large
-        per.append({"retailer": ret, "med": float(g["value"].median()), "packs": packs})
-        big.append(packs[-1]["kg"])                   # largest pack's £/kg
+    for ret, g in r.groupby("retailer"):              # all tiers: standard + finest/organic
+        packs = [{"pack": str(t.pack), "kg": float(t.value), "tier": str(t.tier)}
+                 for t in g.itertuples()]
+        # standard first (by size), then variants (by size)
+        packs.sort(key=lambda p: (p["tier"] != "standard", _grams(p["pack"])))
+        std = [p for p in packs if p["tier"] == "standard"]
+        med_src = std or packs
+        if std:
+            big.append(std[-1]["kg"])                 # largest STANDARD pack's £/kg
+        per.append({"retailer": ret,
+                    "med": float(pd.Series([p["kg"] for p in med_src]).median()),
+                    "packs": packs})
     per.sort(key=lambda x: x["med"])
     headline = float(pd.Series(big).median()) if big else float("nan")
-    return r["d"].max(), headline, per, int(len(base))
+    return r["d"].max(), headline, per, int(len(r))
 
 
 def _relay(v=None):
@@ -357,20 +397,37 @@ def build() -> str:
     cur_m = cur.month
     lag_wks = int((pd.Timestamp(_dt.date.today()) - cur).days / 7)
     board = "\n".join(_ticker_html(r) for r in rows)
-    # The price journey — all-origin LANDED import CIF (12-mo volume-weighted, so a
-    # thin shoulder month can't swing it) → supermarket SHELF (pack-normalised).
-    # DEFRA wholesale is deliberately NOT a middle step: it's British-season,
-    # home-grown New Covent Garden spot (premium loose fruit) that runs above both —
-    # a different product/season, shown as an aside not a false ladder.
-    def _step(label, val, note):
-        v = f"£{val:.2f}" if val == val else "—"
-        return (f'<div class="step"><span class="sl">{label}</span>'
-                f'<span class="sv">{v}</span><span class="sn">{note}</span></div>')
+    # The price journey — a cost build-up of the measured shelf £/kg: the all-origin
+    # LANDED import CIF (12-mo volume-weighted) and the supermarket SHELF (pack-
+    # normalised) are MEASURED; the split between them (UK import/distribution vs
+    # retailer gross margin) is MODELLED off the NGA produce-margin benchmark.
+    # DEFRA wholesale stays an aside (British-season home-grown spot, not a step).
     markup = (f'+{(shelf/landed - 1)*100:.0f}%'
-              if (landed == landed and landed > 0 and shelf == shelf) else '→')
-    journey = (f'{_step("Landed", landed, "all-origin blend · import CIF · 12-mo avg")}'
-               f'<div class="step-arrow">{markup}</div>'
-               f'{_step("Shelf", shelf, f"supermarket · {shelf_lbl}")}')
+              if (landed == landed and landed > 0 and shelf == shelf) else '')
+    segs, loss_leader = _cost_buildup(landed, shelf)
+    if segs:
+        bar = "".join(f'<i class="seg {css}" style="width:{pct:.1f}%" '
+                      f'title="{lbl}: £{v:.2f} ({pct:.0f}%)"></i>'
+                      for lbl, v, pct, src, css in segs)
+        legend = "".join(
+            f'<div class="bl"><span class="dot {css}"></span>'
+            f'<span class="blk">{lbl}</span><span class="blv">£{v:.2f}</span>'
+            f'<span class="blp">{pct:.0f}%</span><span class="bls">{src}</span></div>'
+            for lbl, v, pct, src, css in segs)
+        ll = (' At this blend the spread barely covers a normal retail margin — '
+              'consistent with berries sold near break-even.' if loss_leader else '')
+        econ = (f'<div class="note">That ~{RETAIL_GROSS_MARGIN*100:.0f}% retail slice is gross, '
+                f'not profit: fresh fruit loses <b>{FRESH_FRUIT_SHRINK*100:.0f}%+</b> by weight to '
+                f'shrink (USDA ERS, 2016) — soft berries more — so the initial markup is set ~40–50% '
+                f'to net it down; food-retail <b>net</b> margin is only ~<b>{RETAIL_NET_MARGIN*100:.1f}%</b> '
+                f'(FMI, 2024), and berries are often run as a deliberate <b>loss-leader</b> in peak '
+                f'season (Richards &amp; Hamilton, 2006).{ll} Border &amp; shelf measured; split modelled.</div>')
+        journey = (f'<div class="bbar">{bar}</div>'
+                   f'<div class="bends"><span>£{landed:.2f} landed</span>'
+                   f'<span>{markup}</span><span>£{shelf:.2f} shelf</span></div>'
+                   f'<div class="blegend">{legend}</div>{econ}')
+    else:
+        journey = f'<div class="note">Landed £{landed:.2f}/kg → shelf £{shelf:.2f}/kg.</div>'
     # In-season per-origin landed prices — the cheap counter-season workhorses a
     # single shoulder month hides (Chile is out of season in April and never shows).
     insn = _inseason_cif()
@@ -456,9 +513,11 @@ def build() -> str:
                   f' · de-hubs the re-exporters</p>{mr}{foot}')
     # On the shelf this week — real per-retailer £/kg, by pack size (Trolley)
     def _packs_html(p):
-        return "".join(
-            f'<span class="pk"><b class="sz">{pk["pack"]}</b> £{pk["kg"]:.2f}</span>'
-            for pk in p["packs"])
+        out = ""
+        for pk in p["packs"]:
+            badge = "" if pk["tier"] == "standard" else f'<span class="tier">{pk["tier"]}</span>'
+            out += f'<span class="pk"><b class="sz">{pk["pack"]}</b> £{pk["kg"]:.2f}{badge}</span>'
+        return out
     shelf_rows = "".join(
         f'<div class="shrow">'
         f'<span class="nm" style="color:{SHOP_COLR.get(p["retailer"], "#5a3fb0")}">'
@@ -572,14 +631,23 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .sell{{display:flex;align-items:center;gap:.7em;padding:9px 6px;border-bottom:1px solid var(--line)}}
  .sell .sym{{min-width:7ch}} .sell .sym .code{{font-size:1.5rem}} .arrow{{color:#aaa091}}
  .dests{{font-size:1.05rem;color:#5a5347;font-weight:700}}
- .journey{{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}}
- .step{{flex:1 1 0;min-width:120px;border:2px solid var(--line);border-radius:9px;
-   padding:12px 14px;background:#fffefb;display:flex;flex-direction:column;gap:2px}}
- .step .sl{{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:800}}
- .step .sv{{font-size:2rem;color:var(--accent)}}
- .step .sn{{font-size:.72rem;color:var(--mut);font-weight:700}}
- .step-arrow{{align-self:center;color:var(--accent);font-size:1.15rem;font-weight:800;
-   white-space:nowrap}}
+ .bbar{{display:flex;height:34px;border-radius:7px;overflow:hidden;border:1px solid var(--line)}}
+ .bbar .seg{{display:block;height:100%}}
+ .seg.border,.dot.border{{background:#6b3fa0}}
+ .seg.dist,.dot.dist{{background:#b9a7e0}}
+ .seg.retail,.dot.retail{{background:#e8833a}}
+ .bends{{display:flex;justify-content:space-between;align-items:baseline;margin-top:5px;
+   font-size:1.05rem;font-weight:800;color:var(--ink)}}
+ .bends span:nth-child(2){{font-size:.82rem;color:var(--accent)}}
+ .blegend{{margin-top:12px}}
+ .bl{{display:flex;align-items:baseline;gap:.5em .8em;flex-wrap:wrap;padding:5px 2px}}
+ .bl .dot{{width:.85em;height:.85em;border-radius:2px;align-self:center;flex:none}}
+ .bl .blk{{font-weight:800;min-width:14ch}}
+ .bl .blv{{font-size:1.2rem;color:var(--accent);font-weight:800;min-width:4ch}}
+ .bl .blp{{color:var(--mut);font-weight:800;min-width:3ch}}
+ .bl .bls{{font-size:.74rem;color:var(--mut);font-weight:700;font-style:italic}}
+ .tier{{font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:#fff;
+   background:#bcb3a0;border-radius:3px;padding:1px 5px;margin-left:.25em;vertical-align:.12em}}
  .note{{font-size:1rem;color:var(--mut);font-weight:700;padding:12px 4px;line-height:1.5}}
  .note b{{color:var(--accent)}}
  .world,.world3{{display:grid;grid-template-columns:1fr 1fr;gap:10px 26px}}
@@ -608,7 +676,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
    color:var(--mut);font-weight:700}}
  .foot a{{color:var(--accent)}}
  @media(max-width:560px){{h1{{font-size:2rem}}.sym .code{{font-size:1.8rem}}.px{{font-size:1.6rem}}
-   .step .sv{{font-size:1.7rem}}.mr .mv{{font-size:1.5rem}}
+   .mr .mv{{font-size:1.5rem}}.bl .blk{{min-width:11ch}}
    .relay{{grid-template-columns:repeat(6,1fr)}}.hero{{width:112px}}}}
 </style></head><body><div class="wrap">
 <div class="masthead">
@@ -626,8 +694,8 @@ This month <b>{total} t</b> / <b>£{spend_m}m</b> landed &nbsp;·&nbsp; year <b>
 {board}
 
 <h2>The price journey</h2>
-<p class="lede">border to shelf · per kilo · all-origin blend (dates differ)</p>
-<div class="journey">{journey}</div>
+<p class="lede">where a kilo's shelf price comes from · border &amp; shelf measured, split modelled</p>
+{journey}
 {strip}
 {whole_note}
 

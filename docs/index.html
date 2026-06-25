@@ -61,14 +61,23 @@
  .sell{display:flex;align-items:center;gap:.7em;padding:9px 6px;border-bottom:1px solid var(--line)}
  .sell .sym{min-width:7ch} .sell .sym .code{font-size:1.5rem} .arrow{color:#aaa091}
  .dests{font-size:1.05rem;color:#5a5347;font-weight:700}
- .journey{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}
- .step{flex:1 1 0;min-width:120px;border:2px solid var(--line);border-radius:9px;
-   padding:12px 14px;background:#fffefb;display:flex;flex-direction:column;gap:2px}
- .step .sl{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:800}
- .step .sv{font-size:2rem;color:var(--accent)}
- .step .sn{font-size:.72rem;color:var(--mut);font-weight:700}
- .step-arrow{align-self:center;color:var(--accent);font-size:1.15rem;font-weight:800;
-   white-space:nowrap}
+ .bbar{display:flex;height:34px;border-radius:7px;overflow:hidden;border:1px solid var(--line)}
+ .bbar .seg{display:block;height:100%}
+ .seg.border,.dot.border{background:#6b3fa0}
+ .seg.dist,.dot.dist{background:#b9a7e0}
+ .seg.retail,.dot.retail{background:#e8833a}
+ .bends{display:flex;justify-content:space-between;align-items:baseline;margin-top:5px;
+   font-size:1.05rem;font-weight:800;color:var(--ink)}
+ .bends span:nth-child(2){font-size:.82rem;color:var(--accent)}
+ .blegend{margin-top:12px}
+ .bl{display:flex;align-items:baseline;gap:.5em .8em;flex-wrap:wrap;padding:5px 2px}
+ .bl .dot{width:.85em;height:.85em;border-radius:2px;align-self:center;flex:none}
+ .bl .blk{font-weight:800;min-width:14ch}
+ .bl .blv{font-size:1.2rem;color:var(--accent);font-weight:800;min-width:4ch}
+ .bl .blp{color:var(--mut);font-weight:800;min-width:3ch}
+ .bl .bls{font-size:.74rem;color:var(--mut);font-weight:700;font-style:italic}
+ .tier{font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:#fff;
+   background:#bcb3a0;border-radius:3px;padding:1px 5px;margin-left:.25em;vertical-align:.12em}
  .note{font-size:1rem;color:var(--mut);font-weight:700;padding:12px 4px;line-height:1.5}
  .note b{color:var(--accent)}
  .world,.world3{display:grid;grid-template-columns:1fr 1fr;gap:10px 26px}
@@ -97,7 +106,7 @@
    color:var(--mut);font-weight:700}
  .foot a{color:var(--accent)}
  @media(max-width:560px){h1{font-size:2rem}.sym .code{font-size:1.8rem}.px{font-size:1.6rem}
-   .step .sv{font-size:1.7rem}.mr .mv{font-size:1.5rem}
+   .mr .mv{font-size:1.5rem}.bl .blk{min-width:11ch}
    .relay{grid-template-columns:repeat(6,1fr)}.hero{width:112px}}
 </style></head><body><div class="wrap">
 <div class="masthead">
@@ -119,14 +128,14 @@ This month <b>6,966 t</b> / <b>£43m</b> landed &nbsp;·&nbsp; year <b>68K t</b>
 <div class="tk"><span class="sym" style="color:#2a9d8f"><span class="code">ZAF</span><span class="cty">South Africa</span></span><span class="vol">8 t</span><span class="shr"><1%</span><span class="small-lane">small lane — no reliable price</span></div>
 
 <h2>The price journey</h2>
-<p class="lede">border to shelf · per kilo · all-origin blend (dates differ)</p>
-<div class="journey"><div class="step"><span class="sl">Landed</span><span class="sv">£5.75</span><span class="sn">all-origin blend · import CIF · 12-mo avg</span></div><div class="step-arrow">+58%</div><div class="step"><span class="sl">Shelf</span><span class="sv">£9.10</span><span class="sn">supermarket · wk 22 Jun</span></div></div>
+<p class="lede">where a kilo's shelf price comes from · border &amp; shelf measured, split modelled</p>
+<div class="bbar"><i class="seg border" style="width:63.2%" title="Border — landed CIF: £5.75 (63%)"></i><i class="seg dist" style="width:6.0%" title="UK import & distribution: £0.54 (6%)"></i><i class="seg retail" style="width:30.8%" title="Retailer gross margin: £2.80 (31%)"></i></div><div class="bends"><span>£5.75 landed</span><span>+58%</span><span>£9.10 shelf</span></div><div class="blegend"><div class="bl"><span class="dot border"></span><span class="blk">Border — landed CIF</span><span class="blv">£5.75</span><span class="blp">63%</span><span class="bls">HMRC · measured</span></div><div class="bl"><span class="dot dist"></span><span class="blk">UK import & distribution</span><span class="blv">£0.54</span><span class="blp">6%</span><span class="bls">implied remainder</span></div><div class="bl"><span class="dot retail"></span><span class="blk">Retailer gross margin</span><span class="blv">£2.80</span><span class="blp">31%</span><span class="bls">NGA 30.8%</span></div></div><div class="note">That ~31% retail slice is gross, not profit: fresh fruit loses <b>13%+</b> by weight to shrink (USDA ERS, 2016) — soft berries more — so the initial markup is set ~40–50% to net it down; food-retail <b>net</b> margin is only ~<b>1.7%</b> (FMI, 2024), and berries are often run as a deliberate <b>loss-leader</b> in peak season (Richards &amp; Hamilton, 2006). Border &amp; shelf measured; split modelled.</div>
 <div class="strip"><span class="sl">In season, landed £/kg</span><span style="color:#6b3fa0"><b>CHL</b> £4.76</span> · <span style="color:#7a8699"><b>NLD</b> £5.03</span> · <span style="color:#4c5fd5"><b>PER</b> £5.69</span> · <span style="color:#e8833a"><b>MAR</b> £5.82</span> · <span style="color:#2a9d8f"><b>ZAF</b> £6.16</span> · <span style="color:#c9a227"><b>ESP</b> £6.19</span></div>
 <div class="aside"><span class="tag">not a journey step</span> UK-grown, British-season <b>wholesale</b> (DEFRA · New Covent Garden) is <b>£13.18/kg</b> (Jun 2026) — premium loose fruit sold spot, a different product/season to imported retail, so it sits above both prices above.</div>
 
 <h2>On the shelf this week</h2>
-<p class="lede">3 of 11 retailers · 6 packs · w/c 22 Jun 2026 · £/kg = pack price ÷ weight, so small punnets read dearer</p>
-<div class="shrow"><span class="nm" style="color:#5fae2b">Asda</span><span class="packs"><span class="pk"><b class="sz">300g</b> £9.87</span><span class="pk"><b class="sz">500g</b> £8.64</span></span></div><div class="shrow"><span class="nm" style="color:#f06c00">Sainsbury's</span><span class="packs"><span class="pk"><b class="sz">300g</b> £11.00</span></span></div><div class="shrow"><span class="nm" style="color:#00539f">Tesco</span><span class="packs"><span class="pk"><b class="sz">150g</b> £14.67</span><span class="pk"><b class="sz">250g</b> £11.00</span><span class="pk"><b class="sz">500g</b> £9.10</span></span></div>
+<p class="lede">3 of 11 retailers · 8 packs · w/c 22 Jun 2026 · £/kg = pack price ÷ weight, so small punnets read dearer</p>
+<div class="shrow"><span class="nm" style="color:#5fae2b">Asda</span><span class="packs"><span class="pk"><b class="sz">300g</b> £9.87</span><span class="pk"><b class="sz">500g</b> £8.64</span></span></div><div class="shrow"><span class="nm" style="color:#f06c00">Sainsbury's</span><span class="packs"><span class="pk"><b class="sz">300g</b> £11.00</span></span></div><div class="shrow"><span class="nm" style="color:#00539f">Tesco</span><span class="packs"><span class="pk"><b class="sz">150g</b> £14.67</span><span class="pk"><b class="sz">250g</b> £11.00</span><span class="pk"><b class="sz">500g</b> £9.10</span><span class="pk"><b class="sz">150g</b> £18.00<span class="tier">finest</span></span><span class="pk"><b class="sz">150g</b> £19.33<span class="tier">organic</span></span></span></div>
 
 <h2>The relay</h2>
 <p class="lede">who leads UK supply each month · typical year (5-yr pattern)</p>
