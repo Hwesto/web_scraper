@@ -9,6 +9,9 @@
    background-size:24px 24px;
    font-family:"Helvetica Neue",Arial,sans-serif;font-weight:700;font-stretch:condensed}
  .wrap{max-width:840px;margin:0 auto;padding:34px 20px 60px}
+ .masthead{display:flex;align-items:center;justify-content:space-between;gap:18px}
+ .head{min-width:0}
+ .hero{width:150px;height:auto;flex:none;filter:drop-shadow(0 6px 14px rgba(42,38,34,.22))}
  .kick{text-transform:uppercase;letter-spacing:.2em;font-size:.72rem;color:var(--accent);font-weight:800}
  h1{font-size:2.6rem;margin:.1em 0 .05em;letter-spacing:-.02em;color:var(--ink)}
  .idx{font-size:1rem;color:#6a6052;border-top:2px solid var(--line);border-bottom:2px solid var(--line);
@@ -39,10 +42,15 @@
    color:#8a8070;font-weight:700}
  .foot a{color:var(--accent)}
  @media(max-width:560px){h1{font-size:2rem}.sym{font-size:1.8rem}.px{font-size:1.6rem}
-   .relay{grid-template-columns:repeat(6,1fr)}}
+   .relay{grid-template-columns:repeat(6,1fr)}.hero{width:96px}}
 </style></head><body><div class="wrap">
-<div class="kick">🫐 the UK fresh-blueberry market</div>
-<h1>Britain's Blueberry Board</h1>
+<div class="masthead">
+ <div class="head">
+  <div class="kick">🫐 the UK fresh-blueberry market</div>
+  <h1>Britain's Blueberry Board</h1>
+ </div>
+ <img class="hero" src="hero.png" alt="A British blueberry in a navy suit and Union-Jack tie">
+</div>
 <div class="idx">Apr 2026 &nbsp;·&nbsp; UK imports <b>68K t</b>/yr &nbsp;·&nbsp;
 avg <b>£5.75/kg</b> &nbsp;·&nbsp; UK-grown <b>5.5%</b> of supply</div>
 

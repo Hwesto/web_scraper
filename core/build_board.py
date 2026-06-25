@@ -33,7 +33,14 @@ def _months(v):
 def _board():
     v = vintage.latest("hmrc_blueberry_imports").copy(); v["d"] = pd.to_datetime(v["ref_period"])
     val = vintage.latest("hmrc_blueberry_import_value").copy(); val["d"] = pd.to_datetime(val["ref_period"])
-    ms = _months(v); cur, prev = ms[-1], ms[-2]
+    # Use the latest *complete* month: HMRC OTS lands ~6 wks late and the most
+    # recent month is usually a partial first-estimate. Treat a month as settled
+    # once it is ≥70 days old; fall back to raw tail if we don't have two settled.
+    ms = _months(v)
+    today = pd.Timestamp(_dt.date.today())
+    complete = [m for m in ms if (today - pd.Timestamp(m)).days >= 70]
+    use = complete if len(complete) >= 2 else ms
+    cur, prev = use[-1], use[-2]
 
     def vol(d): return v[v["d"] == d].groupby("key")["value"].sum()
     def cif(d):
@@ -137,6 +144,9 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
    background-size:24px 24px;
    font-family:"Helvetica Neue",Arial,sans-serif;font-weight:700;font-stretch:condensed}}
  .wrap{{max-width:840px;margin:0 auto;padding:34px 20px 60px}}
+ .masthead{{display:flex;align-items:center;justify-content:space-between;gap:18px}}
+ .head{{min-width:0}}
+ .hero{{width:150px;height:auto;flex:none;filter:drop-shadow(0 6px 14px rgba(42,38,34,.22))}}
  .kick{{text-transform:uppercase;letter-spacing:.2em;font-size:.72rem;color:var(--accent);font-weight:800}}
  h1{{font-size:2.6rem;margin:.1em 0 .05em;letter-spacing:-.02em;color:var(--ink)}}
  .idx{{font-size:1rem;color:#6a6052;border-top:2px solid var(--line);border-bottom:2px solid var(--line);
@@ -167,10 +177,15 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
    color:#8a8070;font-weight:700}}
  .foot a{{color:var(--accent)}}
  @media(max-width:560px){{h1{{font-size:2rem}}.sym{{font-size:1.8rem}}.px{{font-size:1.6rem}}
-   .relay{{grid-template-columns:repeat(6,1fr)}}}}
+   .relay{{grid-template-columns:repeat(6,1fr)}}.hero{{width:96px}}}}
 </style></head><body><div class="wrap">
-<div class="kick">🫐 the UK fresh-blueberry market</div>
-<h1>Britain's Blueberry Board</h1>
+<div class="masthead">
+ <div class="head">
+  <div class="kick">🫐 the UK fresh-blueberry market</div>
+  <h1>Britain's Blueberry Board</h1>
+ </div>
+ <img class="hero" src="hero.png" alt="A British blueberry in a navy suit and Union-Jack tie">
+</div>
 <div class="idx">{month} &nbsp;·&nbsp; UK imports <b>{imports}K t</b>/yr &nbsp;·&nbsp;
 avg <b>£{avg}/kg</b> &nbsp;·&nbsp; UK-grown <b>{ss}%</b> of supply</div>
 
