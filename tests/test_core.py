@@ -46,8 +46,10 @@ def test_board_data():
     assert "yoy" in rows[0]                               # year-on-year present
     assert abs(sum(r["share"] for r in rows) - 100) < 25  # shares ~sum to the month
     assert b._retail(cur) > 0                             # ONS proxy fallback resolves
-    wk, shelf, per = b._shelf()                           # real Trolley per-retailer shelf
-    assert shelf > 0 and per and all(p["med"] > 0 for p in per)
+    wk, shelf, per, n_packs = b._shelf()                  # real Trolley per-retailer shelf
+    assert shelf > 0 and per and n_packs > 0 and all(p["med"] > 0 for p in per)
+    insn = b._inseason_cif()                               # in-season per-origin landed
+    assert insn and all(3 < c < 12 for _, c in insn)      # sane £/kg, no tiny-lane artefacts
     assert len(b._relay()) == 12                          # 12-month relay
     s = b._summary()
     assert s["imports_kt"] > 20 and 0 < s["ss"] < 20      # sane index strip

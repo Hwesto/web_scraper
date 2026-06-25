@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Britain's Blueberry Board</title>
 <style>
- :root{--ink:#2a2622;--accent:#5a3fb0;--up:#1a8a3c;--down:#c0392b;--line:#dcd4c4}
+ :root{--ink:#2a2622;--accent:#5a3fb0;--up:#157a33;--down:#a8281c;--line:#dcd4c4;--mut:#5f564a}
  *{box-sizing:border-box}
  body{margin:0;color:var(--ink);background:#ece6d8;
    font-family:"Helvetica Neue",Arial,sans-serif;font-weight:700;font-stretch:condensed}
@@ -15,58 +15,75 @@
  .idx{font-size:1rem;color:#6a6052;border-top:2px solid var(--line);border-bottom:2px solid var(--line);
    padding:10px 0;margin:14px 0 26px;font-weight:700}
  .idx b{color:var(--accent)}
- .idx .sub{font-size:.72rem;color:#9a9082;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+ .idx .sub{display:block;font-size:.72rem;color:var(--mut);font-weight:700;text-transform:uppercase;
+   letter-spacing:.08em;margin-bottom:6px}
  .shrow{display:flex;align-items:baseline;gap:.5em 1.1em;flex-wrap:wrap;padding:12px 6px;
    border-bottom:1px solid var(--line)}
  .shrow .nm{font-size:1.5rem;font-weight:800;min-width:9ch}
  .packs{display:flex;flex-wrap:wrap;gap:.4em 1.1em;align-items:baseline}
  .pk{font-size:1.5rem;color:var(--ink);white-space:nowrap}
- .pk .sz{font-size:.92rem;color:#8a8070;font-weight:800;margin-right:.15em}
+ .pk .sz{font-size:.92rem;color:var(--mut);font-weight:800;margin-right:.15em}
  h2{text-transform:uppercase;letter-spacing:.12em;font-size:.82rem;color:var(--accent);
    margin:34px 0 2px;font-weight:800}
- .lede{margin:0 0 14px;font-size:.86rem;color:#8a8070;font-weight:700}
+ .lede{margin:0 0 14px;font-size:.86rem;color:var(--mut);font-weight:700}
+ .strip{display:flex;flex-wrap:wrap;align-items:baseline;gap:.4em 1.1em;font-size:1.15rem;
+   padding:10px 6px 2px}
+ .strip .sl{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);
+   font-weight:800;margin-right:.3em}
+ .aside{font-size:.92rem;color:var(--mut);font-weight:700;line-height:1.5;margin:10px 0 4px;
+   padding:10px 14px;border-left:3px solid var(--line);background:#0000000a;border-radius:0 6px 6px 0}
+ .aside .tag{display:inline-block;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;
+   color:#fff;background:#bcb3a0;border-radius:3px;padding:1px 6px;margin-right:.4em;vertical-align:.1em}
+ .aside b{color:var(--ink)}
  .tk{display:flex;align-items:baseline;gap:.5em 1em;flex-wrap:wrap;padding:14px 6px;
    border-bottom:1px solid var(--line)}
  .sym{display:inline-flex;flex-direction:column;align-self:center;min-width:4.2ch}
  .sym .code{font-size:2.3rem;font-weight:800;letter-spacing:-.03em;line-height:.95}
- .sym .cty{font-size:.62rem;font-weight:700;color:#9a9082;text-transform:uppercase;
+ .sym .cty{font-size:.62rem;font-weight:700;color:var(--mut);text-transform:uppercase;
    letter-spacing:.05em;white-space:nowrap}
- .vol{font-size:1.5rem;color:#5a5347}
- .shr{font-size:1.05rem;color:#8a8070;font-weight:800}
- .at{color:#aaa091;font-size:1.2rem}
+ .vol{font-size:1.5rem;color:#4a4339}
+ .shr{font-size:1.05rem;color:var(--mut);font-weight:800}
+ .at{color:#8a7f6f;font-size:1.2rem}
  .px{font-size:2.1rem;color:var(--ink)}
- .chg{font-size:1.6rem} .up{color:var(--up)} .down{color:var(--down)}
+ .small-lane{font-size:.95rem;color:var(--mut);font-style:italic;font-weight:700;align-self:center}
+ .chg{font-size:1.6rem} .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--mut)}
  .chip{font-size:.78rem;padding:2px 8px;border-radius:20px;font-weight:800;align-self:center;
-   background:#fff8} .chip.up{color:var(--up)} .chip.down{color:var(--down)}
+   background:#fff8} .chip.up{color:var(--up)} .chip.down{color:var(--down)} .chip.flat{color:var(--mut)}
  .relay{display:grid;grid-template-columns:repeat(12,1fr);gap:5px}
  .rc{border:2px solid var(--line);border-radius:7px;padding:8px 2px;text-align:center;
    background:#fffefb}
- .rc b{display:block;font-size:.66rem;color:#9a9082;letter-spacing:.05em}
+ .rc b{display:block;font-size:.66rem;color:var(--mut);letter-spacing:.05em}
  .rc span{font-size:.92rem;font-weight:800}
  .rc.now{box-shadow:0 0 0 2px var(--accent) inset;background:#fff}
+ .rc i{display:block;font-size:.5rem;font-style:normal;font-weight:800;color:var(--accent);
+   text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+ .relay-key{margin:10px 2px 0;font-size:.82rem;color:var(--mut);font-weight:700;line-height:1.7}
  .sell{display:flex;align-items:center;gap:.7em;padding:9px 6px;border-bottom:1px solid var(--line)}
  .sell .sym{min-width:7ch} .sell .sym .code{font-size:1.5rem} .arrow{color:#aaa091}
  .dests{font-size:1.05rem;color:#5a5347;font-weight:700}
  .journey{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}
  .step{flex:1 1 0;min-width:120px;border:2px solid var(--line);border-radius:9px;
    padding:12px 14px;background:#fffefb;display:flex;flex-direction:column;gap:2px}
- .step .sl{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#8a8070;font-weight:800}
+ .step .sl{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:800}
  .step .sv{font-size:2rem;color:var(--accent)}
- .step .sn{font-size:.72rem;color:#9a9082;font-weight:700}
+ .step .sn{font-size:.72rem;color:var(--mut);font-weight:700}
  .step-arrow{align-self:center;color:var(--accent);font-size:1.15rem;font-weight:800;
    white-space:nowrap}
- .note{font-size:1rem;color:#5a5347;font-weight:700;padding:12px 4px;line-height:1.5}
+ .note{font-size:1rem;color:var(--mut);font-weight:700;padding:12px 4px;line-height:1.5}
  .note b{color:var(--accent)}
  .world,.world3{display:grid;grid-template-columns:1fr 1fr;gap:10px 26px}
  .world3{grid-template-columns:1fr 1fr 1fr}
- .world h3{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:#8a8070;
-   margin:6px 0 4px;font-weight:800}
+ .world h3{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);
+   margin:6px 0 1px;font-weight:800}
+ .wsub{font-size:.6rem;color:var(--mut);font-weight:700;text-transform:uppercase;
+   letter-spacing:.04em;margin-bottom:5px;line-height:1.3}
  .wr{display:flex;align-items:baseline;gap:.35em .5em;flex-wrap:wrap;padding:6px 2px;
    border-bottom:1px solid var(--line)}
  .wr .wc{flex:1 1 100%;font-size:.92rem;font-weight:800;color:var(--ink)}
  .wr .wv{font-size:1.05rem;color:var(--accent);font-weight:800}
  .wr .wy{font-size:.72rem;font-weight:800}
- .wr .wk{font-size:.78rem;color:#9a9082;margin-left:auto}
+ .wr .wy.up{color:var(--up)} .wr .wy.down{color:var(--down)} .wr .wy.flat{color:var(--mut)}
+ .wr .wk{font-size:.78rem;color:var(--mut);margin-left:auto}
  @media(max-width:560px){.world,.world3{grid-template-columns:1fr}}
  .mr{display:flex;align-items:baseline;gap:.7em 1em;flex-wrap:wrap;padding:11px 6px;
    border-bottom:1px solid var(--line)}
@@ -74,55 +91,59 @@
  .mr .mv{font-size:1.8rem;color:var(--accent);font-weight:800;min-width:5ch}
  .mr .mbar{flex:1;min-width:90px;height:9px;background:#e2dac9;border-radius:5px;overflow:hidden}
  .mr .mbar i{display:block;height:100%;background:var(--accent);opacity:.55}
- .mr .ms{font-size:.9rem;color:#8a8070;font-weight:700;min-width:11ch;text-align:right}
+ .mr .mbar.exp i{background:repeating-linear-gradient(45deg,#2a9d8f,#2a9d8f 5px,#3fb0a2 5px,#3fb0a2 10px)}
+ .mr .ms{font-size:.9rem;color:var(--mut);font-weight:700;min-width:13ch;text-align:right}
  .foot{margin-top:40px;border-top:2px solid var(--line);padding-top:16px;font-size:.78rem;
-   color:#8a8070;font-weight:700}
+   color:var(--mut);font-weight:700}
  .foot a{color:var(--accent)}
- @media(max-width:560px){h1{font-size:2rem}.sym{font-size:1.8rem}.px{font-size:1.6rem}
+ @media(max-width:560px){h1{font-size:2rem}.sym .code{font-size:1.8rem}.px{font-size:1.6rem}
+   .step .sv{font-size:1.7rem}.mr .mv{font-size:1.5rem}
    .relay{grid-template-columns:repeat(6,1fr)}.hero{width:112px}}
 </style></head><body><div class="wrap">
 <div class="masthead">
  <div class="head">
-  <div class="kick">🫐 the UK fresh-blueberry market</div>
+  <div class="kick"><span aria-hidden="true">🫐</span> the UK fresh-blueberry market</div>
   <h1>Britain's Blueberry Board</h1>
  </div>
  <img class="hero" src="hero.png" alt="A British blueberry in a navy suit and Union-Jack tie">
 </div>
-<div class="idx">Apr 2026 &nbsp;·&nbsp; <b>6,966 t</b> landed (<b>£43m</b>) &nbsp;·&nbsp;
-UK-grown <b>5.5%</b> &nbsp;·&nbsp; <b>68K t</b> / <b>£389m</b> a year &nbsp;·&nbsp; world's <b>#4</b> importer</div>
+<div class="idx"><span class="sub">data through Apr 2026 · latest settled HMRC month · ~12 wks behind today · other sections carry their own date</span>
+This month <b>6,966 t</b> / <b>£43m</b> landed &nbsp;·&nbsp; year <b>68K t</b> / <b>£389m</b> &nbsp;·&nbsp; UK-grown <b>5.5%</b> &nbsp;·&nbsp; world's <b>#4</b> importer</div>
 
 <h2>Who's landing this month</h2>
-<p class="lede">tonnes · share · landed £/kg · ▲▼ vs last month · y/y volume</p>
-<div class="tk"><span class="sym" style="color:#e8833a"><span class="code">MAR</span><span class="cty">Morocco</span></span><span class="vol">5.8K t</span><span class="shr">84%</span><span class="at">@</span><span class="px">£6.20</span><span class="chg down">▼ £0.66</span><span class="chip up">+0% y/y</span></div>
-<div class="tk"><span class="sym" style="color:#c9a227"><span class="code">ESP</span><span class="cty">Spain</span></span><span class="vol">562 t</span><span class="shr">8%</span><span class="at">@</span><span class="px">£6.54</span><span class="chg down">▼ £2.61</span><span class="chip up">+43% y/y</span></div>
-<div class="tk"><span class="sym" style="color:#7a8699"><span class="code">NLD</span><span class="cty">Netherlands</span></span><span class="vol">281 t</span><span class="shr">4%</span><span class="at">@</span><span class="px">£6.90</span><span class="chg down">▼ £1.00</span><span class="chip up">+226% y/y</span></div>
-<div class="tk"><span class="sym" style="color:#4c5fd5"><span class="code">PER</span><span class="cty">Peru</span></span><span class="vol">105 t</span><span class="shr">2%</span><span class="at">@</span><span class="px">£6.01</span><span class="chg up">▲ £0.64</span><span class="chip up">+197% y/y</span></div>
-<div class="tk"><span class="sym" style="color:#2a9d8f"><span class="code">ZAF</span><span class="cty">South Africa</span></span><span class="vol">8 t</span><span class="shr">0%</span><span class="at">@</span><span class="px">£10.00</span><span class="chg up">▲ £1.37</span></div>
+<p class="lede">Apr 2026 · tonnes · share · landed £/kg · ▲▼ vs last month · y/y volume (material lanes only)</p>
+<div class="tk"><span class="sym" style="color:#e8833a"><span class="code">MAR</span><span class="cty">Morocco</span></span><span class="vol">5.8K t</span><span class="shr">84%</span><span class="at">@</span><span class="px">£6.20</span><span class="chg down">▼ £0.66</span><span class="chip flat">▬ ±0% y/y</span></div>
+<div class="tk"><span class="sym" style="color:#c9a227"><span class="code">ESP</span><span class="cty">Spain</span></span><span class="vol">562 t</span><span class="shr">8%</span><span class="at">@</span><span class="px">£6.54</span><span class="chg down">▼ £2.61</span><span class="chip up">▲ +43% y/y</span></div>
+<div class="tk"><span class="sym" style="color:#7a8699"><span class="code">NLD</span><span class="cty">Netherlands</span></span><span class="vol">281 t</span><span class="shr">4%</span><span class="at">@</span><span class="px">£6.90</span><span class="chg down">▼ £1.00</span></div>
+<div class="tk"><span class="sym" style="color:#4c5fd5"><span class="code">PER</span><span class="cty">Peru</span></span><span class="vol">105 t</span><span class="shr">2%</span><span class="at">@</span><span class="px">£6.01</span><span class="chg up">▲ £0.64</span></div>
+<div class="tk"><span class="sym" style="color:#2a9d8f"><span class="code">ZAF</span><span class="cty">South Africa</span></span><span class="vol">8 t</span><span class="shr"><1%</span><span class="small-lane">small lane — no reliable price</span></div>
 
 <h2>The price journey</h2>
-<p class="lede">border to shelf · per kilo (dates differ)</p>
-<div class="journey"><div class="step"><span class="sl">Landed</span><span class="sv">£6.24</span><span class="sn">import CIF · Apr</span></div><div class="step-arrow">+67%</div><div class="step"><span class="sl">Shelf</span><span class="sv">£10.43</span><span class="sn">supermarket · this wk</span></div></div>
-<div class="note">UK-grown, British-season <b>wholesale</b> (DEFRA · New Covent Garden) runs higher again — <b>£13.18/kg</b> (Jun 2026) — premium loose fruit, a different product to imported retail.</div>
+<p class="lede">border to shelf · per kilo · all-origin blend (dates differ)</p>
+<div class="journey"><div class="step"><span class="sl">Landed</span><span class="sv">£5.75</span><span class="sn">all-origin blend · import CIF · 12-mo avg</span></div><div class="step-arrow">+58%</div><div class="step"><span class="sl">Shelf</span><span class="sv">£9.10</span><span class="sn">supermarket · wk 22 Jun</span></div></div>
+<div class="strip"><span class="sl">In season, landed £/kg</span><span style="color:#6b3fa0"><b>CHL</b> £4.76</span> · <span style="color:#7a8699"><b>NLD</b> £5.03</span> · <span style="color:#4c5fd5"><b>PER</b> £5.69</span> · <span style="color:#e8833a"><b>MAR</b> £5.82</span> · <span style="color:#2a9d8f"><b>ZAF</b> £6.16</span> · <span style="color:#c9a227"><b>ESP</b> £6.19</span></div>
+<div class="aside"><span class="tag">not a journey step</span> UK-grown, British-season <b>wholesale</b> (DEFRA · New Covent Garden) is <b>£13.18/kg</b> (Jun 2026) — premium loose fruit sold spot, a different product/season to imported retail, so it sits above both prices above.</div>
 
 <h2>On the shelf this week</h2>
-<p class="lede">£/kg by retailer · 22 Jun 2026</p>
+<p class="lede">3 of 11 retailers · 6 packs · w/c 22 Jun 2026 · £/kg = pack price ÷ weight, so small punnets read dearer</p>
 <div class="shrow"><span class="nm" style="color:#5fae2b">Asda</span><span class="packs"><span class="pk"><b class="sz">300g</b> £9.87</span><span class="pk"><b class="sz">500g</b> £8.64</span></span></div><div class="shrow"><span class="nm" style="color:#f06c00">Sainsbury's</span><span class="packs"><span class="pk"><b class="sz">300g</b> £11.00</span></span></div><div class="shrow"><span class="nm" style="color:#00539f">Tesco</span><span class="packs"><span class="pk"><b class="sz">150g</b> £14.67</span><span class="pk"><b class="sz">250g</b> £11.00</span><span class="pk"><b class="sz">500g</b> £9.10</span></span></div>
 
 <h2>The relay</h2>
-<p class="lede">who leads UK supply each month</p>
-<div class="relay"><div class="rc" style="border-color:#6b3fa0"><b>Jan</b><span style="color:#6b3fa0">CHL</span></div><div class="rc" style="border-color:#6b3fa0"><b>Feb</b><span style="color:#6b3fa0">CHL</span></div><div class="rc" style="border-color:#e8833a"><b>Mar</b><span style="color:#e8833a">MAR</span></div><div class="rc now" style="border-color:#e8833a"><b>Apr</b><span style="color:#e8833a">MAR</span></div><div class="rc" style="border-color:#e8833a"><b>May</b><span style="color:#e8833a">MAR</span></div><div class="rc" style="border-color:#c9a227"><b>Jun</b><span style="color:#c9a227">ESP</span></div><div class="rc" style="border-color:#b1543a"><b>Jul</b><span style="color:#b1543a">POL</span></div><div class="rc" style="border-color:#b1543a"><b>Aug</b><span style="color:#b1543a">POL</span></div><div class="rc" style="border-color:#4c5fd5"><b>Sep</b><span style="color:#4c5fd5">PER</span></div><div class="rc" style="border-color:#4c5fd5"><b>Oct</b><span style="color:#4c5fd5">PER</span></div><div class="rc" style="border-color:#4c5fd5"><b>Nov</b><span style="color:#4c5fd5">PER</span></div><div class="rc" style="border-color:#2a9d8f"><b>Dec</b><span style="color:#2a9d8f">ZAF</span></div></div>
+<p class="lede">who leads UK supply each month · typical year (5-yr pattern)</p>
+<div class="relay"><div class="rc" title="Chile" style="border-color:#6b3fa0"><b>Jan</b><span style="color:#6b3fa0">CHL</span></div><div class="rc" title="Chile" style="border-color:#6b3fa0"><b>Feb</b><span style="color:#6b3fa0">CHL</span></div><div class="rc" title="Morocco" style="border-color:#e8833a"><b>Mar</b><span style="color:#e8833a">MAR</span></div><div class="rc" title="Morocco" style="border-color:#e8833a"><b>Apr</b><span style="color:#e8833a">MAR</span></div><div class="rc" title="Morocco" style="border-color:#e8833a"><b>May</b><span style="color:#e8833a">MAR</span></div><div class="rc now" title="Spain" style="border-color:#c9a227"><b>Jun</b><span style="color:#c9a227">ESP</span><i>now</i></div><div class="rc" title="Poland" style="border-color:#b1543a"><b>Jul</b><span style="color:#b1543a">POL</span></div><div class="rc" title="Poland" style="border-color:#b1543a"><b>Aug</b><span style="color:#b1543a">POL</span></div><div class="rc" title="Peru" style="border-color:#4c5fd5"><b>Sep</b><span style="color:#4c5fd5">PER</span></div><div class="rc" title="Peru" style="border-color:#4c5fd5"><b>Oct</b><span style="color:#4c5fd5">PER</span></div><div class="rc" title="Peru" style="border-color:#4c5fd5"><b>Nov</b><span style="color:#4c5fd5">PER</span></div><div class="rc" title="South Africa" style="border-color:#2a9d8f"><b>Dec</b><span style="color:#2a9d8f">ZAF</span></div></div>
+<div class="relay-key"><b style="color:#6b3fa0">CHL</b> Chile · <b style="color:#e8833a">MAR</b> Morocco · <b style="color:#c9a227">ESP</b> Spain · <b style="color:#b1543a">POL</b> Poland · <b style="color:#4c5fd5">PER</b> Peru · <b style="color:#2a9d8f">ZAF</b> South Africa</div>
 
-<h2>Where each player else ships</h2>
-<p class="lede">2024 · % of their tonnage</p>
+<h2>Where each origin sends its fruit</h2>
+<p class="lede">2024 · % of their tonnage · includes the UK</p>
 <div class="sell"><span class="sym" style="color:#4c5fd5"><span class="code">PER</span><span class="cty">Peru</span></span><span class="arrow">→</span><span class="dests">USA 55% · NLD 22% · HK 8% · UK 5%</span></div><div class="sell"><span class="sym" style="color:#6b3fa0"><span class="code">CHL</span><span class="cty">Chile</span></span><span class="arrow">→</span><span class="dests">USA 45% · NLD 22% · GER 8% · UK 8%</span></div><div class="sell"><span class="sym" style="color:#e8833a"><span class="code">MAR</span><span class="cty">Morocco</span></span><span class="arrow">→</span><span class="dests">ESP 30% · NLD 22% · UK 22% · GER 6%</span></div><div class="sell"><span class="sym" style="color:#2a9d8f"><span class="code">ZAF</span><span class="cty">South Africa</span></span><span class="arrow">→</span><span class="dests">UK 36% · NLD 30% · UAE 7% · GER 6%</span></div><div class="sell"><span class="sym" style="color:#c9a227"><span class="code">ESP</span><span class="cty">Spain</span></span><span class="arrow">→</span><span class="dests">GER 32% · NLD 16% · POL 12% · UK 8%</span></div><div class="sell"><span class="sym" style="color:#7a8699"><span class="code">NLD</span><span class="cty">Netherlands</span></span><span class="arrow">→</span><span class="dests">GER 30% · POL 12% · BEL 11% · ESP 5%</span></div>
 <div class="note">↩ The UK also <b>re-exports ~2.0 kt/yr</b> of fresh blueberries — mostly NLD 0.9kt, IRL 0.8kt, FRA 0.1kt.</div>
 
-<h2>The world's blueberry map</h2><p class="lede">UK is the world's #4 importer · grow → export → import · 2024 · FAOSTAT production, UN Comtrade trade</p><div class="world3"><div class="wcol"><h3>Top growers</h3><div class="wr"><span class="wc">United States</span><span class="wv">402 kt</span><span class="wy up">+21%</span></div><div class="wr"><span class="wc">Peru</span><span class="wv">354 kt</span><span class="wy up">+54%</span></div><div class="wr"><span class="wc">Canada</span><span class="wv">166 kt</span><span class="wy up">+6%</span></div><div class="wr"><span class="wc">Chile</span><span class="wv">97 kt</span><span class="wy down">-21%</span></div><div class="wr"><span class="wc">Mexico</span><span class="wv">81 kt</span><span class="wy up">+0%</span></div><div class="wr"><span class="wc">Poland</span><span class="wv">62 kt</span><span class="wy up">+0%</span></div></div><div class="wcol"><h3>Top exporters</h3><div class="wr"><span class="wc">Peru</span><span class="wv">$2.2bn</span><span class="wy up">+32%</span><span class="wk">326 kt</span></div><div class="wr"><span class="wc">Netherlands</span><span class="wv">$703m</span><span class="wy up">+30%</span><span class="wk">91 kt</span></div><div class="wr"><span class="wc">Spain</span><span class="wv">$577m</span><span class="wy up">+13%</span><span class="wk">87 kt</span></div><div class="wr"><span class="wc">Chile</span><span class="wv">$468m</span><span class="wy up">+18%</span><span class="wk">90 kt</span></div><div class="wr"><span class="wc">Morocco</span><span class="wv">$427m</span><span class="wy up">+35%</span><span class="wk">68 kt</span></div><div class="wr"><span class="wc">United States</span><span class="wv">$392m</span><span class="wy up">+28%</span><span class="wk">79 kt</span></div></div><div class="wcol"><h3>Top importers</h3><div class="wr"><span class="wc">United States</span><span class="wv">$2.4bn</span><span class="wy up">+24%</span><span class="wk">350 kt</span></div><div class="wr"><span class="wc">Netherlands</span><span class="wv">$789m</span><span class="wy up">+32%</span><span class="wk">118 kt</span></div><div class="wr"><span class="wc">Germany</span><span class="wv">$588m</span><span class="wy up">+19%</span><span class="wk">83 kt</span></div><div class="wr"><span class="wc">United Kingdom</span><span class="wv">$520m</span><span class="wy up">+30%</span><span class="wk">72 kt</span></div><div class="wr"><span class="wc">Canada</span><span class="wv">$402m</span><span class="wy up">+29%</span><span class="wk">82 kt</span></div><div class="wr"><span class="wc">China</span><span class="wv">$355m</span><span class="wy up">+36%</span><span class="wk">39 kt</span></div></div></div><div class="note">⚠ <b>China</b> looks small here because it grows most of what it eats — widely reported (IBO) as the world's largest producer, yet it reports no blueberry output to FAOSTAT and imports little, so <b>no free dataset captures its true scale</b>. The US is also a major grower; Netherlands, Belgium &amp; Hong Kong are re-export hubs.</div>
+<h2>The world's blueberry map</h2><p class="lede">UK is the world's #4 importer · grow → export → import · 2024 · FAOSTAT production, UN Comtrade trade</p><div class="note">† <b>China</b> looks small here but grows most of what it eats — reported (IBO) as the world's largest producer, yet it reports no output to FAOSTAT and imports little, so <b>no free dataset captures its true scale</b>. Netherlands, Belgium &amp; Hong Kong are re-export hubs (high trade, low home demand).</div><div class="world3"><div class="wcol"><h3>Top growers</h3><div class="wsub">production · kt · y/y tonnage</div><div class="wr"><span class="wc">United States</span><span class="wv">402 kt</span><span class="wy up">▲ +21%</span></div><div class="wr"><span class="wc">Peru</span><span class="wv">354 kt</span><span class="wy up">▲ +54%</span></div><div class="wr"><span class="wc">Canada</span><span class="wv">166 kt</span><span class="wy up">▲ +6%</span></div><div class="wr"><span class="wc">Chile</span><span class="wv">97 kt</span><span class="wy down">▼ -21%</span></div><div class="wr"><span class="wc">Mexico</span><span class="wv">81 kt</span><span class="wy flat">▬ ±0%</span></div><div class="wr"><span class="wc">Poland</span><span class="wv">62 kt</span><span class="wy flat">▬ ±0%</span></div></div><div class="wcol"><h3>Top exporters</h3><div class="wsub">trade value · $ · y/y value · kt volume</div><div class="wr"><span class="wc">Peru</span><span class="wv">$2.2bn</span><span class="wy up">▲ +32%</span><span class="wk">326 kt</span></div><div class="wr"><span class="wc">Netherlands</span><span class="wv">$703m</span><span class="wy up">▲ +30%</span><span class="wk">91 kt</span></div><div class="wr"><span class="wc">Spain</span><span class="wv">$577m</span><span class="wy up">▲ +13%</span><span class="wk">87 kt</span></div><div class="wr"><span class="wc">Chile</span><span class="wv">$468m</span><span class="wy up">▲ +18%</span><span class="wk">90 kt</span></div><div class="wr"><span class="wc">Morocco</span><span class="wv">$427m</span><span class="wy up">▲ +35%</span><span class="wk">68 kt</span></div><div class="wr"><span class="wc">United States</span><span class="wv">$392m</span><span class="wy up">▲ +28%</span><span class="wk">79 kt</span></div></div><div class="wcol"><h3>Top importers</h3><div class="wsub">trade value · $ · y/y value · kt volume</div><div class="wr"><span class="wc">United States</span><span class="wv">$2.4bn</span><span class="wy up">▲ +24%</span><span class="wk">350 kt</span></div><div class="wr"><span class="wc">Netherlands</span><span class="wv">$789m</span><span class="wy up">▲ +32%</span><span class="wk">118 kt</span></div><div class="wr"><span class="wc">Germany</span><span class="wv">$588m</span><span class="wy up">▲ +19%</span><span class="wk">83 kt</span></div><div class="wr"><span class="wc">United Kingdom</span><span class="wv">$520m</span><span class="wy up">▲ +30%</span><span class="wk">72 kt</span></div><div class="wr"><span class="wc">Canada</span><span class="wv">$402m</span><span class="wy up">▲ +29%</span><span class="wk">82 kt</span></div><div class="wr"><span class="wc">China†</span><span class="wv">$355m</span><span class="wy up">▲ +36%</span><span class="wk">39 kt</span></div></div></div>
 
-<h2>Domestic market — who actually eats it</h2><p class="lede">apparent consumption = production + imports − exports · 2024 · de-hubs the re-exporters</p><div class="mr"><span class="mc">United States</span><span class="mv">672 kt</span><span class="mbar"><i style="width:60%"></i></span><span class="ms">60% home-grown</span></div><div class="mr"><span class="mc">China†</span><span class="mv">561 kt</span><span class="mbar"><i style="width:94%"></i></span><span class="ms">94% home-grown</span></div><div class="mr"><span class="mc">Canada</span><span class="mv">176 kt</span><span class="mbar"><i style="width:94%"></i></span><span class="ms">94% home-grown</span></div><div class="mr"><span class="mc">Germany</span><span class="mv">86 kt</span><span class="mbar"><i style="width:18%"></i></span><span class="ms">18% home-grown</span></div><div class="mr"><span class="mc">United Kingdom</span><span class="mv">74 kt</span><span class="mbar"><i style="width:5%"></i></span><span class="ms">5% home-grown</span></div><div class="mr"><span class="mc">Poland</span><span class="mv">65 kt</span><span class="mbar"><i style="width:96%"></i></span><span class="ms">96% home-grown</span></div><div class="mr"><span class="mc">Mexico</span><span class="mv">34 kt</span><span class="mbar"><i style="width:100%"></i></span><span class="ms">100% home-grown</span></div><div class="note">† <b>China</b> production is a sourced industry estimate (Produce Report / IBO, ~525 kt 2023) — it reports none to FAOSTAT; all other production is FAOSTAT (UK: DEFRA).</div>
+<h2>Domestic market — who actually eats it</h2><p class="lede">apparent consumption = production + imports − exports · 2024 · de-hubs the re-exporters</p><div class="mr"><span class="mc">United States</span><span class="mv">672 kt</span><span class="mbar"><i style="width:60%"></i></span><span class="ms">60% home-grown</span></div><div class="mr"><span class="mc">China†</span><span class="mv">561 kt</span><span class="mbar"><i style="width:94%"></i></span><span class="ms">94% home-grown</span></div><div class="mr"><span class="mc">Canada</span><span class="mv">176 kt</span><span class="mbar"><i style="width:94%"></i></span><span class="ms">94% home-grown</span></div><div class="mr"><span class="mc">Germany</span><span class="mv">86 kt</span><span class="mbar"><i style="width:18%"></i></span><span class="ms">18% home-grown</span></div><div class="mr"><span class="mc">United Kingdom</span><span class="mv">74 kt</span><span class="mbar"><i style="width:5%"></i></span><span class="ms">5% home-grown</span></div><div class="mr"><span class="mc">Poland</span><span class="mv">65 kt</span><span class="mbar"><i style="width:96%"></i></span><span class="ms">96% home-grown</span></div><div class="mr"><span class="mc">Mexico</span><span class="mv">34 kt</span><span class="mbar exp"><i style="width:100%"></i></span><span class="ms">net exporter · grows 2.4× what it eats</span></div><div class="note">† <b>China</b> production is a sourced industry estimate (Produce Report / IBO, ~525 kt 2023) — it reports none to FAOSTAT; all other production is FAOSTAT (UK: DEFRA).</div>
 
-<div class="foot">Free data: HMRC OTS (monthly imports + re-exports, ~6-wk lag) · UN Comtrade
-(global trade + destinations) · DEFRA (UK production + wholesale price) · Trolley (multi-retailer shelf, weekly).
-Auto-updates weekly · <a href="deep.html">full editorial view →</a> ·
-generated 2026-06-25.</div>
+<div class="foot">As-of dates vary by source: imports/re-exports through Apr 2026 (HMRC OTS, the latest settled
+month, ~6–12 wks behind today); shelf this week (Trolley); world trade/production latest complete year
+(UN Comtrade + FAOSTAT); UK production + wholesale (DEFRA). Auto-updates weekly ·
+<a href="deep.html">full editorial view →</a> · generated 2026-06-25.</div>
 </div></body></html>

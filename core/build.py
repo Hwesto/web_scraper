@@ -28,7 +28,7 @@ def build() -> str:
          "_share of last-12-month imports; CIF £/kg = price brought in (declared landed "
          "value, often consignment-settled); variety from Chile DUS only._", "",
          _md(v1), "",
-         "## View 2 — where each major player else ships (2024, % of their tonnage)",
+         "## View 2 — where each origin sends its fruit (2024, % of their tonnage)",
          "_UN Comtrade, annual — the resolution complete for all players (monthly is patchy)._", ""]
     for p in player_exports.PLAYERS.values():
         d = player_exports.by_player(p).head(6).copy()

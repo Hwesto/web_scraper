@@ -1,9 +1,10 @@
 """Britain's Blueberry Board — a stock-ticker view of the UK fresh-blueberry market.
 
-At-a-glance MONTHLY: one ticker per origin (HMRC) — SYMBOL · tonnes · @ CIF £/kg ·
-▲▼ price move vs prior month · volume %Δ chip. Plus the relay (who leads each month)
-and where each major player else ships (Comtrade annual). Pure HTML/CSS, GitHub Pages.
-Reads only committed data. Run: python -m core.build_board
+At-a-glance MONTHLY: one ticker per origin (HMRC) — SYMBOL · tonnes · share · landed
+CIF £/kg · ▲▼ vs last month · y/y volume chip (material lanes only). Plus the price
+journey (12-mo blend landed → shelf), the relay (who leads each month), where each
+origin sends its fruit, the world map (grow→export→import) and the domestic market.
+Pure HTML/CSS, GitHub Pages. Reads only committed data. Run: python -m core.build_board
 """
 from __future__ import annotations
 
@@ -33,11 +34,23 @@ DEST_CODE = {"United Kingdom": "UK", "United States": "USA", "Hong Kong": "HK",
              "Belgium": "BEL", "Italy": "ITA", "Spain": "ESP", "Poland": "POL",
              "Sweden": "SWE", "Russia": "RUS", "Brazil": "BRA", "Argentina": "ARG",
              "Chile": "CHL", "Colombia": "COL", "Costa Rica": "CRI",
-             "Ecuador": "ECU", "Israel": "ISR", "Qatar": "QAT"}
+             "Ecuador": "ECU", "Israel": "ISR", "Qatar": "QAT", "France": "FRA",
+             "Mexico": "MEX", "Switzerland": "CHE", "Denmark": "DNK", "Norway": "NOR",
+             "Austria": "AUT", "Portugal": "PRT", "Vietnam": "VNM", "Indonesia": "IDN"}
+
+# Ticker materiality floors — below these a £/kg or a y/y move is a customs
+# rounding artefact (single consignment), not a signal.
+PRICE_FLOOR_SHARE = 0.5   # % of the month: suppress @£/kg + ▲▼ below this
+YOY_MIN_SHARE = 3.0       # % of the month  } both required for a y/y chip
+YOY_MIN_T = 500           # tonnes          } (kills big % on tiny bases)
 
 
 def _dcode(name: str) -> str:
-    return DEST_CODE.get(name) or CODE.get(name) or str(name)[:3].upper()
+    code = DEST_CODE.get(name) or CODE.get(name)
+    if code:
+        return code
+    print(f"[build_board] WARN: no DEST_CODE for {name!r}; using {name[:3].upper()}")
+    return str(name)[:3].upper()
 
 
 # Supermarket brand colours (logo primaries)
@@ -98,6 +111,36 @@ def _board():
     return pd.Timestamp(cur), pd.Timestamp(prev), rows, tot, mavg, mval
 
 
+# The origins that actually supply the UK in volume — the strip stays legible and
+# avoids tiny-lane unit-value artefacts (e.g. a few hundred kg of US fruit @ £2/kg).
+INSEASON_ORIGINS = ["Chile", "Peru", "Morocco", "Spain", "Netherlands", "South Africa"]
+
+
+def _inseason_cif(years=3, frac=0.25, min_t=2000):
+    """Per-origin volume-weighted CIF £/kg over each origin's *in-season* months
+    (months where it moves ≥`frac` of its own peak month), last `years` years,
+    for the major UK-supply origins carrying ≥`min_t` tonnes in that window.
+    Returns [(origin, £/kg)] cheapest→dearest — the counter-season workhorse
+    prices a single thin month (April) never reveals.
+    """
+    v = vintage.latest("hmrc_blueberry_imports").copy(); v["d"] = pd.to_datetime(v["ref_period"])
+    val = vintage.latest("hmrc_blueberry_import_value").copy(); val["d"] = pd.to_datetime(val["ref_period"])
+    cut = v["d"].max() - pd.DateOffset(years=years)
+    v, val = v[v["d"] >= cut], val[val["d"] >= cut]
+    out = []
+    for o in INSEASON_ORIGINS:
+        vo = v[v["key"] == o]
+        by_m = vo.groupby("d")["value"].sum()
+        if by_m.empty or by_m.max() <= 0:
+            continue
+        months = by_m[by_m >= frac * by_m.max()].index
+        kg = vo[vo["d"].isin(months)]["value"].sum()
+        gbp = val[(val["key"] == o) & (val["d"].isin(months))]["value"].sum()
+        if kg > min_t:                                # real volume → trustworthy price
+            out.append((o, gbp / (kg * 1000)))
+    return sorted(out, key=lambda x: x[1])
+
+
 def _retail(month):
     """UK shelf £/kg for the given month — ONS monthly berries proxy (year-round fallback)."""
     r = vintage.latest("ons_blueberry_retail_price").copy()
@@ -112,31 +155,33 @@ def _retail(month):
 def _shelf():
     """Real blueberry shelf £/kg from the weekly Trolley multi-retailer scrape.
 
-    Returns (week, median_standard_£/kg, [per-retailer rows]). Keys are
-    `Retailer|tier|pack`; we headline on the standard tier (organic/finest are
-    premium). Empty → caller falls back to the ONS proxy.
+    Returns (week, headline_£/kg, [per-retailer rows], n_packs). Keys are
+    `Retailer|tier|pack`; we use the standard tier (organic/finest are premium).
+    The headline is PACK-NORMALISED — the median across retailers of each
+    retailer's *largest* pack — because small punnets (150g) carry a much higher
+    £/kg and would inflate a naive all-pack median. Empty → caller uses the proxy.
     """
     try:
         r = vintage.latest("retail_blueberry_price").copy()
     except Exception:
-        return None, float("nan"), []
+        return None, float("nan"), [], 0
     if r.empty:
-        return None, float("nan"), []
+        return None, float("nan"), [], 0
     r["d"] = pd.to_datetime(r["ref_period"])
     r = r[r["d"] == r["d"].max()]
     parts = r["key"].str.split("|", expand=True)
     r["retailer"], r["tier"], r["pack"] = parts[0], parts[1], parts[2]
     std = r[r["tier"] == "standard"]
     base = std if not std.empty else r
-    per = []
+    per, big = [], []
     for ret, g in base.groupby("retailer"):
-        packs = [{"pack": str(t.pack), "kg": float(t.value)}
-                 for t in g.itertuples()]
+        packs = [{"pack": str(t.pack), "kg": float(t.value)} for t in g.itertuples()]
         packs.sort(key=lambda p: _grams(p["pack"]))   # small -> large
-        per.append({"retailer": ret, "med": float(g["value"].median()),
-                    "packs": packs})
+        per.append({"retailer": ret, "med": float(g["value"].median()), "packs": packs})
+        big.append(packs[-1]["kg"])                   # largest pack's £/kg
     per.sort(key=lambda x: x["med"])
-    return r["d"].max(), float(base["value"].median()), per
+    headline = float(pd.Series(big).median()) if big else float("nan")
+    return r["d"].max(), headline, per, int(len(base))
 
 
 def _relay(v=None):
@@ -252,26 +297,44 @@ def _consumption():
         cons = P + imp.get(c, 0.0) - exp.get(c, 0.0)
         if cons <= 0:
             continue
-        ss = min(P / cons * 100, 100) if cons > 0 else float("nan")
+        ss = P / cons * 100 if cons > 0 else float("nan")   # uncapped: >100% = net exporter
         rows.append((c, cons, ss, src))
     rows.sort(key=lambda r: -r[1])
     return yr, rows[:7]
 
 
+def _delta_chip(val, unit, cls_set=("up", "down", "flat")):
+    """A coloured ▲/▼/▬ chip with a value, neutral when essentially flat."""
+    up, down, flat = cls_set
+    cls = flat if abs(val) < 0.5 else (up if val > 0 else down)
+    arr = "▬" if cls == flat else ("▲" if val > 0 else "▼")
+    return cls, arr
+
+
 def _ticker_html(r) -> str:
-    up = r["dprice"] >= 0
-    arr, cls = ("▲", "up") if up else ("▼", "down")
     tt = f"{r['t']/1000:.1f}K" if r["t"] >= 1000 else f"{r['t']:.0f}"
-    yo = "" if r["yoy"] != r["yoy"] else (   # YoY volume vs same month last year
-        f'<span class="chip {"up" if r["yoy"]>=0 else "down"}">'
-        f'{"+" if r["yoy"]>=0 else ""}{r["yoy"]:.0f}% y/y</span>')
+    shr = f'{r["share"]:.0f}%' if r["share"] >= 1 else "<1%"
+    # @£/kg + ▲▼ only when the lane carries enough volume to trust the unit value
+    if r["share"] >= PRICE_FLOOR_SHARE and r["cif"] == r["cif"]:
+        cls, arr = _delta_chip(r["dprice"], "")
+        price = (f'<span class="at">@</span><span class="px">£{r["cif"]:.2f}</span>'
+                 f'<span class="chg {cls}">{arr} £{abs(r["dprice"]):.2f}</span>')
+    else:
+        price = '<span class="small-lane">small lane — no reliable price</span>'
+    # y/y volume chip: only on a material base; cap tiny-base blow-ups
+    yo = ""
+    if r["yoy"] == r["yoy"] and r["share"] >= YOY_MIN_SHARE and r["t"] >= YOY_MIN_T:
+        y = r["yoy"]
+        cls, arr = _delta_chip(y, "")
+        lbl = ("±0%" if cls == "flat" else ">+100%" if y >= 100
+               else "<-100%" if y <= -100 else f'{"+" if y >= 0 else ""}{y:.0f}%')
+        yo = f'<span class="chip {cls}">{arr} {lbl} y/y</span>'
     return (f'<div class="tk">'
             f'<span class="sym" style="color:{COLR.get(r["origin"], "#5a3fb0")}">'
             f'<span class="code">{r["code"]}</span><span class="cty">{r["origin"]}</span></span>'
             f'<span class="vol">{tt} t</span>'
-            f'<span class="shr">{r["share"]:.0f}%</span>'
-            f'<span class="at">@</span><span class="px">£{r["cif"]:.2f}</span>'
-            f'<span class="chg {cls}">{arr} £{abs(r["dprice"]):.2f}</span>{yo}</div>')
+            f'<span class="shr">{shr}</span>'
+            f'{price}{yo}</div>')
 
 
 def _money(usd):
@@ -283,34 +346,47 @@ def build() -> str:
     cur, prev, rows, tot, mavg, mval = _board()
     relay = _relay()
     s = _summary()
-    shelf_wk, shelf, per = _shelf()
-    shelf_lbl = "this wk"
+    landed = s["avg"]                        # 12-mo volume-weighted blended CIF £/kg
+    shelf_wk, shelf, per, n_packs = _shelf()
+    shelf_lbl = f"wk {pd.Timestamp(shelf_wk).strftime('%-d %b')}" if shelf_wk is not None else "this wk"
     if shelf != shelf:                       # no Trolley data → ONS monthly proxy
-        shelf, shelf_lbl = _retail(cur), "proxy"
+        shelf, shelf_lbl = _retail(cur), "ONS proxy"
     when_w, whole = _wholesale()
     rex_kt, rex_top = _reexports()
     wyr, uk_rank, wgro, wexp, wimp = _world()
     cur_m = cur.month
+    lag_wks = int((pd.Timestamp(_dt.date.today()) - cur).days / 7)
     board = "\n".join(_ticker_html(r) for r in rows)
-    # The price journey — landed import CIF (HMRC) → supermarket shelf (Trolley).
+    # The price journey — all-origin LANDED import CIF (12-mo volume-weighted, so a
+    # thin shoulder month can't swing it) → supermarket SHELF (pack-normalised).
     # DEFRA wholesale is deliberately NOT a middle step: it's British-season,
-    # home-grown New Covent Garden spot (premium loose fruit), so it runs above
-    # both — a different product/season, shown as a side-note not a false ladder.
+    # home-grown New Covent Garden spot (premium loose fruit) that runs above both —
+    # a different product/season, shown as an aside not a false ladder.
     def _step(label, val, note):
         v = f"£{val:.2f}" if val == val else "—"
         return (f'<div class="step"><span class="sl">{label}</span>'
                 f'<span class="sv">{v}</span><span class="sn">{note}</span></div>')
-    markup = (f'+{(shelf/mavg - 1)*100:.0f}%'
-              if (mavg == mavg and mavg > 0 and shelf == shelf) else '→')
-    journey = (f'{_step("Landed", mavg, f"import CIF · {MONTHS[cur.month-1]}")}'
+    markup = (f'+{(shelf/landed - 1)*100:.0f}%'
+              if (landed == landed and landed > 0 and shelf == shelf) else '→')
+    journey = (f'{_step("Landed", landed, "all-origin blend · import CIF · 12-mo avg")}'
                f'<div class="step-arrow">{markup}</div>'
                f'{_step("Shelf", shelf, f"supermarket · {shelf_lbl}")}')
+    # In-season per-origin landed prices — the cheap counter-season workhorses a
+    # single shoulder month hides (Chile is out of season in April and never shows).
+    insn = _inseason_cif()
+    strip = ""
+    if insn:
+        chips = " · ".join(
+            f'<span style="color:{COLR.get(o, "#5a3fb0")}"><b>{CODE.get(o, o[:3].upper())}</b> £{c:.2f}</span>'
+            for o, c in insn)
+        strip = (f'<div class="strip"><span class="sl">In season, landed £/kg</span>{chips}</div>')
     whole_note = ""
     if whole == whole and when_w is not None:
-        whole_note = (f'<div class="note">UK-grown, British-season <b>wholesale</b> '
-                      f'(DEFRA · New Covent Garden) runs higher again — '
-                      f'<b>£{whole:.2f}/kg</b> ({pd.Timestamp(when_w).strftime("%b %Y")}) '
-                      f'— premium loose fruit, a different product to imported retail.</div>')
+        whole_note = (f'<div class="aside"><span class="tag">not a journey step</span> '
+                      f'UK-grown, British-season <b>wholesale</b> (DEFRA · New Covent Garden) is '
+                      f'<b>£{whole:.2f}/kg</b> ({pd.Timestamp(when_w).strftime("%b %Y")}) — premium '
+                      f'loose fruit sold spot, a different product/season to imported retail, so it '
+                      f'sits above both prices above.</div>')
     # UK re-exports (HMRC export flows)
     rex = ""
     if rex_kt == rex_kt and rex_kt > 0:
@@ -321,35 +397,40 @@ def build() -> str:
     world = ""
     if wimp or wexp or wgro:
         def _yc(yoy):
-            return "" if yoy != yoy else (
-                f'<span class="wy {"up" if yoy >= 0 else "down"}">'
-                f'{"+" if yoy >= 0 else ""}{yoy:.0f}%</span>')
+            if yoy != yoy:
+                return ""
+            cls, arr = _delta_chip(yoy, "")
+            lbl = ("±0%" if cls == "flat" else ">+100%" if yoy >= 100
+                   else f'{"+" if yoy >= 0 else ""}{yoy:.0f}%')
+            return f'<span class="wy {cls}">{arr} {lbl}</span>'
 
-        def _trow(items):                       # trade: value + yoy + kt
+        def _trow(items):                       # trade: $ value + yoy(value) + kt
             return "".join(
-                f'<div class="wr"><span class="wc">{c}</span>'
+                f'<div class="wr"><span class="wc">{c}{"†" if c == "China" else ""}</span>'
                 f'<span class="wv">{_money(v)}</span>{_yc(yoy)}'
                 f'<span class="wk">{kg/1e6:.0f} kt</span></div>'
                 for c, v, kg, yoy in items)
 
-        def _grow(items):                       # production: tonnes + yoy
+        def _grow(items):                       # production: tonnes + yoy(tonnage)
             return "".join(
                 f'<div class="wr"><span class="wc">{c}</span>'
                 f'<span class="wv">{t/1000:.0f} kt</span>{_yc(yoy)}</div>'
                 for c, t, yoy in items)
-        cols = (f'<div class="wcol"><h3>Top growers</h3>{_grow(wgro)}</div>'
-                f'<div class="wcol"><h3>Top exporters</h3>{_trow(wexp)}</div>'
-                f'<div class="wcol"><h3>Top importers</h3>{_trow(wimp)}</div>')
+        cols = (f'<div class="wcol"><h3>Top growers</h3>'
+                f'<div class="wsub">production · kt · y/y tonnage</div>{_grow(wgro)}</div>'
+                f'<div class="wcol"><h3>Top exporters</h3>'
+                f'<div class="wsub">trade value · $ · y/y value · kt volume</div>{_trow(wexp)}</div>'
+                f'<div class="wcol"><h3>Top importers</h3>'
+                f'<div class="wsub">trade value · $ · y/y value · kt volume</div>{_trow(wimp)}</div>')
         rankline = (f"UK is the world's #{uk_rank} importer · " if uk_rank else "")
         world = (f'<h2>The world\'s blueberry map</h2>'
                  f'<p class="lede">{rankline}grow → export → import · {wyr} · '
                  f'FAOSTAT production, UN Comtrade trade</p>'
-                 f'<div class="world3">{cols}</div>'
-                 f'<div class="note">⚠ <b>China</b> looks small here because it grows most of '
-                 f'what it eats — widely reported (IBO) as the world\'s largest producer, yet it '
-                 f'reports no blueberry output to FAOSTAT and imports little, so <b>no free dataset '
-                 f'captures its true scale</b>. The US is also a major grower; Netherlands, Belgium '
-                 f'&amp; Hong Kong are re-export hubs.</div>')
+                 f'<div class="note">† <b>China</b> looks small here but grows most of what it eats — '
+                 f'reported (IBO) as the world\'s largest producer, yet it reports no output to FAOSTAT '
+                 f'and imports little, so <b>no free dataset captures its true scale</b>. '
+                 f'Netherlands, Belgium &amp; Hong Kong are re-export hubs (high trade, low home demand).</div>'
+                 f'<div class="world3">{cols}</div>')
     # Domestic market — apparent consumption (production + imports − exports)
     cyr, crows = _consumption()
     market = ""
@@ -358,10 +439,15 @@ def build() -> str:
         mr = ""
         for c, cons, ss, src in crows:
             star = "†" if (src and src != "DEFRA") else ""
+            if ss > 105:                               # produces more than it eats
+                label = f'net exporter · grows {ss/100:.1f}× what it eats'
+                bar = '<span class="mbar exp"><i style="width:100%"></i></span>'
+            else:
+                label = f'{ss:.0f}% home-grown'
+                bar = f'<span class="mbar"><i style="width:{min(ss,100):.0f}%"></i></span>'
             mr += (f'<div class="mr"><span class="mc">{c}{star}</span>'
-                   f'<span class="mv">{cons:,.0f} kt</span>'
-                   f'<span class="mbar"><i style="width:{min(ss,100):.0f}%"></i></span>'
-                   f'<span class="ms">{ss:.0f}% home-grown</span></div>')
+                   f'<span class="mv">{cons:,.0f} kt</span>{bar}'
+                   f'<span class="ms">{label}</span></div>')
         foot = ('<div class="note">† <b>China</b> production is a sourced industry estimate '
                 '(Produce Report / IBO, ~525 kt 2023) — it reports none to FAOSTAT; '
                 'all other production is FAOSTAT (UK: DEFRA).</div>' if flagged else "")
@@ -380,13 +466,20 @@ def build() -> str:
         f'<span class="packs">{_packs_html(p)}</span></div>'
         for p in per)
     shelf_when = pd.Timestamp(shelf_wk).strftime("%-d %b %Y") if shelf_wk is not None else ""
+    shelf_lede = (f"{len(per)} of 11 retailers · {n_packs} packs · w/c {shelf_when} · "
+                  f"£/kg = pack price ÷ weight, so small punnets read dearer")
+    now_m = pd.Timestamp(_dt.date.today()).month
     relay_cells = "".join(
-        f'<div class="rc{" now" if m == cur_m else ""}" '
+        f'<div class="rc{" now" if m == now_m else ""}" title="{relay[m-1] or "—"}" '
         f'style="border-color:{COLR.get(relay[m-1], "#ccc")}">'
         f'<b>{MONTHS[m-1]}</b><span style="color:{COLR.get(relay[m-1], "#888")}">'
-        f'{CODE.get(relay[m-1], "·")}</span></div>'
+        f'{CODE.get(relay[m-1], "·")}</span>'
+        f'{"<i>now</i>" if m == now_m else ""}</div>'
         for m in range(1, 13))
-    # View 2 — where each player sells (annual)
+    relay_legend = " · ".join(
+        f'<b style="color:{COLR.get(o, "#5a3fb0")}">{CODE.get(o, o[:3].upper())}</b> {o}'
+        for o in dict.fromkeys(relay) if o)
+    # View 2 — where each origin sends its fruit (annual)
     pe = player_exports.load()
     sells = ""
     if not pe.empty:
@@ -402,15 +495,14 @@ def build() -> str:
                       f'<span class="code">{CODE[p]}</span><span class="cty">{p}</span></span>'
                       f'<span class="arrow">→</span><span class="dests">{dests}</span></div>')
     world_rank = (f" &nbsp;·&nbsp; world's <b>#{uk_rank}</b> importer" if uk_rank else "")
-    html = _PAGE.format(month=f"{MONTHS[cur.month-1]} {cur.year}",
-                        total=f"{tot:,.0f}", mavg=f"{mavg:.2f}", spend_m=f"{mval/1e6:.0f}",
-                        shelf=f"{shelf:.2f}", shelf_lbl=shelf_lbl,
-                        shelf_rows=shelf_rows, shelf_when=shelf_when, journey=journey,
-                        whole_note=whole_note,
+    html = _PAGE.format(month=f"{MONTHS[cur.month-1]} {cur.year}", lag_wks=lag_wks,
+                        total=f"{tot:,.0f}", spend_m=f"{mval/1e6:.0f}",
+                        shelf_rows=shelf_rows, shelf_lede=shelf_lede, journey=journey,
+                        strip=strip, whole_note=whole_note,
                         imports=f"{s['imports_kt']:.0f}", spend_yr=f"{s['imports_gbp_m']:.0f}",
                         ss=f"{s['ss']:.1f}", world_rank=world_rank, rex=rex, world=world,
-                        market=market,
-                        board=board, relay=relay_cells, sells=sells,
+                        market=market, board=board, relay=relay_cells,
+                        relay_legend=relay_legend, sells=sells,
                         generated=_dt.date.today().isoformat())
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(html, encoding="utf-8")
@@ -421,7 +513,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Britain's Blueberry Board</title>
 <style>
- :root{{--ink:#2a2622;--accent:#5a3fb0;--up:#1a8a3c;--down:#c0392b;--line:#dcd4c4}}
+ :root{{--ink:#2a2622;--accent:#5a3fb0;--up:#157a33;--down:#a8281c;--line:#dcd4c4;--mut:#5f564a}}
  *{{box-sizing:border-box}}
  body{{margin:0;color:var(--ink);background:#ece6d8;
    font-family:"Helvetica Neue",Arial,sans-serif;font-weight:700;font-stretch:condensed}}
@@ -434,58 +526,75 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .idx{{font-size:1rem;color:#6a6052;border-top:2px solid var(--line);border-bottom:2px solid var(--line);
    padding:10px 0;margin:14px 0 26px;font-weight:700}}
  .idx b{{color:var(--accent)}}
- .idx .sub{{font-size:.72rem;color:#9a9082;font-weight:700;text-transform:uppercase;letter-spacing:.08em}}
+ .idx .sub{{display:block;font-size:.72rem;color:var(--mut);font-weight:700;text-transform:uppercase;
+   letter-spacing:.08em;margin-bottom:6px}}
  .shrow{{display:flex;align-items:baseline;gap:.5em 1.1em;flex-wrap:wrap;padding:12px 6px;
    border-bottom:1px solid var(--line)}}
  .shrow .nm{{font-size:1.5rem;font-weight:800;min-width:9ch}}
  .packs{{display:flex;flex-wrap:wrap;gap:.4em 1.1em;align-items:baseline}}
  .pk{{font-size:1.5rem;color:var(--ink);white-space:nowrap}}
- .pk .sz{{font-size:.92rem;color:#8a8070;font-weight:800;margin-right:.15em}}
+ .pk .sz{{font-size:.92rem;color:var(--mut);font-weight:800;margin-right:.15em}}
  h2{{text-transform:uppercase;letter-spacing:.12em;font-size:.82rem;color:var(--accent);
    margin:34px 0 2px;font-weight:800}}
- .lede{{margin:0 0 14px;font-size:.86rem;color:#8a8070;font-weight:700}}
+ .lede{{margin:0 0 14px;font-size:.86rem;color:var(--mut);font-weight:700}}
+ .strip{{display:flex;flex-wrap:wrap;align-items:baseline;gap:.4em 1.1em;font-size:1.15rem;
+   padding:10px 6px 2px}}
+ .strip .sl{{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);
+   font-weight:800;margin-right:.3em}}
+ .aside{{font-size:.92rem;color:var(--mut);font-weight:700;line-height:1.5;margin:10px 0 4px;
+   padding:10px 14px;border-left:3px solid var(--line);background:#0000000a;border-radius:0 6px 6px 0}}
+ .aside .tag{{display:inline-block;font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;
+   color:#fff;background:#bcb3a0;border-radius:3px;padding:1px 6px;margin-right:.4em;vertical-align:.1em}}
+ .aside b{{color:var(--ink)}}
  .tk{{display:flex;align-items:baseline;gap:.5em 1em;flex-wrap:wrap;padding:14px 6px;
    border-bottom:1px solid var(--line)}}
  .sym{{display:inline-flex;flex-direction:column;align-self:center;min-width:4.2ch}}
  .sym .code{{font-size:2.3rem;font-weight:800;letter-spacing:-.03em;line-height:.95}}
- .sym .cty{{font-size:.62rem;font-weight:700;color:#9a9082;text-transform:uppercase;
+ .sym .cty{{font-size:.62rem;font-weight:700;color:var(--mut);text-transform:uppercase;
    letter-spacing:.05em;white-space:nowrap}}
- .vol{{font-size:1.5rem;color:#5a5347}}
- .shr{{font-size:1.05rem;color:#8a8070;font-weight:800}}
- .at{{color:#aaa091;font-size:1.2rem}}
+ .vol{{font-size:1.5rem;color:#4a4339}}
+ .shr{{font-size:1.05rem;color:var(--mut);font-weight:800}}
+ .at{{color:#8a7f6f;font-size:1.2rem}}
  .px{{font-size:2.1rem;color:var(--ink)}}
- .chg{{font-size:1.6rem}} .up{{color:var(--up)}} .down{{color:var(--down)}}
+ .small-lane{{font-size:.95rem;color:var(--mut);font-style:italic;font-weight:700;align-self:center}}
+ .chg{{font-size:1.6rem}} .up{{color:var(--up)}} .down{{color:var(--down)}} .flat{{color:var(--mut)}}
  .chip{{font-size:.78rem;padding:2px 8px;border-radius:20px;font-weight:800;align-self:center;
-   background:#fff8}} .chip.up{{color:var(--up)}} .chip.down{{color:var(--down)}}
+   background:#fff8}} .chip.up{{color:var(--up)}} .chip.down{{color:var(--down)}} .chip.flat{{color:var(--mut)}}
  .relay{{display:grid;grid-template-columns:repeat(12,1fr);gap:5px}}
  .rc{{border:2px solid var(--line);border-radius:7px;padding:8px 2px;text-align:center;
    background:#fffefb}}
- .rc b{{display:block;font-size:.66rem;color:#9a9082;letter-spacing:.05em}}
+ .rc b{{display:block;font-size:.66rem;color:var(--mut);letter-spacing:.05em}}
  .rc span{{font-size:.92rem;font-weight:800}}
  .rc.now{{box-shadow:0 0 0 2px var(--accent) inset;background:#fff}}
+ .rc i{{display:block;font-size:.5rem;font-style:normal;font-weight:800;color:var(--accent);
+   text-transform:uppercase;letter-spacing:.08em;margin-top:2px}}
+ .relay-key{{margin:10px 2px 0;font-size:.82rem;color:var(--mut);font-weight:700;line-height:1.7}}
  .sell{{display:flex;align-items:center;gap:.7em;padding:9px 6px;border-bottom:1px solid var(--line)}}
  .sell .sym{{min-width:7ch}} .sell .sym .code{{font-size:1.5rem}} .arrow{{color:#aaa091}}
  .dests{{font-size:1.05rem;color:#5a5347;font-weight:700}}
  .journey{{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}}
  .step{{flex:1 1 0;min-width:120px;border:2px solid var(--line);border-radius:9px;
    padding:12px 14px;background:#fffefb;display:flex;flex-direction:column;gap:2px}}
- .step .sl{{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#8a8070;font-weight:800}}
+ .step .sl{{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:800}}
  .step .sv{{font-size:2rem;color:var(--accent)}}
- .step .sn{{font-size:.72rem;color:#9a9082;font-weight:700}}
+ .step .sn{{font-size:.72rem;color:var(--mut);font-weight:700}}
  .step-arrow{{align-self:center;color:var(--accent);font-size:1.15rem;font-weight:800;
    white-space:nowrap}}
- .note{{font-size:1rem;color:#5a5347;font-weight:700;padding:12px 4px;line-height:1.5}}
+ .note{{font-size:1rem;color:var(--mut);font-weight:700;padding:12px 4px;line-height:1.5}}
  .note b{{color:var(--accent)}}
  .world,.world3{{display:grid;grid-template-columns:1fr 1fr;gap:10px 26px}}
  .world3{{grid-template-columns:1fr 1fr 1fr}}
- .world h3{{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:#8a8070;
-   margin:6px 0 4px;font-weight:800}}
+ .world h3{{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);
+   margin:6px 0 1px;font-weight:800}}
+ .wsub{{font-size:.6rem;color:var(--mut);font-weight:700;text-transform:uppercase;
+   letter-spacing:.04em;margin-bottom:5px;line-height:1.3}}
  .wr{{display:flex;align-items:baseline;gap:.35em .5em;flex-wrap:wrap;padding:6px 2px;
    border-bottom:1px solid var(--line)}}
  .wr .wc{{flex:1 1 100%;font-size:.92rem;font-weight:800;color:var(--ink)}}
  .wr .wv{{font-size:1.05rem;color:var(--accent);font-weight:800}}
  .wr .wy{{font-size:.72rem;font-weight:800}}
- .wr .wk{{font-size:.78rem;color:#9a9082;margin-left:auto}}
+ .wr .wy.up{{color:var(--up)}} .wr .wy.down{{color:var(--down)}} .wr .wy.flat{{color:var(--mut)}}
+ .wr .wk{{font-size:.78rem;color:var(--mut);margin-left:auto}}
  @media(max-width:560px){{.world,.world3{{grid-template-columns:1fr}}}}
  .mr{{display:flex;align-items:baseline;gap:.7em 1em;flex-wrap:wrap;padding:11px 6px;
    border-bottom:1px solid var(--line)}}
@@ -493,42 +602,46 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .mr .mv{{font-size:1.8rem;color:var(--accent);font-weight:800;min-width:5ch}}
  .mr .mbar{{flex:1;min-width:90px;height:9px;background:#e2dac9;border-radius:5px;overflow:hidden}}
  .mr .mbar i{{display:block;height:100%;background:var(--accent);opacity:.55}}
- .mr .ms{{font-size:.9rem;color:#8a8070;font-weight:700;min-width:11ch;text-align:right}}
+ .mr .mbar.exp i{{background:repeating-linear-gradient(45deg,#2a9d8f,#2a9d8f 5px,#3fb0a2 5px,#3fb0a2 10px)}}
+ .mr .ms{{font-size:.9rem;color:var(--mut);font-weight:700;min-width:13ch;text-align:right}}
  .foot{{margin-top:40px;border-top:2px solid var(--line);padding-top:16px;font-size:.78rem;
-   color:#8a8070;font-weight:700}}
+   color:var(--mut);font-weight:700}}
  .foot a{{color:var(--accent)}}
- @media(max-width:560px){{h1{{font-size:2rem}}.sym{{font-size:1.8rem}}.px{{font-size:1.6rem}}
+ @media(max-width:560px){{h1{{font-size:2rem}}.sym .code{{font-size:1.8rem}}.px{{font-size:1.6rem}}
+   .step .sv{{font-size:1.7rem}}.mr .mv{{font-size:1.5rem}}
    .relay{{grid-template-columns:repeat(6,1fr)}}.hero{{width:112px}}}}
 </style></head><body><div class="wrap">
 <div class="masthead">
  <div class="head">
-  <div class="kick">🫐 the UK fresh-blueberry market</div>
+  <div class="kick"><span aria-hidden="true">🫐</span> the UK fresh-blueberry market</div>
   <h1>Britain's Blueberry Board</h1>
  </div>
  <img class="hero" src="hero.png" alt="A British blueberry in a navy suit and Union-Jack tie">
 </div>
-<div class="idx">{month} &nbsp;·&nbsp; <b>{total} t</b> landed (<b>£{spend_m}m</b>) &nbsp;·&nbsp;
-UK-grown <b>{ss}%</b> &nbsp;·&nbsp; <b>{imports}K t</b> / <b>£{spend_yr}m</b> a year{world_rank}</div>
+<div class="idx"><span class="sub">data through {month} · latest settled HMRC month · ~{lag_wks} wks behind today · other sections carry their own date</span>
+This month <b>{total} t</b> / <b>£{spend_m}m</b> landed &nbsp;·&nbsp; year <b>{imports}K t</b> / <b>£{spend_yr}m</b> &nbsp;·&nbsp; UK-grown <b>{ss}%</b>{world_rank}</div>
 
 <h2>Who's landing this month</h2>
-<p class="lede">tonnes · share · landed £/kg · ▲▼ vs last month · y/y volume</p>
+<p class="lede">{month} · tonnes · share · landed £/kg · ▲▼ vs last month · y/y volume (material lanes only)</p>
 {board}
 
 <h2>The price journey</h2>
-<p class="lede">border to shelf · per kilo (dates differ)</p>
+<p class="lede">border to shelf · per kilo · all-origin blend (dates differ)</p>
 <div class="journey">{journey}</div>
+{strip}
 {whole_note}
 
 <h2>On the shelf this week</h2>
-<p class="lede">£/kg by retailer · {shelf_when}</p>
+<p class="lede">{shelf_lede}</p>
 {shelf_rows}
 
 <h2>The relay</h2>
-<p class="lede">who leads UK supply each month</p>
+<p class="lede">who leads UK supply each month · typical year (5-yr pattern)</p>
 <div class="relay">{relay}</div>
+<div class="relay-key">{relay_legend}</div>
 
-<h2>Where each player else ships</h2>
-<p class="lede">2024 · % of their tonnage</p>
+<h2>Where each origin sends its fruit</h2>
+<p class="lede">2024 · % of their tonnage · includes the UK</p>
 {sells}
 {rex}
 
@@ -536,10 +649,10 @@ UK-grown <b>{ss}%</b> &nbsp;·&nbsp; <b>{imports}K t</b> / <b>£{spend_yr}m</b> 
 
 {market}
 
-<div class="foot">Free data: HMRC OTS (monthly imports + re-exports, ~6-wk lag) · UN Comtrade
-(global trade + destinations) · DEFRA (UK production + wholesale price) · Trolley (multi-retailer shelf, weekly).
-Auto-updates weekly · <a href="deep.html">full editorial view →</a> ·
-generated {generated}.</div>
+<div class="foot">As-of dates vary by source: imports/re-exports through {month} (HMRC OTS, the latest settled
+month, ~6–12 wks behind today); shelf this week (Trolley); world trade/production latest complete year
+(UN Comtrade + FAOSTAT); UK production + wholesale (DEFRA). Auto-updates weekly ·
+<a href="deep.html">full editorial view →</a> · generated {generated}.</div>
 </div></body></html>"""
 
 

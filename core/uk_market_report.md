@@ -22,7 +22,7 @@ _share of last-12-month imports; CIF £/kg = price brought in (declared landed v
 | Serbia | 0.5 | Jun | 6.18 |  |
 | United States | 0.5 | Nov | 5.91 |  |
 
-## View 2 — where each major player else ships (2024, % of their tonnage)
+## View 2 — where each origin sends its fruit (2024, % of their tonnage)
 _UN Comtrade, annual — the resolution complete for all players (monthly is patchy)._
 
 ### Peru
