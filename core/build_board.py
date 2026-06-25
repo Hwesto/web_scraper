@@ -55,9 +55,14 @@ DEST_CODE = {"United Kingdom": "UK", "United States": "USA", "Hong Kong": "HK",
 
 # Ticker materiality floors — below these a £/kg or a y/y move is a customs
 # rounding artefact (single consignment), not a signal.
-PRICE_FLOOR_SHARE = 0.5   # % of the month: suppress @£/kg + ▲▼ below this
+PRICE_FLOOR_SHARE = 1.0   # % of the month: suppress @£/kg + ▲▼ below this (a sub-1%
+                          # lane is a single premium/air-freight consignment whose unit
+                          # value — e.g. Ghana pineapple at £6/kg vs Costa Rica's £0.61
+                          # — is real but unrepresentative, so we show "small lane")
 YOY_MIN_SHARE = 3.0       # % of the month  } both required for a y/y chip
 YOY_MIN_T = 500           # tonnes          } (kills big % on tiny bases)
+INSEASON_MIN_SHARE = 2.0  # % of 3-yr supply: in-season strip shows material lanes only
+RELAY_MAX_LANES = 8       # "who's landing this month" caps to the top-N material lanes
 
 # --- Price build-up: literature margin/shrink assumptions (sourced; all ESTIMATES) ---
 # Used only to DECOMPOSE the measured border→shelf spread, never to invent a price.
@@ -177,17 +182,21 @@ def _board():
 
 
 
-def _inseason_cif(years=3, frac=0.25, min_t=2000):
+def _inseason_cif(years=3, frac=0.25, min_t=2000, min_share=INSEASON_MIN_SHARE):
     """Per-origin volume-weighted CIF £/kg over each origin's *in-season* months
     (months where it moves ≥`frac` of its own peak month), last `years` years,
-    for the major UK-supply origins carrying ≥`min_t` tonnes in that window.
-    Returns [(origin, £/kg)] cheapest→dearest — the counter-season workhorse
-    prices a single thin month (April) never reveals.
+    for the origins that are *material* to UK supply — carrying ≥`min_t` tonnes AND
+    ≥`min_share`% of the fruit's total imports in that window. The share gate is
+    what scales across a 68 kt fruit (blueberry) and a 1 Mt one (banana): it drops
+    niche premium lanes (e.g. air-freighted Ghana pineapple at 0.6% of supply, whose
+    £3/kg dwarfs the £0.61 sea-freight bulk) that distort the strip without moving
+    the market. Returns [(origin, £/kg)] cheapest→dearest.
     """
     v = vintage.latest(_ser("hmrc", "imports")).copy(); v["d"] = pd.to_datetime(v["ref_period"])
     val = vintage.latest(_ser("hmrc", "import_value")).copy(); val["d"] = pd.to_datetime(val["ref_period"])
     cut = v["d"].max() - pd.DateOffset(years=years)
     v, val = v[v["d"] >= cut], val[val["d"] >= cut]
+    total = v["value"].sum()
     out = []
     for o in _FRUIT.inseason:
         vo = v[v["key"] == o]
@@ -197,7 +206,8 @@ def _inseason_cif(years=3, frac=0.25, min_t=2000):
         months = by_m[by_m >= frac * by_m.max()].index
         kg = vo[vo["d"].isin(months)]["value"].sum()
         gbp = val[(val["key"] == o) & (val["d"].isin(months))]["value"].sum()
-        if kg > min_t:                                # real volume → trustworthy price
+        share = vo["value"].sum() / total * 100 if total else 0
+        if kg > min_t and share >= min_share:         # material lane → trustworthy price
             out.append((o, gbp / (kg * 1000)))
     return sorted(out, key=lambda x: x[1])
 
@@ -412,6 +422,7 @@ def _money(usd):
 def build(fruit=BLUEBERRY) -> str:
     _set_fruit(fruit)
     cur, prev, rows, tot, mavg, mval = _board()
+    ct = _FRUIT.container_t                   # fruit per 40-ft reefer (soft 20 / dense 24)
     relay = _relay()
     s = _summary()
     landed = s["avg"]                        # 12-mo volume-weighted blended CIF £/kg
@@ -424,7 +435,10 @@ def build(fruit=BLUEBERRY) -> str:
     wyr, uk_rank, wgro, wexp, wimp = _world()
     cur_m = cur.month
     lag_wks = int((pd.Timestamp(_dt.date.today()) - cur).days / 7)
-    board = "\n".join(_ticker_html(r) for r in rows)
+    # Cap "who's landing this month" to the top material lanes — the long tail of
+    # sub-1% origins is all "small lane" filler and just pads the list. Blueberry's
+    # 5 lanes are unaffected; banana's ~15 trims to the 8 that carry the month.
+    board = "\n".join(_ticker_html(r) for r in rows[:RELAY_MAX_LANES])
     # The price journey — a cost build-up of the measured shelf £/kg: the all-origin
     # LANDED import CIF (12-mo volume-weighted) and the supermarket SHELF (pack-
     # normalised) are MEASURED; the split between them (UK import/distribution vs
@@ -452,13 +466,14 @@ def build(fruit=BLUEBERRY) -> str:
             f'<span class="blk">{lbl}</span><span class="blv">£{v:.2f}</span>'
             f'<span class="blp">{pct:.0f}%</span><span class="bls">{src}</span></div>'
             for lbl, v, pct, src, css in segs)
-        ll = (' At this blend the spread barely covers a normal retail margin — '
-              'consistent with berries sold near break-even.' if loss_leader else '')
+        fl = _FRUIT.name.lower()
+        ll = (f' At this blend the spread barely covers a normal retail margin — '
+              f'consistent with {fl} sold near break-even.' if loss_leader else '')
         econ_full = (f'That ~{RETAIL_GROSS_MARGIN*100:.0f}% retail slice is gross, not profit: fresh fruit '
                      f'loses <b>{FRESH_FRUIT_SHRINK*100:.0f}%+</b> by weight to shrink (USDA ERS, 2016) — soft '
-                     f'berries more — so the initial markup is set ~40–50% to net it down; food-retail <b>net</b> '
-                     f'margin is only ~<b>{RETAIL_NET_MARGIN*100:.1f}%</b> (FMI, 2024), and berries are often run '
-                     f'as a deliberate <b>loss-leader</b> in peak season (Richards &amp; Hamilton, 2006).{ll} '
+                     f'fruit more — so the initial markup is set ~40–50% to net it down; food-retail <b>net</b> '
+                     f'margin is only ~<b>{RETAIL_NET_MARGIN*100:.1f}%</b> (FMI, 2024), and fresh produce is often '
+                     f'run as a deliberate <b>loss-leader</b> in peak season (Richards &amp; Hamilton, 2006).{ll} '
                      f'Border &amp; shelf are measured; the split is modelled.')
         econ = (f'<details class="exp"><summary>The retailer\'s ~{RETAIL_GROSS_MARGIN*100:.0f}% slice is '
                 f'<b>gross margin, not profit</b><span class="more">why</span></summary>'
@@ -469,14 +484,14 @@ def build(fruit=BLUEBERRY) -> str:
                    f'<div class="bends"><span>£{landed:.2f} landed</span>'
                    f'<span>{markup}</span><span>£{shelf:.2f} shelf</span></div>'
                    f'{cap}'
-                   f'<div class="bcont">A <b>40-ft reefer (~{CONTAINER_TONNES} t)</b> lands at '
-                   f'~<b>£{landed*CONTAINER_TONNES:.0f}k</b> and rings up at '
-                   f'~<b>£{shelf*CONTAINER_TONNES:.0f}k</b> on shelf.</div>'
+                   f'<div class="bcont">A <b>40-ft reefer (~{ct} t)</b> lands at '
+                   f'~<b>£{landed*ct:.0f}k</b> and rings up at '
+                   f'~<b>£{shelf*ct:.0f}k</b> on shelf.</div>'
                    f'<div class="blegend">{legend}</div>{econ}{whole_note}')
     elif landed == landed:                            # have landed, no shelf feed yet
         journey = (f'<div class="bends"><span>£{landed:.2f}/kg landed</span></div>'
-                   f'<div class="bcont">A <b>40-ft reefer (~{CONTAINER_TONNES} t)</b> lands at '
-                   f'~<b>£{landed*CONTAINER_TONNES:.0f}k</b>.</div>'
+                   f'<div class="bcont">A <b>40-ft reefer (~{ct} t)</b> lands at '
+                   f'~<b>£{landed*ct:.0f}k</b>.</div>'
                    f'<p class="note">No supermarket shelf-price feed for '
                    f'{_FRUIT.name.lower()} yet, so the border→shelf build-up isn\'t shown. '
                    f'Landed is the 12-month all-origin average (volume-weighted).</p>')
@@ -488,27 +503,33 @@ def build(fruit=BLUEBERRY) -> str:
     if insn:
         chips = "".join(
             f'<span class="ic" style="color:{COLR.get(o, "#5a3fb0")}"><b>{CODE.get(o, o[:3].upper())}</b> '
-            f'£{c:.2f}<span class="ctr">£{c*CONTAINER_TONNES:.0f}k</span></span>'
+            f'£{c:.2f}<span class="ctr">£{c*ct:.0f}k</span></span>'
             for o, c in insn)
-        basis_full = (f'Per-container figures take <b>~{CONTAINER_TONNES}&#8201;t of fruit per 40-ft reefer</b> '
-                      f'— ~20 standard (1×1.2&#8201;m) pallets in a single layer (no double-stacking; airflow gaps) '
-                      f'at ~1&#8201;t of fruit each. Berries and other light clamshell fruit are <b>volume-bound</b> '
-                      f'near this; dense fruit (apples, citrus, stone fruit) is <b>weight-bound</b>, nearer the '
-                      f'reefer\'s ~26&#8201;t payload cap. '
+        bound = ('this fruit is a light clamshell/punnet pack, so it fills the ~20 pallets by '
+                 '<b>volume</b> before it nears the weight cap' if ct <= 20 else
+                 'this fruit cartons densely, so it hits the reefer\'s <b>weight</b> cap '
+                 '(~26&#8201;t payload) before it runs out of floor space')
+        basis_full = (f'Per-container figures take <b>~{ct}&#8201;t of fruit per 40-ft reefer</b> '
+                      f'— ~20 standard (1×1.2&#8201;m) pallets in a single layer (no double-stacking; airflow gaps). '
+                      f'Soft berries and clamshell fruit settle near <b>~20&#8201;t</b> (volume-bound); dense cartoned '
+                      f'fruit (apples, citrus, stone fruit) loads <b>~24&#8201;t</b> (weight-bound) — {bound}. '
                       f'<span class="src">40-ft HC reefer pallet capacity: ICE Transport · FreightAmigo · RFL Cargo.</span>')
-        basis = (f'<details class="exp"><summary>Per-container = <b>~{CONTAINER_TONNES}&#8201;t</b> of fruit per '
+        basis = (f'<details class="exp"><summary>Per-container = <b>~{ct}&#8201;t</b> of fruit per '
                  f'40-ft reefer<span class="more">how</span></summary><p class="xp">{basis_full}</p></details>')
+        cheap, dear = insn[0][0], insn[-1][0]
+        spread = (f'{cheap} sets the blend almost single-handed' if len(insn) == 1
+                  else f'the cheapest lane (<b>{cheap}</b>) pulls the blend down; '
+                       f'the dearest (<b>{dear}</b>) lifts it')
         intro = (f'<p class="cap">The per-origin prices that average (volume-weighted) to the '
-                 f'<b>£{landed:.2f}</b> landed figure above — the cheap counter-season origins (Chile) '
-                 f'pull the blend below the spring shoulder.</p>')
-        inseason = (f'{intro}<div class="strip"><span class="sl">£/kg · per {CONTAINER_TONNES}-t reefer</span>'
+                 f'<b>£{landed:.2f}</b> landed figure above — {spread}.</p>')
+        inseason = (f'{intro}<div class="strip"><span class="sl">£/kg · per {ct}-t reefer</span>'
                     f'{chips}</div>{basis}')
     # UK re-exports (HMRC export flows)
     rex = ""
     if rex_kt == rex_kt and rex_kt > 0:
         dests = ", ".join(f"{_dcode(k)} {v:.1f}kt" for k, v in rex_top)
         rex = (f'<div class="note">↩ The UK also <b>re-exports ~{rex_kt:.1f} kt/yr</b> '
-               f'of fresh blueberries — mostly {dests}.</div>')
+               f'of fresh {_FRUIT.name.lower()} — mostly {dests}.</div>')
     # The world map — grow → export → import (Comtrade + FAOSTAT)
     world = ""
     if wimp or wexp or wgro:
@@ -627,7 +648,7 @@ def build(fruit=BLUEBERRY) -> str:
            ("UK-grown", f"{s['ss']:.1f}%" if _FRUIT.defra_production else "n/a",
             "of all supply" if _FRUIT.defra_production else "no DEFRA data")]
     if uk_rank:
-        kpi.append(("World rank", f"#{uk_rank}", "blueberry importer"))
+        kpi.append(("World rank", f"#{uk_rank}", f"{_FRUIT.name.lower()} importer"))
     kpis = "".join(f'<div class="kpi"><span class="kl">{l}</span>'
                    f'<span class="kv">{v}</span><span class="ku">{u}</span></div>'
                    for l, v, u in kpi)
@@ -637,7 +658,7 @@ def build(fruit=BLUEBERRY) -> str:
                         kpis=kpis, shelf_rows=shelf_rows, shelf_lede=shelf_lede, journey=journey,
                         inseason=inseason, rex=rex, world=world,
                         market=market, board=board, relay=relay_cells,
-                        relay_legend=relay_legend, sells=sells,
+                        relay_legend=relay_legend, sells=sells, container_t=ct,
                         generated=_dt.date.today().isoformat())
     fruit.out.parent.mkdir(parents=True, exist_ok=True)
     fruit.out.write_text(html, encoding="utf-8")
@@ -807,7 +828,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <div class="card">{journey}</div></section>
 
 <section class="sec"><div class="shead"><h2>In season, landed by origin</h2>
-<p class="lede">the cheaper counter-season prices behind the blend · with value per 20-t reefer</p></div>
+<p class="lede">the cheaper counter-season prices behind the blend · with value per {container_t}-t reefer</p></div>
 <div class="card">{inseason}</div></section>
 
 <section class="sec"><div class="shead"><h2>On the shelf this week</h2>

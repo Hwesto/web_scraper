@@ -32,6 +32,9 @@ class Fruit:
     gap_note: str = ""              # world-map caveat when overrides exist
     odepa_prefix: str = ""          # Chile ODEPA HS prefix (deep nowcast; blueberry only)
     defra_production: bool = False  # do we hold UK production for this fruit?
+    container_t: int = 24           # fruit per 40-ft reefer: soft/clamshell is
+                                    # volume-bound (~20 t); dense cartoned fruit is
+                                    # weight-bound, nearer the ~26 t payload cap.
 
     def cache(self, name: str):
         suffix = "" if self.slug == "blueberry" else f"_{self.slug}"
@@ -80,25 +83,26 @@ BLUEBERRY = Fruit(
     hs6=_cfg.HS6, commodity_ids=(_cfg.COMMODITY_ID,), faostat_item=_cfg.FAOSTAT_ITEM,
     supply_origins=_cfg.SUPPLY_ORIGINS, inseason=_cfg.INSEASON_ORIGINS,
     production_overrides=_cfg.PRODUCTION_OVERRIDES, gap_note=_cfg.PRODUCTION_GAP_NOTE,
-    odepa_prefix=_cfg.ODEPA_HS_PREFIX, defra_production=True,
+    odepa_prefix=_cfg.ODEPA_HS_PREFIX, defra_production=True, container_t=20,
 )
 CHERRY = _f("cherry", "Cherry", "🍒", "080929", "Cherries",  # sweet cherries (080920 obsolete)
-            ["Chile", "Spain", "Turkey", "Greece", "Portugal", "Italy"], commodity_ids=(8092900,))
+            ["Chile", "Spain", "Turkey", "Greece", "Portugal", "Italy"],
+            commodity_ids=(8092900,), container_t=20)
 
 # Top UK fresh-fruit imports — HS6 verified, CN8 auto-discovered (all CN8 under HS6).
 _TOP = [
     _f("banana", "Banana", "🍌", "080390", "Bananas",
        ["Colombia", "Costa Rica", "Dominican Republic", "Ecuador", "Cameroon", "Côte d'Ivoire"]),
     _f("grape", "Grape", "🍇", "080610", "Grapes",
-       ["Spain", "South Africa", "Chile", "Egypt", "Peru", "India"]),
+       ["Spain", "South Africa", "Chile", "Egypt", "Peru", "India"], container_t=20),
     _f("apple", "Apple", "🍎", "080810", "Apples",
        ["France", "South Africa", "Chile", "New Zealand", "Italy", "Netherlands"]),
     _f("strawberry", "Strawberry", "🍓", "081010", "Strawberries",
-       ["Spain", "Egypt", "Morocco", "Netherlands", "Belgium"]),
+       ["Spain", "Egypt", "Morocco", "Netherlands", "Belgium"], container_t=20),
     _f("avocado", "Avocado", "🥑", "080440", "Avocados",
        ["Peru", "South Africa", "Chile", "Israel", "Spain", "Colombia"]),
     _f("raspberry", "Raspberry", "🫐", "081020", "Raspberries",
-       ["Spain", "Morocco", "Portugal", "Mexico", "Netherlands"]),
+       ["Spain", "Morocco", "Portugal", "Mexico", "Netherlands"], container_t=20),
     _f("mandarin", "Mandarin", "🍊", "080521", "Tangerines, mandarins, clementines",
        ["Spain", "South Africa", "Morocco", "Peru", "Egypt", "Turkey"]),
     _f("mango", "Mango", "🥭", "080450", "Mangoes, guavas and mangosteens",

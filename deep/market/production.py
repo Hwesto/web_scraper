@@ -53,6 +53,8 @@ def refresh(cache=CACHE, item: str = FAOSTAT_ITEM, content: bytes | None = None)
                 continue
             if area_code >= _AGG_FLOOR or val <= 0:      # drop regional aggregates
                 continue
+            if area_code == 351:                          # "China" aggregate; keep "China, mainland" (41)
+                continue
             rows.append({"year": year, "country": r["Area"], "tonnes": val})
     df = pd.DataFrame(rows)
     if df.empty:
@@ -67,12 +69,31 @@ def refresh(cache=CACHE, item: str = FAOSTAT_ITEM, content: bytes | None = None)
 def load(cache=CACHE) -> pd.DataFrame:
     if not cache.exists():
         return pd.DataFrame(columns=["year", "country", "tonnes"])
-    return pd.read_csv(cache)
+    df = pd.read_csv(cache)
+    # FAOSTAT carries both the "China" aggregate (= mainland + Taiwan + HK + Macao)
+    # and its "China, mainland" component; keeping both double-counts China in the
+    # grower table. Drop the aggregate whenever the component is present.
+    if "country" in df and "China, mainland" in set(df["country"]):
+        df = df[df["country"] != "China"]
+    return df
 
 
-# FAOSTAT names -> the short names used elsewhere on the board
-_RENAME = {"United States of America": "United States", "Russian Federation": "Russia",
-           "Netherlands (Kingdom of the)": "Netherlands", "China, mainland": "China"}
+# FAOSTAT names -> the short names used elsewhere on the board. Includes the two
+# UTF-8-read-as-latin-1 mojibake forms (Türkiye, Côte d'Ivoire) the bulk ships, and
+# the verbose official names that otherwise overflow the grower table.
+_RENAME = {
+    "United States of America": "United States", "Russian Federation": "Russia",
+    "Netherlands (Kingdom of the)": "Netherlands", "China, mainland": "China",
+    "TÃ¼rkiye": "Turkey", "Türkiye": "Turkey",
+    "CÃ´te d'Ivoire": "Côte d'Ivoire",
+    "Iran (Islamic Republic of)": "Iran", "Viet Nam": "Vietnam",
+    "Venezuela (Bolivarian Republic of)": "Venezuela",
+    "Bolivia (Plurinational State of)": "Bolivia",
+    "United Republic of Tanzania": "Tanzania", "Republic of Moldova": "Moldova",
+    "Republic of Korea": "South Korea", "Syrian Arab Republic": "Syria",
+    "United Kingdom of Great Britain and Northern Ireland": "United Kingdom",
+    "Lao People's Democratic Republic": "Laos",
+}
 
 def production_by_country(df: pd.DataFrame | None = None, overrides: dict | None = None) -> dict:
     """{country: (tonnes, year, source)} — FAOSTAT latest year (source=None) plus
