@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import pandas as pd
 
-from deep.config import DATA_DIR
+from deep.config import DATA_DIR, SUPPLY_ORIGINS, INSEASON_ORIGINS
 from deep.market import comtrade
 
 OUT = DATA_DIR / "market" / "player_destinations.csv"
-# major UK-supply origins (~90% of UK imports): reporter M49 -> name
-PLAYERS = {604: "Peru", 152: "Chile", 504: "Morocco", 710: "South Africa",
-           724: "Spain", 528: "Netherlands"}
+# major UK-supply origins, reporter M49 -> name — derived from the per-fruit config.
+PLAYERS = {SUPPLY_ORIGINS[n][0]: n for n in INSEASON_ORIGINS}
 
 
 def refresh(year: int = 2024) -> pd.DataFrame:

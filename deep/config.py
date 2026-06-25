@@ -28,7 +28,25 @@ COMMODITY_ID = 8104050            # HMRC numeric CommodityId
 COMMODITY_CN8 = "08104050"
 FAOSTAT_ITEM = "Blueberries"      # FAOSTAT QCL production item name
 ODEPA_HS_PREFIX = "081040"        # Chile ODEPA fresh-fruit prefix (deep nowcast)
-# Major UK-supply origins in volume — the in-season per-origin landed price strip.
+# This fruit's UK-supply origins: name -> (M49 code, 3-letter code, display colour).
+# The single origin definition — drives the Comtrade "where each origin ships" pull
+# (PLAYERS), the ticker/relay/strip codes & colours, and the legend. Origins that
+# appear in HMRC but aren't listed fall back to a 3-letter slice + the accent colour.
+SUPPLY_ORIGINS = {
+    #  name:           (M49, code,  colour)
+    "Peru":            (604, "PER", "#4c5fd5"),
+    "Morocco":         (504, "MAR", "#e8833a"),
+    "South Africa":    (710, "ZAF", "#2a9d8f"),
+    "Chile":           (152, "CHL", "#6b3fa0"),
+    "Spain":           (724, "ESP", "#c9a227"),
+    "Netherlands":     (528, "NLD", "#7a8699"),
+    "Poland":          (616, "POL", "#b1543a"),
+    "Portugal":        (620, "PRT", "#3a8f6b"),
+    "United States":   (842, "USA", "#5b8a72"),
+    "Argentina":       (32,  "ARG", "#3f7fae"),
+}
+# The major suppliers shown in the in-season strip + "where each origin ships" — a
+# subset of ORIGINS (must be keys above). The Comtrade destination pull uses these.
 INSEASON_ORIGINS = ["Chile", "Peru", "Morocco", "Spain", "Netherlands", "South Africa"]
 # Production the FREE sources miss — documented per-country overrides, NOT fabricated.
 # {country: (tonnes, year, source)}. Empty {} for fruits FAOSTAT covers fully — then

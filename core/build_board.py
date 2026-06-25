@@ -12,7 +12,7 @@ import datetime as _dt
 
 import pandas as pd
 
-from deep.config import (REPO_ROOT, FRUIT_NAME, FRUIT_EMOJI, INSEASON_ORIGINS,
+from deep.config import (REPO_ROOT, FRUIT_NAME, FRUIT_EMOJI, SUPPLY_ORIGINS, INSEASON_ORIGINS,
                          PRODUCTION_OVERRIDES, PRODUCTION_GAP_NOTE)
 from deep.store import vintage
 from core import player_exports, uk_production
@@ -20,12 +20,9 @@ from core import player_exports, uk_production
 OUT = REPO_ROOT / "docs" / "index.html"
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-CODE = {"Peru": "PER", "Morocco": "MAR", "South Africa": "ZAF", "Chile": "CHL",
-        "Spain": "ESP", "Netherlands": "NLD", "Poland": "POL", "Portugal": "PRT",
-        "United States": "USA", "Argentina": "ARG"}
-COLR = {"Peru": "#4c5fd5", "Morocco": "#e8833a", "South Africa": "#2a9d8f",
-        "Chile": "#6b3fa0", "Spain": "#c9a227", "Netherlands": "#7a8699",
-        "Poland": "#b1543a", "Portugal": "#3a8f6b"}
+# Origin code + colour maps, derived from the single per-fruit ORIGINS config.
+CODE = {name: code for name, (_m49, code, _col) in SUPPLY_ORIGINS.items()}
+COLR = {name: col for name, (_m49, _code, col) in SUPPLY_ORIGINS.items()}
 # Clean short codes for export destinations (Comtrade names → readable)
 DEST_CODE = {"United Kingdom": "UK", "United States": "USA", "Hong Kong": "HK",
              "United Arab Emirates": "UAE", "China": "CHN", "Germany": "GER",
@@ -576,7 +573,7 @@ def build() -> str:
     pe = player_exports.load()
     sells = ""
     if not pe.empty:
-        for p in ["Peru", "Chile", "Morocco", "South Africa", "Spain", "Netherlands"]:
+        for p in INSEASON_ORIGINS:
             d = pe[pe["player"] == p]
             d = d[~d["destination"].str.startswith(("M49-", "Other"))].head(4)
             if d.empty:
