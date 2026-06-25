@@ -357,15 +357,17 @@ def _delta_chip(val, unit, cls_set=("up", "down", "flat")):
 
 
 def _ticker_html(r) -> str:
-    tt = f"{r['t']/1000:.1f}K" if r["t"] >= 1000 else f"{r['t']:.0f}"
+    col = COLR.get(r["origin"], "#5a3fb0")
+    tt = f"{r['t']/1000:.1f}K t" if r["t"] >= 1000 else f"{r['t']:.0f} t"
     shr = f'{r["share"]:.0f}%' if r["share"] >= 1 else "<1%"
-    # @£/kg + ▲▼ only when the lane carries enough volume to trust the unit value
+    sub = f'{r["origin"]} · {tt} · {shr} of the month'
+    # right side: @£/kg + ▲▼ only when the lane carries enough volume to trust it
     if r["share"] >= PRICE_FLOOR_SHARE and r["cif"] == r["cif"]:
         cls, arr = _delta_chip(r["dprice"], "")
-        price = (f'<span class="at">@</span><span class="px">£{r["cif"]:.2f}</span>'
+        right = (f'<span class="px">£{r["cif"]:.2f}</span>'
                  f'<span class="chg {cls}">{arr} £{abs(r["dprice"]):.2f}</span>')
     else:
-        price = '<span class="small-lane">small lane — no reliable price</span>'
+        right = '<span class="small-lane">small lane</span>'
     # y/y volume chip: only on a material base; cap tiny-base blow-ups
     yo = ""
     if r["yoy"] == r["yoy"] and r["share"] >= YOY_MIN_SHARE and r["t"] >= YOY_MIN_T:
@@ -375,11 +377,9 @@ def _ticker_html(r) -> str:
                else "<-100%" if y <= -100 else f'{"+" if y >= 0 else ""}{y:.0f}%')
         yo = f'<span class="chip {cls}">{arr} {lbl} y/y</span>'
     return (f'<div class="tk">'
-            f'<span class="sym" style="color:{COLR.get(r["origin"], "#5a3fb0")}">'
-            f'<span class="code">{r["code"]}</span><span class="cty">{r["origin"]}</span></span>'
-            f'<span class="vol">{tt} t</span>'
-            f'<span class="shr">{shr}</span>'
-            f'{price}{yo}</div>')
+            f'<div class="tk-l"><span class="code" style="color:{col}">{r["code"]}</span>'
+            f'<span class="sub">{sub}</span></div>'
+            f'<div class="tk-r">{right}{yo}</div></div>')
 
 
 def _money(usd):
@@ -489,14 +489,16 @@ def build() -> str:
                 f'<div class="wcol"><h3>Top importers</h3>'
                 f'<div class="wsub">trade value · $ · y/y value · kt volume</div>{_trow(wimp)}</div>')
         rankline = (f"UK is the world's #{uk_rank} importer · " if uk_rank else "")
-        world = (f'<h2>The world\'s blueberry map</h2>'
+        world = (f'<section class="sec"><div class="shead">'
+                 f'<h2>The world\'s blueberry map</h2>'
                  f'<p class="lede">{rankline}grow → export → import · {wyr} · '
-                 f'FAOSTAT production, UN Comtrade trade</p>'
-                 f'<div class="note">† <b>China</b> looks small here but grows most of what it eats — '
+                 f'FAOSTAT production, UN Comtrade trade</p></div>'
+                 f'<div class="card"><div class="world3">{cols}</div>'
+                 f'<p class="note">† <b>China</b> looks small here but grows most of what it eats — '
                  f'reported (IBO) as the world\'s largest producer, yet it reports no output to FAOSTAT '
                  f'and imports little, so <b>no free dataset captures its true scale</b>. '
-                 f'Netherlands, Belgium &amp; Hong Kong are re-export hubs (high trade, low home demand).</div>'
-                 f'<div class="world3">{cols}</div>')
+                 f'Netherlands, Belgium &amp; Hong Kong are re-export hubs (high trade, low home demand).'
+                 f'</p></div></section>')
     # Domestic market — apparent consumption (production + imports − exports)
     cyr, crows = _consumption()
     market = ""
@@ -514,12 +516,14 @@ def build() -> str:
             mr += (f'<div class="mr"><span class="mc">{c}{star}</span>'
                    f'<span class="mv">{cons:,.0f} kt</span>{bar}'
                    f'<span class="ms">{label}</span></div>')
-        foot = ('<div class="note">† <b>China</b> production is a sourced industry estimate '
+        foot = ('<p class="note">† <b>China</b> production is a sourced industry estimate '
                 '(Produce Report / IBO, ~525 kt 2023) — it reports none to FAOSTAT; '
-                'all other production is FAOSTAT (UK: DEFRA).</div>' if flagged else "")
-        market = (f'<h2>Domestic market — who actually eats it</h2>'
+                'all other production is FAOSTAT (UK: DEFRA).</p>' if flagged else "")
+        market = (f'<section class="sec"><div class="shead">'
+                  f'<h2>Domestic market — who actually eats it</h2>'
                   f'<p class="lede">apparent consumption = production + imports − exports · {cyr}'
-                  f' · de-hubs the re-exporters</p>{mr}{foot}')
+                  f' · de-hubs the re-exporters</p></div>'
+                  f'<div class="card">{mr}{foot}</div></section>')
     # On the shelf this week — real per-retailer £/kg, by pack size (Trolley)
     def _packs_html(p):
         out = ""
@@ -562,13 +566,18 @@ def build() -> str:
                       f'style="color:{COLR.get(p, "#5a3fb0")}">'
                       f'<span class="code">{CODE[p]}</span><span class="cty">{p}</span></span>'
                       f'<span class="arrow">→</span><span class="dests">{dests}</span></div>')
-    world_rank = (f" &nbsp;·&nbsp; world's <b>#{uk_rank}</b> importer" if uk_rank else "")
+    # Headline KPI cards — the summary stats, each its own card so they read distinct
+    kpi = [("This month", f"{tot:,.0f} t", f"£{mval/1e6:.0f}m landed"),
+           ("Per year", f"{s['imports_kt']:.0f}K t", f"£{s['imports_gbp_m']:.0f}m imported"),
+           ("UK-grown", f"{s['ss']:.1f}%", "of all supply")]
+    if uk_rank:
+        kpi.append(("World rank", f"#{uk_rank}", "blueberry importer"))
+    kpis = "".join(f'<div class="kpi"><span class="kl">{l}</span>'
+                   f'<span class="kv">{v}</span><span class="ku">{u}</span></div>'
+                   for l, v, u in kpi)
     html = _PAGE.format(month=f"{MONTHS[cur.month-1]} {cur.year}", lag_wks=lag_wks,
-                        total=f"{tot:,.0f}", spend_m=f"{mval/1e6:.0f}",
-                        shelf_rows=shelf_rows, shelf_lede=shelf_lede, journey=journey,
-                        strip=strip, whole_note=whole_note,
-                        imports=f"{s['imports_kt']:.0f}", spend_yr=f"{s['imports_gbp_m']:.0f}",
-                        ss=f"{s['ss']:.1f}", world_rank=world_rank, rex=rex, world=world,
+                        kpis=kpis, shelf_rows=shelf_rows, shelf_lede=shelf_lede, journey=journey,
+                        strip=strip, whole_note=whole_note, rex=rex, world=world,
                         market=market, board=board, relay=relay_cells,
                         relay_legend=relay_legend, sells=sells,
                         generated=_dt.date.today().isoformat())
@@ -581,166 +590,169 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Britain's Blueberry Board</title>
 <style>
- :root{{--ink:#2a2622;--accent:#5a3fb0;--up:#157a33;--down:#a8281c;--line:#dcd4c4;--mut:#5f564a;
-   --serif:Georgia,"Times New Roman",serif}}
+ :root{{--ink:#241f1a;--accent:#5a3fb0;--up:#1a7f37;--down:#c0392b;--mut:#7a7163;
+   --card:#fdfbf7;--hair:#efe8da;--bg:#e8e1d3;
+   --sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+   --serif:ui-serif,"New York",Georgia,"Times New Roman",serif}}
  *{{box-sizing:border-box}}
- body{{margin:0;color:var(--ink);background:#ece6d8;line-height:1.4;
-   font-family:"Helvetica Neue",Arial,sans-serif;font-weight:700;font-stretch:condensed}}
- .wrap{{max-width:900px;margin:0 auto;padding:52px 34px 110px}}
- .masthead{{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:8px}}
+ body{{margin:0;color:var(--ink);background:var(--bg);font-family:var(--sans);line-height:1.45;
+   -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}}
+ .wrap{{max-width:760px;margin:0 auto;padding:46px 20px 100px}}
+ .masthead{{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}}
  .head{{min-width:0}}
- .hero{{width:184px;height:auto;flex:none;filter:drop-shadow(0 6px 14px rgba(42,38,34,.22))}}
- .kick{{text-transform:uppercase;letter-spacing:.2em;font-size:.72rem;color:var(--accent);font-weight:800}}
- h1{{font-size:2.6rem;margin:.12em 0 .1em;letter-spacing:-.02em;color:var(--ink)}}
- .idx{{font-size:1rem;color:#6a6052;border-top:2px solid var(--line);border-bottom:2px solid var(--line);
-   padding:18px 0;margin:20px 0 8px;font-weight:700;line-height:1.7}}
- .idx b{{color:var(--accent)}}
- .idx .sub{{display:block;font-size:.72rem;color:var(--mut);font-weight:700;text-transform:uppercase;
-   letter-spacing:.08em;margin-bottom:10px}}
- .shrow{{display:flex;align-items:baseline;gap:.6em 1.4em;flex-wrap:wrap;padding:20px 6px;
-   border-bottom:1px solid var(--line)}}
- .shrow .nm{{font-size:1.5rem;font-weight:800;min-width:9ch}}
- .packs{{display:flex;flex-wrap:wrap;gap:.7em 1.4em;align-items:baseline}}
- .pk{{font-size:1.5rem;color:var(--ink);white-space:nowrap}}
- .pk .sz{{font-size:.92rem;color:var(--mut);font-weight:800;margin-right:.15em}}
- h2{{text-transform:uppercase;letter-spacing:.12em;font-size:.82rem;color:var(--accent);
-   margin:64px 0 5px;font-weight:800}}
- .lede{{margin:0 0 24px;font-family:var(--serif);font-style:italic;font-weight:400;
-   font-size:1rem;color:var(--mut);line-height:1.5}}
- .strip{{display:flex;flex-wrap:wrap;align-items:baseline;gap:.6em 1.5em;font-size:1.15rem;
-   padding:20px 6px 6px;line-height:1.6}}
- .strip .sl{{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);
-   font-weight:800;margin-right:.3em}}
- .aside{{font-family:var(--serif);font-size:.98rem;color:#443d33;font-weight:400;line-height:1.65;
-   margin:20px 0 6px;padding:14px 18px;border-left:3px solid var(--line);
-   background:#0000000a;border-radius:0 6px 6px 0}}
- .aside .tag{{display:inline-block;font-family:"Helvetica Neue",Arial,sans-serif;font-size:.6rem;
-   text-transform:uppercase;letter-spacing:.1em;color:#fff;background:#bcb3a0;border-radius:3px;
-   padding:2px 6px;margin-right:.5em;vertical-align:.12em}}
- .aside b{{color:var(--ink);font-weight:700}}
- .tk{{display:flex;align-items:baseline;gap:.6em 1.1em;flex-wrap:wrap;padding:20px 6px;
-   border-bottom:1px solid var(--line)}}
- .sym{{display:inline-flex;flex-direction:column;align-self:center;min-width:4.2ch}}
- .sym .code{{font-size:2.3rem;font-weight:800;letter-spacing:-.03em;line-height:.95}}
- .sym .cty{{font-size:.62rem;font-weight:700;color:var(--mut);text-transform:uppercase;
-   letter-spacing:.05em;white-space:nowrap}}
- .vol{{font-size:1.5rem;color:#4a4339}}
- .shr{{font-size:1.05rem;color:var(--mut);font-weight:800}}
- .at{{color:#8a7f6f;font-size:1.2rem}}
- .px{{font-size:2.1rem;color:var(--ink)}}
- .small-lane{{font-size:.95rem;color:var(--mut);font-style:italic;font-weight:700;align-self:center}}
- .chg{{font-size:1.6rem}} .up{{color:var(--up)}} .down{{color:var(--down)}} .flat{{color:var(--mut)}}
- .chip{{font-size:.78rem;padding:2px 8px;border-radius:20px;font-weight:800;align-self:center;
-   background:#fff8}} .chip.up{{color:var(--up)}} .chip.down{{color:var(--down)}} .chip.flat{{color:var(--mut)}}
- .relay{{display:grid;grid-template-columns:repeat(12,1fr);gap:8px}}
- .rc{{border:2px solid var(--line);border-radius:7px;padding:12px 3px;text-align:center;
-   background:#fffefb}}
- .rc b{{display:block;font-size:.66rem;color:var(--mut);letter-spacing:.05em;margin-bottom:3px}}
- .rc span{{font-size:.92rem;font-weight:800}}
- .rc.now{{box-shadow:0 0 0 2px var(--accent) inset;background:#fff}}
- .rc i{{display:block;font-size:.5rem;font-style:normal;font-weight:800;color:var(--accent);
-   text-transform:uppercase;letter-spacing:.08em;margin-top:3px}}
- .relay-key{{margin:18px 2px 0;font-size:.82rem;color:var(--mut);font-weight:700;line-height:2}}
- .sell{{display:flex;align-items:center;gap:1em;padding:15px 6px;border-bottom:1px solid var(--line)}}
- .sell .sym{{min-width:7ch}} .sell .sym .code{{font-size:1.5rem}} .arrow{{color:#aaa091}}
- .dests{{font-size:1.05rem;color:#5a5347;font-weight:700}}
- .bbar{{display:flex;height:38px;border-radius:7px;overflow:hidden;border:1px solid var(--line);
-   margin-top:6px}}
- .bbar .seg{{display:block;height:100%}}
- .seg.border,.dot.border{{background:#6b3fa0}}
+ .hero{{width:124px;height:auto;flex:none;filter:drop-shadow(0 8px 18px rgba(36,31,26,.18))}}
+ .kick{{text-transform:uppercase;letter-spacing:.16em;font-size:.7rem;color:var(--accent);font-weight:700}}
+ h1{{font-size:2.5rem;line-height:1.04;margin:.16em 0 0;letter-spacing:-.025em;font-weight:800;color:var(--ink)}}
+ .stamp{{margin:26px 0 13px;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;
+   color:var(--mut);font-weight:600}}
+ .kpis{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:13px}}
+ .kpi{{background:var(--card);border-radius:18px;padding:17px 19px;
+   box-shadow:0 1px 2px rgba(36,31,26,.05),0 14px 28px -16px rgba(36,31,26,.22)}}
+ .kl{{font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:700}}
+ .kv{{display:block;font-size:1.95rem;font-weight:800;letter-spacing:-.025em;margin:4px 0 1px;color:var(--ink)}}
+ .ku{{font-size:.8rem;color:var(--mut);font-weight:600}}
+ .sec{{margin-top:42px}}
+ .shead{{margin:0 4px 13px}}
+ h2{{font-size:1.34rem;font-weight:800;letter-spacing:-.02em;color:var(--ink);margin:0}}
+ .lede{{margin:4px 0 0;font-size:.9rem;color:var(--mut);font-weight:500;line-height:1.45}}
+ .card{{background:var(--card);border-radius:22px;padding:4px 22px;
+   box-shadow:0 1px 2px rgba(36,31,26,.05),0 20px 38px -22px rgba(36,31,26,.26)}}
+ .tk{{display:flex;justify-content:space-between;align-items:center;gap:1em;
+   padding:16px 2px;border-bottom:1px solid var(--hair)}}
+ .tk:last-child{{border-bottom:none}}
+ .tk-l{{min-width:0}}
+ .tk-l .code{{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}}
+ .tk-l .sub{{display:block;font-size:.82rem;color:var(--mut);font-weight:600;margin-top:1px}}
+ .tk-r{{display:flex;align-items:baseline;gap:.55em;flex:none}}
+ .tk-r .px{{font-size:1.6rem;font-weight:800;color:var(--ink)}}
+ .chg{{font-size:1rem;font-weight:700}} .up{{color:var(--up)}} .down{{color:var(--down)}} .flat{{color:var(--mut)}}
+ .small-lane{{font-size:.92rem;color:var(--mut);font-style:italic}}
+ .chip{{font-size:.72rem;padding:3px 9px;border-radius:20px;font-weight:700;
+   background:#00000008}} .chip.up{{color:var(--up)}} .chip.down{{color:var(--down)}} .chip.flat{{color:var(--mut)}}
+ .shrow{{display:flex;align-items:baseline;gap:.6em 1.2em;flex-wrap:wrap;padding:16px 2px;
+   border-bottom:1px solid var(--hair)}}
+ .shrow:last-child{{border-bottom:none}}
+ .shrow .nm{{font-size:1.25rem;font-weight:800;min-width:8ch}}
+ .packs{{display:flex;flex-wrap:wrap;gap:.5em 1.2em;align-items:baseline}}
+ .pk{{font-size:1.2rem;color:var(--ink);font-weight:700;white-space:nowrap}}
+ .pk .sz{{font-size:.8rem;color:var(--mut);font-weight:700;margin-right:.15em}}
+ .tier{{font-size:.58rem;text-transform:uppercase;letter-spacing:.04em;color:#fff;background:#bcb3a0;
+   border-radius:5px;padding:1px 5px;margin-left:.25em;vertical-align:.1em;font-weight:700}}
+ .bbar{{display:flex;height:40px;border-radius:11px;overflow:hidden;margin-top:10px}}
+ .bbar .seg{{height:100%}}
+ .seg.border,.dot.border{{background:#5a3fb0}}
  .seg.dist,.dot.dist{{background:#b9a7e0}}
  .seg.retail,.dot.retail{{background:#e8833a}}
- .bends{{display:flex;justify-content:space-between;align-items:baseline;margin-top:9px;
-   font-size:1.35rem;font-weight:800;color:var(--ink)}}
- .bends span:nth-child(2){{font-size:.92rem;color:var(--accent)}}
- .bcont{{margin-top:14px;font-family:var(--serif);font-size:1.05rem;color:#443d33;
-   font-weight:400;line-height:1.55}}
+ .bends{{display:flex;justify-content:space-between;align-items:baseline;margin-top:11px;
+   font-size:1.3rem;font-weight:800;color:var(--ink)}}
+ .bends span:nth-child(2){{font-size:.9rem;color:var(--accent);font-weight:700}}
+ .bcont{{margin-top:15px;font-family:var(--serif);font-size:1.02rem;color:#3a342b;line-height:1.55}}
  .bcont b{{color:var(--accent);font-weight:700}}
- .bcont .src{{display:block;font-size:.82rem;color:var(--mut);font-weight:400;font-style:italic;
-   margin-top:3px}}
- .blegend{{margin-top:20px}}
- .bl{{display:flex;align-items:baseline;gap:.6em 1em;flex-wrap:wrap;padding:9px 2px}}
- .bl .dot{{width:.85em;height:.85em;border-radius:2px;align-self:center;flex:none}}
- .bl .blk{{font-weight:800;min-width:14ch}}
- .bl .blv{{font-size:1.25rem;color:var(--accent);font-weight:800;min-width:4ch}}
- .bl .blp{{color:var(--mut);font-weight:800;min-width:3ch}}
- .bl .bls{{font-family:var(--serif);font-size:.82rem;color:var(--mut);font-weight:400;font-style:italic}}
- .tier{{font-size:.6rem;text-transform:uppercase;letter-spacing:.04em;color:#fff;
-   background:#bcb3a0;border-radius:3px;padding:1px 5px;margin-left:.25em;vertical-align:.12em}}
- .note{{font-family:var(--serif);font-size:1.02rem;color:#443d33;font-weight:400;
-   padding:16px 4px;line-height:1.7;margin:4px 0}}
+ .bcont .src{{display:block;font-size:.8rem;color:var(--mut);font-style:italic;margin-top:3px}}
+ .blegend{{margin:18px 0 2px}}
+ .bl{{display:flex;align-items:baseline;gap:.55em 1em;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--hair)}}
+ .bl:last-child{{border-bottom:none}}
+ .bl .dot{{width:.8em;height:.8em;border-radius:3px;align-self:center;flex:none}}
+ .bl .blk{{font-weight:700;min-width:13ch}}
+ .bl .blv{{font-size:1.2rem;color:var(--accent);font-weight:800;min-width:4ch}}
+ .bl .blp{{color:var(--mut);font-weight:700;min-width:3ch}}
+ .bl .bls{{font-family:var(--serif);font-size:.8rem;color:var(--mut);font-style:italic}}
+ .strip{{display:flex;flex-wrap:wrap;align-items:baseline;gap:.55em 1.3em;font-size:1.05rem;
+   font-weight:700;margin-top:18px;padding-top:16px;border-top:1px solid var(--hair);line-height:1.6}}
+ .strip .sl{{font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);
+   font-weight:700;margin-right:.3em}}
+ .aside{{font-family:var(--serif);font-size:.96rem;color:#3a342b;line-height:1.6;margin-top:16px;
+   padding:13px 16px;border-radius:12px;background:#00000007}}
+ .aside .tag{{display:inline-block;font-family:var(--sans);font-size:.58rem;text-transform:uppercase;
+   letter-spacing:.08em;color:#fff;background:#bcb3a0;border-radius:5px;padding:2px 7px;
+   margin-right:.5em;vertical-align:.1em;font-weight:700}}
+ .aside b{{color:var(--ink);font-weight:700}}
+ .note{{font-family:var(--serif);font-size:1rem;color:#3a342b;line-height:1.65;margin:14px 0 2px}}
  .note b{{color:var(--accent);font-weight:700}}
- .world,.world3{{display:grid;grid-template-columns:1fr 1fr;gap:20px 36px;margin-top:6px}}
- .world3{{grid-template-columns:1fr 1fr 1fr}}
- .world h3{{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);
-   margin:8px 0 2px;font-weight:800}}
- .wsub{{font-size:.6rem;color:var(--mut);font-weight:700;text-transform:uppercase;
-   letter-spacing:.04em;margin-bottom:10px;line-height:1.35}}
- .wr{{display:flex;align-items:baseline;gap:.35em .5em;flex-wrap:wrap;padding:10px 2px;
-   border-bottom:1px solid var(--line)}}
- .wr .wc{{flex:1 1 100%;font-size:1rem;font-weight:800;color:var(--ink)}}
- .wr .wv{{font-size:1.3rem;color:var(--accent);font-weight:800}}
- .wr .wy{{font-size:.72rem;font-weight:800}}
+ .relay{{display:grid;grid-template-columns:repeat(12,1fr);gap:7px;padding:8px 0}}
+ .rc{{border:1px solid var(--hair);border-radius:11px;padding:11px 2px;text-align:center;background:#fff}}
+ .rc b{{display:block;font-size:.62rem;color:var(--mut);font-weight:600;margin-bottom:3px}}
+ .rc span{{font-size:.9rem;font-weight:800}}
+ .rc.now{{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}}
+ .rc i{{display:block;font-size:.46rem;font-style:normal;font-weight:800;color:var(--accent);
+   text-transform:uppercase;letter-spacing:.05em;margin-top:3px}}
+ .relay-key{{margin:12px 2px 6px;font-size:.82rem;color:var(--mut);font-weight:500;line-height:1.9}}
+ .relay-key b{{font-weight:800}}
+ .sell{{display:flex;align-items:center;gap:.9em;padding:14px 2px;border-bottom:1px solid var(--hair)}}
+ .sell:last-child{{border-bottom:none}}
+ .sell .sym{{display:inline-flex;flex-direction:column;min-width:6ch}}
+ .sell .sym .code{{font-size:1.25rem;font-weight:800;letter-spacing:-.02em}}
+ .sell .sym .cty{{font-size:.58rem;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;font-weight:600}}
+ .arrow{{color:#bcb3a0}}
+ .dests{{font-size:1rem;color:var(--ink);font-weight:600}}
+ .world3{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px 26px;padding:6px 0}}
+ .wcol h3{{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);
+   font-weight:800;margin:6px 0 1px}}
+ .wsub{{font-size:.6rem;color:var(--mut);font-weight:600;text-transform:uppercase;
+   letter-spacing:.03em;margin-bottom:9px;line-height:1.3}}
+ .wr{{display:flex;align-items:baseline;gap:.3em .5em;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--hair)}}
+ .wr:last-child{{border-bottom:none}}
+ .wr .wc{{flex:1 1 100%;font-size:.92rem;font-weight:700;color:var(--ink)}}
+ .wr .wv{{font-size:1.2rem;color:var(--accent);font-weight:800}}
+ .wr .wy{{font-size:.7rem;font-weight:700}}
  .wr .wy.up{{color:var(--up)}} .wr .wy.down{{color:var(--down)}} .wr .wy.flat{{color:var(--mut)}}
- .wr .wk{{font-size:.78rem;color:var(--mut);margin-left:auto}}
- @media(max-width:560px){{.world,.world3{{grid-template-columns:1fr}}}}
- .mr{{display:flex;align-items:baseline;gap:.8em 1.2em;flex-wrap:wrap;padding:18px 6px;
-   border-bottom:1px solid var(--line)}}
- .mr .mc{{font-size:1.5rem;font-weight:800;color:var(--ink);min-width:9ch}}
- .mr .mv{{font-size:1.8rem;color:var(--accent);font-weight:800;min-width:5ch}}
- .mr .mbar{{flex:1;min-width:90px;height:9px;background:#e2dac9;border-radius:5px;overflow:hidden}}
- .mr .mbar i{{display:block;height:100%;background:var(--accent);opacity:.55}}
+ .wr .wk{{font-size:.76rem;color:var(--mut);margin-left:auto;font-weight:600}}
+ .mr{{display:flex;align-items:center;gap:.8em 1.1em;flex-wrap:wrap;padding:16px 2px;border-bottom:1px solid var(--hair)}}
+ .mr:last-child{{border-bottom:none}}
+ .mr .mc{{font-size:1.2rem;font-weight:800;color:var(--ink);min-width:8ch}}
+ .mr .mv{{font-size:1.5rem;color:var(--accent);font-weight:800;min-width:5ch}}
+ .mr .mbar{{flex:1;min-width:80px;height:8px;background:#e8e1d3;border-radius:5px;overflow:hidden}}
+ .mr .mbar i{{display:block;height:100%;background:var(--accent);opacity:.5;border-radius:5px}}
  .mr .mbar.exp i{{background:repeating-linear-gradient(45deg,#2a9d8f,#2a9d8f 5px,#3fb0a2 5px,#3fb0a2 10px)}}
- .mr .ms{{font-size:.9rem;color:var(--mut);font-weight:700;min-width:13ch;text-align:right}}
- .foot{{margin-top:72px;border-top:2px solid var(--line);padding-top:24px;
-   font-family:var(--serif);font-size:.82rem;color:var(--mut);font-weight:400;line-height:1.8}}
+ .mr .ms{{font-size:.82rem;color:var(--mut);font-weight:600;min-width:13ch;text-align:right}}
+ .foot{{margin-top:50px;font-family:var(--serif);font-size:.82rem;color:var(--mut);line-height:1.75}}
  .foot a{{color:var(--accent)}}
- @media(max-width:560px){{h1{{font-size:2rem}}.sym .code{{font-size:1.8rem}}.px{{font-size:1.6rem}}
-   .mr .mv{{font-size:1.5rem}}.bl .blk{{min-width:11ch}}
-   .relay{{grid-template-columns:repeat(6,1fr)}}.hero{{width:112px}}}}
+ @media(max-width:620px){{
+   .world3{{grid-template-columns:1fr;gap:2px 0}} .wcol{{margin-top:10px}}
+   h1{{font-size:2.1rem}} .kv{{font-size:1.7rem}}
+   .relay{{grid-template-columns:repeat(6,1fr)}}
+   .tk-l .code{{font-size:1.5rem}} .tk-r .px{{font-size:1.42rem}}
+   .bl .blk{{min-width:11ch}}
+ }}
 </style></head><body><div class="wrap">
-<div class="masthead">
+<header class="masthead">
  <div class="head">
   <div class="kick"><span aria-hidden="true">🫐</span> the UK fresh-blueberry market</div>
   <h1>Britain's Blueberry Board</h1>
  </div>
  <img class="hero" src="hero.png" alt="A British blueberry in a navy suit and Union-Jack tie">
-</div>
-<div class="idx"><span class="sub">data through {month} · latest settled HMRC month · ~{lag_wks} wks behind today · other sections carry their own date</span>
-This month <b>{total} t</b> / <b>£{spend_m}m</b> landed &nbsp;·&nbsp; year <b>{imports}K t</b> / <b>£{spend_yr}m</b> &nbsp;·&nbsp; UK-grown <b>{ss}%</b>{world_rank}</div>
+</header>
+<p class="stamp">data through {month} · latest settled HMRC month · ~{lag_wks} wks behind today</p>
+<div class="kpis">{kpis}</div>
 
-<h2>Who's landing this month</h2>
-<p class="lede">{month} · tonnes · share · landed £/kg · ▲▼ vs last month · y/y volume (material lanes only)</p>
-{board}
+<section class="sec"><div class="shead"><h2>Who's landing this month</h2>
+<p class="lede">{month} · by share · landed £/kg, ▲▼ vs last month · y/y volume (material lanes only)</p></div>
+<div class="card">{board}</div></section>
 
-<h2>The price journey</h2>
-<p class="lede">where a kilo's shelf price comes from · border &amp; shelf measured, split modelled</p>
-{journey}
-{strip}
-{whole_note}
+<section class="sec"><div class="shead"><h2>The price journey</h2>
+<p class="lede">where a kilo's shelf price comes from · border &amp; shelf measured, the split modelled</p></div>
+<div class="card">{journey}{strip}{whole_note}</div></section>
 
-<h2>On the shelf this week</h2>
-<p class="lede">{shelf_lede}</p>
-{shelf_rows}
+<section class="sec"><div class="shead"><h2>On the shelf this week</h2>
+<p class="lede">{shelf_lede}</p></div>
+<div class="card">{shelf_rows}</div></section>
 
-<h2>The relay</h2>
-<p class="lede">who leads UK supply each month · typical year (5-yr pattern)</p>
-<div class="relay">{relay}</div>
-<div class="relay-key">{relay_legend}</div>
+<section class="sec"><div class="shead"><h2>The relay</h2>
+<p class="lede">who leads UK supply each month · typical year (5-yr pattern)</p></div>
+<div class="card"><div class="relay">{relay}</div><div class="relay-key">{relay_legend}</div></div></section>
 
-<h2>Where each origin sends its fruit</h2>
-<p class="lede">2024 · % of their tonnage · includes the UK</p>
-{sells}
-{rex}
+<section class="sec"><div class="shead"><h2>Where each origin sends its fruit</h2>
+<p class="lede">2024 · % of their tonnage · includes the UK</p></div>
+<div class="card">{sells}{rex}</div></section>
 
 {world}
 
 {market}
 
-<div class="foot">As-of dates vary by source: imports/re-exports through {month} (HMRC OTS, the latest settled
-month, ~6–12 wks behind today); shelf this week (Trolley); world trade/production latest complete year
-(UN Comtrade + FAOSTAT); UK production + wholesale (DEFRA). Auto-updates weekly ·
-<a href="deep.html">full editorial view →</a> · generated {generated}.</div>
+<footer class="foot">As-of dates vary by source: imports/re-exports through {month} (HMRC OTS, the latest
+settled month, ~6–12 wks behind today); shelf this week (Trolley); world trade/production latest complete
+year (UN Comtrade + FAOSTAT); UK production + wholesale (DEFRA). Auto-updates weekly ·
+<a href="deep.html">full editorial view →</a> · generated {generated}.</footer>
 </div></body></html>"""
 
 
