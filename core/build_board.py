@@ -223,6 +223,41 @@ def _world():
     return yr, rank, growers, tbl("exporter"), tbl("importer")
 
 
+def _consumption():
+    """Apparent domestic consumption = production + imports − exports, by market.
+    Returns (year, [(country, cons_kt, selfgrown_pct, prod_source_or_None)]).
+    Production = FAOSTAT + sourced overrides (China) + DEFRA for the UK."""
+    try:
+        from deep.market import comtrade_global as cg, production as pr
+    except Exception:
+        return None, []
+    tr = cg.load()
+    if tr.empty:
+        return None, []
+    yr = int(tr["year"].max())
+    cur = tr[tr["year"] == yr]
+    imp = cur[cur["role"] == "importer"].set_index("country")["net_kg"].div(1e6).to_dict()
+    exp = cur[cur["role"] == "exporter"].set_index("country")["net_kg"].div(1e6).to_dict()
+    prod = pr.production_by_country()                 # {country: (tonnes, yr, src)}
+    try:                                              # UK absent from FAOSTAT → DEFRA
+        ukp = uk_production.load()
+        if not ukp.empty and "United Kingdom" not in prod:
+            prod["United Kingdom"] = (float(ukp["production_kt"].iloc[-1]) * 1000, yr, "DEFRA")
+    except Exception:
+        pass
+    rows = []
+    for c in set(prod) | set(imp) | set(exp):
+        P = prod.get(c, (0.0, yr, None))[0] / 1000    # kt
+        src = prod.get(c, (0.0, yr, None))[2]
+        cons = P + imp.get(c, 0.0) - exp.get(c, 0.0)
+        if cons <= 0:
+            continue
+        ss = min(P / cons * 100, 100) if cons > 0 else float("nan")
+        rows.append((c, cons, ss, src))
+    rows.sort(key=lambda r: -r[1])
+    return yr, rows[:7]
+
+
 def _ticker_html(r) -> str:
     up = r["dprice"] >= 0
     arr, cls = ("▲", "up") if up else ("▼", "down")
@@ -307,6 +342,24 @@ def build() -> str:
                  f'reports no blueberry output to FAOSTAT and imports little, so <b>no free dataset '
                  f'captures its true scale</b>. The US is also a major grower; Netherlands, Belgium '
                  f'&amp; Hong Kong are re-export hubs.</div>')
+    # Domestic market — apparent consumption (production + imports − exports)
+    cyr, crows = _consumption()
+    market = ""
+    if crows:
+        flagged = any(r[3] and r[3] != "DEFRA" for r in crows)
+        mr = ""
+        for c, cons, ss, src in crows:
+            star = "†" if (src and src != "DEFRA") else ""
+            mr += (f'<div class="mr"><span class="mc">{c}{star}</span>'
+                   f'<span class="mv">{cons:,.0f} kt</span>'
+                   f'<span class="mbar"><i style="width:{min(ss,100):.0f}%"></i></span>'
+                   f'<span class="ms">{ss:.0f}% home-grown</span></div>')
+        foot = ('<div class="note">† <b>China</b> production is a sourced industry estimate '
+                '(Produce Report / IBO, ~525 kt 2023) — it reports none to FAOSTAT; '
+                'all other production is FAOSTAT (UK: DEFRA).</div>' if flagged else "")
+        market = (f'<h2>Domestic market — who actually eats it</h2>'
+                  f'<p class="lede">apparent consumption = production + imports − exports · {cyr}'
+                  f' · de-hubs the re-exporters</p>{mr}{foot}')
     # On the shelf this week — real per-retailer £/kg, by pack size (Trolley)
     def _packs_html(p):
         return "".join(
@@ -347,6 +400,7 @@ def build() -> str:
                         shelf_rows=shelf_rows, shelf_when=shelf_when, journey=journey,
                         imports=f"{s['imports_kt']:.0f}", spend_yr=f"{s['imports_gbp_m']:.0f}",
                         ss=f"{s['ss']:.1f}", world_rank=world_rank, rex=rex, world=world,
+                        market=market,
                         board=board, relay=relay_cells, sells=sells,
                         generated=_dt.date.today().isoformat())
     OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -425,6 +479,13 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .wr .wy{{font-size:.72rem;font-weight:800}}
  .wr .wk{{font-size:.78rem;color:#9a9082;margin-left:auto}}
  @media(max-width:560px){{.world,.world3{{grid-template-columns:1fr}}}}
+ .mr{{display:flex;align-items:baseline;gap:.7em 1em;flex-wrap:wrap;padding:11px 6px;
+   border-bottom:1px solid var(--line)}}
+ .mr .mc{{font-size:1.5rem;font-weight:800;color:var(--ink);min-width:9ch}}
+ .mr .mv{{font-size:1.8rem;color:var(--accent);font-weight:800;min-width:5ch}}
+ .mr .mbar{{flex:1;min-width:90px;height:9px;background:#e2dac9;border-radius:5px;overflow:hidden}}
+ .mr .mbar i{{display:block;height:100%;background:var(--accent);opacity:.55}}
+ .mr .ms{{font-size:.9rem;color:#8a8070;font-weight:700;min-width:11ch;text-align:right}}
  .foot{{margin-top:40px;border-top:2px solid var(--line);padding-top:16px;font-size:.78rem;
    color:#8a8070;font-weight:700}}
  .foot a{{color:var(--accent)}}
@@ -463,6 +524,8 @@ UK-grown <b>{ss}%</b> &nbsp;·&nbsp; <b>{imports}K t</b> / <b>£{spend_yr}m</b> 
 {rex}
 
 {world}
+
+{market}
 
 <div class="foot">Free data: HMRC OTS (monthly imports + re-exports, ~6-wk lag) · UN Comtrade
 (global trade + destinations) · DEFRA (UK production + wholesale price) · Trolley (multi-retailer shelf, weekly).

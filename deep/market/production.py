@@ -72,6 +72,30 @@ def load(cache=CACHE) -> pd.DataFrame:
 _RENAME = {"United States of America": "United States", "Russian Federation": "Russia",
            "Netherlands (Kingdom of the)": "Netherlands", "China, mainland": "China"}
 
+# Countries FAOSTAT omits but that are documented elsewhere. Sourced + dated, not
+# fabricated — kept here as the single, citable override. China is the big one:
+# it reports no blueberries to FAOSTAT despite being the world's largest grower.
+MANUAL = {
+    "China": {"tonnes": 525_000, "year": 2023,
+              "source": "Produce Report / IBO (2023 est.)"},
+}
+
+
+def production_by_country(df: pd.DataFrame | None = None) -> dict:
+    """{country: (tonnes, year, source)} — FAOSTAT latest year (source=None) plus
+    the documented MANUAL overrides for countries FAOSTAT omits."""
+    df = load() if df is None else df
+    out: dict[str, tuple] = {}
+    if not df.empty:
+        df = df.copy()
+        df["country"] = df["country"].replace(_RENAME)
+        yr = int(df["year"].max())
+        for x in df[df["year"] == yr].itertuples():
+            out[x.country] = (float(x.tonnes), yr, None)
+    for c, m in MANUAL.items():
+        out.setdefault(c, (float(m["tonnes"]), m["year"], m["source"]))
+    return out
+
 
 def top_growers(n: int = 6, df: pd.DataFrame | None = None):
     """[(country, tonnes, yoy_pct)] for the latest year, prior year for y/y."""
