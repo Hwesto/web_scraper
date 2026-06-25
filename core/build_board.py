@@ -24,6 +24,36 @@ CODE = {"Peru": "PER", "Morocco": "MAR", "South Africa": "ZAF", "Chile": "CHL",
 COLR = {"Peru": "#4c5fd5", "Morocco": "#e8833a", "South Africa": "#2a9d8f",
         "Chile": "#6b3fa0", "Spain": "#c9a227", "Netherlands": "#7a8699",
         "Poland": "#b1543a", "Portugal": "#3a8f6b"}
+# Clean short codes for export destinations (Comtrade names → readable)
+DEST_CODE = {"United Kingdom": "UK", "United States": "USA", "Hong Kong": "HK",
+             "United Arab Emirates": "UAE", "China": "CHN", "Germany": "GER",
+             "Netherlands": "NLD", "Canada": "CAN", "South Korea": "KOR",
+             "Saudi Arabia": "KSA", "Singapore": "SGP", "Malaysia": "MYS",
+             "Thailand": "THA", "Japan": "JPN", "India": "IND", "Ireland": "IRL",
+             "Belgium": "BEL", "Italy": "ITA", "Spain": "ESP", "Poland": "POL",
+             "Sweden": "SWE", "Russia": "RUS", "Brazil": "BRA", "Argentina": "ARG",
+             "Chile": "CHL", "Colombia": "COL", "Costa Rica": "CRI",
+             "Ecuador": "ECU", "Israel": "ISR", "Qatar": "QAT"}
+
+
+def _dcode(name: str) -> str:
+    return DEST_CODE.get(name) or CODE.get(name) or str(name)[:3].upper()
+
+
+# Supermarket brand colours (logo primaries)
+SHOP_COLR = {"Tesco": "#00539f", "Asda": "#5fae2b", "Sainsbury's": "#f06c00",
+             "Morrisons": "#00573f", "Aldi": "#1b3281", "Lidl": "#0050aa",
+             "Waitrose": "#4b9560", "Ocado": "#6b2c91", "Co-op": "#00b1e7",
+             "Iceland": "#cc0000", "M&S": "#1d1d1b"}
+
+
+def _grams(pack: str) -> float:
+    """Sort key: pack label like '150g' / '1kg' -> grams (unknown sorts last)."""
+    import re
+    m = re.search(r"([\d.]+)\s*(kg|g)", str(pack).lower())
+    if not m:
+        return 1e9
+    return float(m.group(1)) * (1000 if m.group(2) == "kg" else 1)
 
 
 def _months(v):
@@ -92,14 +122,16 @@ def _shelf():
     r["d"] = pd.to_datetime(r["ref_period"])
     r = r[r["d"] == r["d"].max()]
     parts = r["key"].str.split("|", expand=True)
-    r["retailer"], r["tier"] = parts[0], parts[1]
+    r["retailer"], r["tier"], r["pack"] = parts[0], parts[1], parts[2]
     std = r[r["tier"] == "standard"]
     base = std if not std.empty else r
     per = []
     for ret, g in base.groupby("retailer"):
+        packs = [{"pack": str(t.pack), "kg": float(t.value)}
+                 for t in g.itertuples()]
+        packs.sort(key=lambda p: _grams(p["pack"]))   # small -> large
         per.append({"retailer": ret, "med": float(g["value"].median()),
-                    "lo": float(g["value"].min()), "hi": float(g["value"].max()),
-                    "n": int(len(g))})
+                    "packs": packs})
     per.sort(key=lambda x: x["med"])
     return r["d"].max(), float(base["value"].median()), per
 
@@ -134,7 +166,8 @@ def _ticker_html(r) -> str:
         f'{"+" if r["dvol"]>=0 else ""}{r["dvol"]:.0f}% vol</span>')
     dim = "" if r["share"] >= 5 else " dim"
     return (f'<div class="tk{dim}">'
-            f'<span class="sym" style="color:{COLR.get(r["origin"], "#5a3fb0")}">{r["code"]}</span>'
+            f'<span class="sym" style="color:{COLR.get(r["origin"], "#5a3fb0")}">'
+            f'<span class="code">{r["code"]}</span><span class="cty">{r["origin"]}</span></span>'
             f'<span class="vol">{tt} t</span>'
             f'<span class="shr">{r["share"]:.0f}%</span>'
             f'<span class="at">@</span><span class="px">£{r["cif"]:.2f}</span>'
@@ -151,11 +184,16 @@ def build() -> str:
         shelf, shelf_lbl = _retail(cur), "proxy"
     cur_m = cur.month
     board = "\n".join(_ticker_html(r) for r in rows)
-    # On the shelf this week — real per-retailer £/kg (Trolley)
+    # On the shelf this week — real per-retailer £/kg, by pack size (Trolley)
+    def _packs_html(p):
+        return "".join(
+            f'<span class="pk"><b class="sz">{pk["pack"]}</b> £{pk["kg"]:.2f}</span>'
+            for pk in p["packs"])
     shelf_rows = "".join(
-        f'<div class="shrow"><span class="nm">{p["retailer"]}</span>'
-        f'<span class="p">£{p["med"]:.2f}</span>'
-        f'<span class="rng">£{p["lo"]:.2f}–{p["hi"]:.2f}/kg · {p["n"]} pack{"s" if p["n"] != 1 else ""}</span></div>'
+        f'<div class="shrow">'
+        f'<span class="nm" style="color:{SHOP_COLR.get(p["retailer"], "#5a3fb0")}">'
+        f'{p["retailer"]}</span>'
+        f'<span class="packs">{_packs_html(p)}</span></div>'
         for p in per)
     shelf_when = pd.Timestamp(shelf_wk).strftime("%-d %b %Y") if shelf_wk is not None else ""
     relay_cells = "".join(
@@ -169,28 +207,22 @@ def build() -> str:
     sells = ""
     if not pe.empty:
         for p in ["Peru", "Chile", "Morocco", "South Africa", "Spain", "Netherlands"]:
-            d = pe[pe["player"] == p].head(4)
+            d = pe[pe["player"] == p]
+            d = d[~d["destination"].str.startswith(("M49-", "Other"))].head(4)
             if d.empty:
                 continue
-            dests = " · ".join(f'{CODE.get(x.destination, x.destination[:3].upper())} '
-                               f'{x.pct_tonnage:.0f}%' for x in d.itertuples())
+            dests = " · ".join(f'{_dcode(x.destination)} {x.pct_tonnage:.0f}%'
+                               for x in d.itertuples())
             sells += (f'<div class="sell"><span class="sym" '
-                      f'style="color:{COLR.get(p, "#5a3fb0")}">{CODE[p]}</span>'
+                      f'style="color:{COLR.get(p, "#5a3fb0")}">'
+                      f'<span class="code">{CODE[p]}</span><span class="cty">{p}</span></span>'
                       f'<span class="arrow">→</span><span class="dests">{dests}</span></div>')
-    # Country-code legend — every code shown on the page, in trade-rank order
-    names = {r["origin"] for r in rows} | {x for x in relay if x}
-    if not pe.empty:
-        names |= set(pe["player"].unique())
-    legend = " &nbsp;·&nbsp; ".join(
-        f'<span><span class="sw" style="background:{COLR.get(n, "#5a3fb0")}"></span>'
-        f'<b>{CODE.get(n, n[:3].upper())}</b> {n}</span>'
-        for n in CODE if n in names)
     html = _PAGE.format(month=f"{MONTHS[cur.month-1]} {cur.year}",
                         total=f"{tot:,.0f}", mavg=f"{mavg:.2f}",
                         shelf=f"{shelf:.2f}", shelf_lbl=shelf_lbl,
                         shelf_rows=shelf_rows, shelf_when=shelf_when,
                         imports=f"{s['imports_kt']:.0f}", ss=f"{s['ss']:.1f}",
-                        board=board, relay=relay_cells, sells=sells, legend=legend,
+                        board=board, relay=relay_cells, sells=sells,
                         generated=_dt.date.today().isoformat())
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(html, encoding="utf-8")
@@ -217,17 +249,21 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
    padding:10px 0;margin:14px 0 26px;font-weight:700}}
  .idx b{{color:var(--accent)}}
  .idx .sub{{font-size:.72rem;color:#9a9082;font-weight:700;text-transform:uppercase;letter-spacing:.08em}}
- .shrow{{display:flex;align-items:baseline;gap:.7em 1em;flex-wrap:wrap;padding:11px 6px;
+ .shrow{{display:flex;align-items:baseline;gap:.5em 1.1em;flex-wrap:wrap;padding:12px 6px;
    border-bottom:1px solid var(--line)}}
- .shrow .nm{{font-size:1.5rem;font-weight:800;color:var(--accent);min-width:8ch}}
- .shrow .p{{font-size:2rem;color:var(--ink)}}
- .shrow .rng{{font-size:.95rem;color:#8a8070;font-weight:700}}
+ .shrow .nm{{font-size:1.5rem;font-weight:800;min-width:9ch}}
+ .packs{{display:flex;flex-wrap:wrap;gap:.4em 1.1em;align-items:baseline}}
+ .pk{{font-size:1.5rem;color:var(--ink);white-space:nowrap}}
+ .pk .sz{{font-size:.92rem;color:#8a8070;font-weight:800;margin-right:.15em}}
  h2{{text-transform:uppercase;letter-spacing:.12em;font-size:.82rem;color:#8a8070;
    margin:34px 0 12px;font-weight:800}}
  .tk{{display:flex;align-items:baseline;gap:.5em 1em;flex-wrap:wrap;padding:14px 6px;
    border-bottom:1px solid var(--line)}}
  .tk.dim{{opacity:.42}}
- .sym{{font-size:2.3rem;font-weight:800;letter-spacing:-.03em;min-width:3.4ch}}
+ .sym{{display:inline-flex;flex-direction:column;align-self:center;min-width:4.2ch}}
+ .sym .code{{font-size:2.3rem;font-weight:800;letter-spacing:-.03em;line-height:.95}}
+ .sym .cty{{font-size:.62rem;font-weight:700;color:#9a9082;text-transform:uppercase;
+   letter-spacing:.05em;white-space:nowrap}}
  .vol{{font-size:1.5rem;color:#5a5347}}
  .shr{{font-size:1.05rem;color:#8a8070;font-weight:800}}
  .at{{color:#aaa091;font-size:1.2rem}}
@@ -241,13 +277,9 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .rc b{{display:block;font-size:.66rem;color:#9a9082;letter-spacing:.05em}}
  .rc span{{font-size:.92rem;font-weight:800}}
  .rc.now{{box-shadow:0 0 0 2px var(--accent) inset;background:#fff}}
- .sell{{display:flex;align-items:baseline;gap:.7em;padding:9px 6px;border-bottom:1px solid var(--line)}}
- .sell .sym{{font-size:1.5rem;min-width:3.4ch}} .arrow{{color:#aaa091}}
+ .sell{{display:flex;align-items:center;gap:.7em;padding:9px 6px;border-bottom:1px solid var(--line)}}
+ .sell .sym{{min-width:7ch}} .sell .sym .code{{font-size:1.5rem}} .arrow{{color:#aaa091}}
  .dests{{font-size:1.05rem;color:#5a5347;font-weight:700}}
- .legend{{margin-top:18px;font-size:.9rem;color:#6a6052;font-weight:700;line-height:1.9}}
- .legend b{{color:var(--ink);font-weight:800}}
- .legend .sw{{display:inline-block;width:.72em;height:.72em;border-radius:50%;margin-right:.35em;
-   vertical-align:middle}}
  .foot{{margin-top:40px;border-top:2px solid var(--line);padding-top:16px;font-size:.78rem;
    color:#8a8070;font-weight:700}}
  .foot a{{color:var(--accent)}}
@@ -276,9 +308,6 @@ landed <b>£{mavg}/kg</b> &rarr; shelf <b>£{shelf}/kg</b> <span class="sub">{sh
 
 <h2>Where each player else ships (2024 · % of their tonnage)</h2>
 {sells}
-
-<h2>Country codes</h2>
-<div class="legend">{legend}</div>
 
 <div class="foot">Free data: HMRC OTS (monthly imports, ~6-wk lag) · UN Comtrade
 (annual destinations) · DEFRA Horticulture (UK production) · Trolley (multi-retailer shelf, weekly).
