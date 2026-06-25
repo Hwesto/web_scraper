@@ -40,9 +40,10 @@ def test_uk_production_sane():
 
 def test_board_data():
     from core import build_board as b
-    cur, prev, rows, tot, mavg = b._board()
+    cur, prev, rows, tot, mavg, mval = b._board()
     assert rows and all(r["cif"] > 0 for r in rows)      # tickers have a price
-    assert tot > 0 and mavg > 0                           # month total + blended landed £/kg
+    assert tot > 0 and mavg > 0 and mval > 0              # month total + landed £/kg + £ spend
+    assert "yoy" in rows[0]                               # year-on-year present
     assert abs(sum(r["share"] for r in rows) - 100) < 25  # shares ~sum to the month
     assert b._retail(cur) > 0                             # ONS proxy fallback resolves
     wk, shelf, per = b._shelf()                           # real Trolley per-retailer shelf
@@ -50,3 +51,17 @@ def test_board_data():
     assert len(b._relay()) == 12                          # 12-month relay
     s = b._summary()
     assert s["imports_kt"] > 20 and 0 < s["ss"] < 20      # sane index strip
+    assert s["imports_gbp_m"] > 100                        # trailing-year £m spend
+
+
+def test_world_trade_sane():
+    """Guard the Comtrade partner2 double-count fix on committed data."""
+    from deep.market import comtrade_global as cg
+    df = cg.load()
+    if df.empty:
+        return                                            # cache not built in this env
+    imp = cg.top_importers(8, df)
+    assert imp.iloc[0]["country"] == "United States"      # US is the clear #1
+    uk = df[(df.role == "importer") & (df.country == "United Kingdom")]
+    if not uk.empty:                                      # UK ~70kt; >150kt => double-count
+        assert 40e6 < float(uk.iloc[0]["net_kg"]) < 150e6

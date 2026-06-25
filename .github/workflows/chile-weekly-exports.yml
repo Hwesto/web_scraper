@@ -74,6 +74,9 @@ jobs:
       - name: Refresh USD->GBP FX rate (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: python -m deep.market.fx || echo "fx refresh skipped"
+      - name: Refresh global trade map — Comtrade world league (collect only)
+        if: ${{ env.MODE == 'collect' }}
+        run: python -m deep.market.comtrade_global || echo "global trade refresh skipped"
       - name: Refresh SAG China orchard roster (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: python scripts/fetch_sag_china.py || echo "sag-china fetch skipped"

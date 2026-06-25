@@ -78,9 +78,11 @@ def _board():
         b = val[val["d"] == d].groupby("key")["value"].sum()
         return b / (a * 1000)
 
-    vc, vp, cc, cp = vol(cur), vol(prev), cif(cur), cif(prev)
+    yr_ago = pd.Timestamp(cur) - pd.DateOffset(years=1)
+    vc, vp, vy = vol(cur), vol(prev), vol(yr_ago)
+    cc, cp = cif(cur), cif(prev)
     tot = vc.sum()
-    mval = val[val["d"] == cur]["value"].sum()
+    mval = val[val["d"] == cur]["value"].sum()        # £ this month (landed/customs value)
     mavg = mval / (tot * 1000) if tot else float("nan")  # month blended landed £/kg
     rows = []
     for o in vc.sort_values(ascending=False).index:
@@ -90,9 +92,10 @@ def _board():
         pkg = cc.get(o, float("nan"))
         dpr = pkg - cp.get(o, float("nan"))
         dv = (t / vp[o] - 1) * 100 if o in vp.index and vp[o] else float("nan")
-        rows.append({"origin": o, "code": CODE[o], "t": t, "cif": pkg,
-                     "dprice": dpr, "dvol": dv, "share": t / tot * 100})
-    return pd.Timestamp(cur), pd.Timestamp(prev), rows, tot, mavg
+        yoy = (t / vy[o] - 1) * 100 if o in vy.index and vy[o] else float("nan")
+        rows.append({"origin": o, "code": CODE[o], "t": t, "cif": pkg, "dprice": dpr,
+                     "dvol": dv, "yoy": yoy, "share": t / tot * 100})
+    return pd.Timestamp(cur), pd.Timestamp(prev), rows, tot, mavg, mval
 
 
 def _retail(month):
@@ -154,16 +157,65 @@ def _summary():
     prod = uk_production.load()
     pk = float(prod["production_kt"].iloc[-1]) if not prod.empty else 0
     ss = pk / (l12v / 1000 + pk) * 100 if l12v else 0
-    return {"imports_kt": l12v / 1000, "avg": avg, "ss": ss}
+    pv = float(prod["value_gbp_m"].iloc[-1]) if "value_gbp_m" in prod and not prod.empty else 0
+    return {"imports_kt": l12v / 1000, "avg": avg, "ss": ss,
+            "imports_gbp_m": l12val / 1e6, "uk_value_gbp_m": pv}
+
+
+def _wholesale():
+    """UK wholesale-market £/kg (DEFRA, weekly Jun–Nov) — the price-journey middle.
+    Returns (date, £/kg) of the latest reading, or (None, nan) if unheld."""
+    try:
+        w = vintage.latest("defra_blueberry_price").copy()
+    except Exception:
+        return None, float("nan")
+    if w.empty:
+        return None, float("nan")
+    w["d"] = pd.to_datetime(w["ref_period"]); w = w.sort_values("d")
+    last = w.iloc[-1]
+    return last["d"], float(last["value"])
+
+
+def _reexports():
+    """UK re-exports (HMRC export flows): (trailing-year kt, [(dest, kt)…])."""
+    try:
+        r = vintage.latest("hmrc_blueberry_reexports").copy()
+    except Exception:
+        return float("nan"), []
+    if r.empty:
+        return float("nan"), []
+    r["d"] = pd.to_datetime(r["ref_period"])
+    last12 = r[r["d"] >= r["d"].max() - pd.DateOffset(months=11)]
+    kt = last12["value"].sum() / 1000
+    top = (last12.groupby("key")["value"].sum().sort_values(ascending=False).head(3) / 1000)
+    return kt, [(k, float(v)) for k, v in top.items()]
+
+
+def _world():
+    """Global trade map (Comtrade): (year, uk_rank, n, top_importers, top_exporters)."""
+    try:
+        from deep.market import comtrade_global as cg
+    except Exception:
+        return None, 0, 0, [], []
+    df = cg.load()
+    if df.empty:
+        return None, 0, 0, [], []
+    yr = int(df["year"].max())
+    rank, n = cg.uk_import_rank(df)
+    imp = [(x.country, float(x.value_usd), float(x.net_kg))
+           for x in cg.top_importers(6, df).itertuples()]
+    exp = [(x.country, float(x.value_usd), float(x.net_kg))
+           for x in cg.top_exporters(6, df).itertuples()]
+    return yr, rank, n, imp, exp
 
 
 def _ticker_html(r) -> str:
     up = r["dprice"] >= 0
     arr, cls = ("▲", "up") if up else ("▼", "down")
     tt = f"{r['t']/1000:.1f}K" if r["t"] >= 1000 else f"{r['t']:.0f}"
-    dv = "" if r["dvol"] != r["dvol"] else (
-        f'<span class="chip {"up" if r["dvol"]>=0 else "down"}">'
-        f'{"+" if r["dvol"]>=0 else ""}{r["dvol"]:.0f}% vol</span>')
+    yo = "" if r["yoy"] != r["yoy"] else (   # YoY volume vs same month last year
+        f'<span class="chip {"up" if r["yoy"]>=0 else "down"}">'
+        f'{"+" if r["yoy"]>=0 else ""}{r["yoy"]:.0f}% y/y</span>')
     dim = "" if r["share"] >= 5 else " dim"
     return (f'<div class="tk{dim}">'
             f'<span class="sym" style="color:{COLR.get(r["origin"], "#5a3fb0")}">'
@@ -171,19 +223,59 @@ def _ticker_html(r) -> str:
             f'<span class="vol">{tt} t</span>'
             f'<span class="shr">{r["share"]:.0f}%</span>'
             f'<span class="at">@</span><span class="px">£{r["cif"]:.2f}</span>'
-            f'<span class="chg {cls}">{arr} £{abs(r["dprice"]):.2f}</span>{dv}</div>')
+            f'<span class="chg {cls}">{arr} £{abs(r["dprice"]):.2f}</span>{yo}</div>')
+
+
+def _money(usd):
+    """$ -> compact '$1.9bn' / '$801m'."""
+    return f"${usd/1e9:.1f}bn" if usd >= 1e9 else f"${usd/1e6:.0f}m"
 
 
 def build() -> str:
-    cur, prev, rows, tot, mavg = _board()
+    cur, prev, rows, tot, mavg, mval = _board()
     relay = _relay()
     s = _summary()
     shelf_wk, shelf, per = _shelf()
     shelf_lbl = "this wk"
     if shelf != shelf:                       # no Trolley data → ONS monthly proxy
         shelf, shelf_lbl = _retail(cur), "proxy"
+    when_w, whole = _wholesale()
+    rex_kt, rex_top = _reexports()
+    wyr, uk_rank, wn, wimp, wexp = _world()
     cur_m = cur.month
     board = "\n".join(_ticker_html(r) for r in rows)
+    # The price journey — landed (HMRC) → wholesale (DEFRA, Jun–Nov) → shelf (Trolley)
+    def _step(label, val, note):
+        v = f"£{val:.2f}" if val == val else "—"
+        return (f'<div class="step"><span class="sl">{label}</span>'
+                f'<span class="sv">{v}</span><span class="sn">{note}</span></div>')
+    wnote = (pd.Timestamp(when_w).strftime("%b %Y")
+             if (when_w is not None and whole == whole) else "Jun–Nov only")
+    journey = ('<div class="step-arrow">→</div>'.join([
+        _step("Landed", mavg, f"CIF · {MONTHS[cur.month-1]}"),
+        _step("Wholesale", whole, wnote),
+        _step("Shelf", shelf, shelf_lbl)]))
+    # UK re-exports (HMRC export flows)
+    rex = ""
+    if rex_kt == rex_kt and rex_kt > 0:
+        dests = ", ".join(f"{_dcode(k)} {v:.1f}kt" for k, v in rex_top)
+        rex = (f'<div class="note">↩ The UK also <b>re-exports ~{rex_kt:.1f} kt/yr</b> '
+               f'of fresh blueberries — mostly {dests}.</div>')
+    # The world map (Comtrade global, latest complete year)
+    world = ""
+    if wimp or wexp:
+        def _wrow(items):
+            return "".join(
+                f'<div class="wr"><span class="wc">{c}</span>'
+                f'<span class="wv">{_money(v)}</span>'
+                f'<span class="wk">{kg/1e6:.0f} kt</span></div>'
+                for c, v, kg in items)
+        rankline = (f'The UK is the world\'s <b>#{uk_rank}</b> blueberry importer.'
+                    if uk_rank else 'The UK is a top-tier blueberry importer.')
+        world = (f'<h2>The world\'s blueberry trade — {wyr} · UN Comtrade</h2>'
+                 f'<div class="note">{rankline}</div>'
+                 f'<div class="world"><div class="wcol"><h3>Top importers</h3>{_wrow(wimp)}</div>'
+                 f'<div class="wcol"><h3>Top exporters</h3>{_wrow(wexp)}</div></div>')
     # On the shelf this week — real per-retailer £/kg, by pack size (Trolley)
     def _packs_html(p):
         return "".join(
@@ -217,11 +309,13 @@ def build() -> str:
                       f'style="color:{COLR.get(p, "#5a3fb0")}">'
                       f'<span class="code">{CODE[p]}</span><span class="cty">{p}</span></span>'
                       f'<span class="arrow">→</span><span class="dests">{dests}</span></div>')
+    world_rank = (f" &nbsp;·&nbsp; world's <b>#{uk_rank}</b> importer" if uk_rank else "")
     html = _PAGE.format(month=f"{MONTHS[cur.month-1]} {cur.year}",
-                        total=f"{tot:,.0f}", mavg=f"{mavg:.2f}",
+                        total=f"{tot:,.0f}", mavg=f"{mavg:.2f}", spend_m=f"{mval/1e6:.0f}",
                         shelf=f"{shelf:.2f}", shelf_lbl=shelf_lbl,
-                        shelf_rows=shelf_rows, shelf_when=shelf_when,
-                        imports=f"{s['imports_kt']:.0f}", ss=f"{s['ss']:.1f}",
+                        shelf_rows=shelf_rows, shelf_when=shelf_when, journey=journey,
+                        imports=f"{s['imports_kt']:.0f}", spend_yr=f"{s['imports_gbp_m']:.0f}",
+                        ss=f"{s['ss']:.1f}", world_rank=world_rank, rex=rex, world=world,
                         board=board, relay=relay_cells, sells=sells,
                         generated=_dt.date.today().isoformat())
     OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -280,6 +374,23 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .sell{{display:flex;align-items:center;gap:.7em;padding:9px 6px;border-bottom:1px solid var(--line)}}
  .sell .sym{{min-width:7ch}} .sell .sym .code{{font-size:1.5rem}} .arrow{{color:#aaa091}}
  .dests{{font-size:1.05rem;color:#5a5347;font-weight:700}}
+ .journey{{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}}
+ .step{{flex:1 1 0;min-width:120px;border:2px solid var(--line);border-radius:9px;
+   padding:12px 14px;background:#fffefb;display:flex;flex-direction:column;gap:2px}}
+ .step .sl{{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#8a8070;font-weight:800}}
+ .step .sv{{font-size:2rem;color:var(--accent)}}
+ .step .sn{{font-size:.72rem;color:#9a9082;font-weight:700}}
+ .step-arrow{{align-self:center;color:#bcb3a0;font-size:1.6rem;font-weight:800}}
+ .note{{font-size:1rem;color:#5a5347;font-weight:700;padding:12px 4px;line-height:1.5}}
+ .note b{{color:var(--accent)}}
+ .world{{display:grid;grid-template-columns:1fr 1fr;gap:10px 26px}}
+ .world h3{{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:#8a8070;
+   margin:6px 0 4px;font-weight:800}}
+ .wr{{display:flex;align-items:baseline;gap:.6em;padding:6px 2px;border-bottom:1px solid var(--line)}}
+ .wr .wc{{flex:1;font-size:1.1rem;font-weight:800;color:var(--ink)}}
+ .wr .wv{{font-size:1.15rem;color:var(--accent);font-weight:800}}
+ .wr .wk{{font-size:.82rem;color:#9a9082;min-width:5ch;text-align:right}}
+ @media(max-width:560px){{.world{{grid-template-columns:1fr}}}}
  .foot{{margin-top:40px;border-top:2px solid var(--line);padding-top:16px;font-size:.78rem;
    color:#8a8070;font-weight:700}}
  .foot a{{color:var(--accent)}}
@@ -293,12 +404,14 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  </div>
  <img class="hero" src="hero.png" alt="A British blueberry in a navy suit and Union-Jack tie">
 </div>
-<div class="idx">{month} &nbsp;·&nbsp; <b>{total} t</b> landed this month &nbsp;·&nbsp;
-landed <b>£{mavg}/kg</b> &rarr; shelf <b>£{shelf}/kg</b> <span class="sub">{shelf_lbl}</span>
-&nbsp;·&nbsp; UK-grown <b>{ss}%</b> &nbsp;·&nbsp; {imports}K t/yr</div>
+<div class="idx">{month} &nbsp;·&nbsp; <b>{total} t</b> landed (<b>£{spend_m}m</b>) &nbsp;·&nbsp;
+UK-grown <b>{ss}%</b> &nbsp;·&nbsp; <b>{imports}K t</b> / <b>£{spend_yr}m</b> a year{world_rank}</div>
 
-<h2>Who's landing this month — tonnes · share @ landed £/kg, vs last month</h2>
+<h2>Who's landing this month — tonnes · share @ landed £/kg · ▲▼ vs last month · y/y volume</h2>
 {board}
+
+<h2>Per-kilo price at each stage — latest free reading (different dates)</h2>
+<div class="journey">{journey}</div>
 
 <h2>On the shelf this week — £/kg by retailer ({shelf_when})</h2>
 {shelf_rows}
@@ -308,9 +421,12 @@ landed <b>£{mavg}/kg</b> &rarr; shelf <b>£{shelf}/kg</b> <span class="sub">{sh
 
 <h2>Where each player else ships (2024 · % of their tonnage)</h2>
 {sells}
+{rex}
 
-<div class="foot">Free data: HMRC OTS (monthly imports, ~6-wk lag) · UN Comtrade
-(annual destinations) · DEFRA Horticulture (UK production) · Trolley (multi-retailer shelf, weekly).
+{world}
+
+<div class="foot">Free data: HMRC OTS (monthly imports + re-exports, ~6-wk lag) · UN Comtrade
+(global trade + destinations) · DEFRA (UK production + wholesale price) · Trolley (multi-retailer shelf, weekly).
 Auto-updates weekly · <a href="deep.html">full editorial view →</a> ·
 generated {generated}.</div>
 </div></body></html>"""

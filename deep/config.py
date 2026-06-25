@@ -34,6 +34,8 @@ HMRC_MAX_RETRIES = 4        # network/rate-limit retries, exponential backoff
 # vs customs declarations) -- the post-Brexit consistency caveat lives here.
 FLOW_EU_IMPORTS = 1
 FLOW_NONEU_IMPORTS = 3
+FLOW_EU_EXPORTS = 2      # dispatches (Intrastat)
+FLOW_NONEU_EXPORTS = 4   # exports (customs) -- together: UK re-exports of blueberries
 
 # CountryId -> (name, alpha2, flow_type). Verified against /Country.
 # The stated target is the opaque EU/Morocco flow; Peru/Chile/Portugal/NL are

@@ -25,6 +25,8 @@ from ..config import (
     KG_PER_TONNE,
     FLOW_EU_IMPORTS,
     FLOW_NONEU_IMPORTS,
+    FLOW_EU_EXPORTS,
+    FLOW_NONEU_EXPORTS,
 )
 
 _HEADERS = {"User-Agent": "uk-blueberry-nowcast/0.1 (research)", "Accept": "application/json"}
@@ -148,6 +150,37 @@ class HmrcBlueberryImportValue(SignalSource):
             {"series": self.series, "ref_period": _month_to_iso(mid), "freq": self.freq,
              "key": _country_name(cid), "value": gbp, "unit": self.unit}
             for (mid, cid), gbp in agg.items()
+        ]
+        return self._tidy(records, vintage_date)
+
+
+class HmrcBlueberryReExports(SignalSource):
+    """Monthly UK blueberry RE-EXPORT tonnage by destination (HMRC export flows).
+
+    The UK ships a small share of landed fresh blueberries back out (mostly EU
+    dispatch to Ireland/Netherlands) -- a hub/transit signal. Flows 2 (EU
+    dispatch) + 4 (non-EU export). Same CN8 08104050 as the import side.
+    """
+
+    series = "hmrc_blueberry_reexports"
+    freq = "M"
+    unit = "tonnes"
+
+    def fetch(self, vintage_date: _dt.date | None = None) -> "pd.DataFrame":  # noqa: F821
+        vintage_date = vintage_date or _dt.date.today()
+        _country_name(0)
+        raw: list[dict] = []
+        for flow_id in (FLOW_EU_EXPORTS, FLOW_NONEU_EXPORTS):
+            raw.extend(_page_flow(flow_id))
+            time.sleep(HMRC_PAGE_DELAY_S)
+        agg: dict[tuple[int, int], float] = {}
+        for row in raw:
+            key = (row["MonthId"], row["CountryId"])
+            agg[key] = agg.get(key, 0.0) + (row.get("NetMass") or 0.0)
+        records = [
+            {"series": self.series, "ref_period": _month_to_iso(mid), "freq": self.freq,
+             "key": _country_name(cid), "value": net_kg / KG_PER_TONNE, "unit": self.unit}
+            for (mid, cid), net_kg in agg.items()
         ]
         return self._tidy(records, vintage_date)
 

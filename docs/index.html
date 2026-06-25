@@ -49,6 +49,23 @@
  .sell{display:flex;align-items:center;gap:.7em;padding:9px 6px;border-bottom:1px solid var(--line)}
  .sell .sym{min-width:7ch} .sell .sym .code{font-size:1.5rem} .arrow{color:#aaa091}
  .dests{font-size:1.05rem;color:#5a5347;font-weight:700}
+ .journey{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap}
+ .step{flex:1 1 0;min-width:120px;border:2px solid var(--line);border-radius:9px;
+   padding:12px 14px;background:#fffefb;display:flex;flex-direction:column;gap:2px}
+ .step .sl{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#8a8070;font-weight:800}
+ .step .sv{font-size:2rem;color:var(--accent)}
+ .step .sn{font-size:.72rem;color:#9a9082;font-weight:700}
+ .step-arrow{align-self:center;color:#bcb3a0;font-size:1.6rem;font-weight:800}
+ .note{font-size:1rem;color:#5a5347;font-weight:700;padding:12px 4px;line-height:1.5}
+ .note b{color:var(--accent)}
+ .world{display:grid;grid-template-columns:1fr 1fr;gap:10px 26px}
+ .world h3{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:#8a8070;
+   margin:6px 0 4px;font-weight:800}
+ .wr{display:flex;align-items:baseline;gap:.6em;padding:6px 2px;border-bottom:1px solid var(--line)}
+ .wr .wc{flex:1;font-size:1.1rem;font-weight:800;color:var(--ink)}
+ .wr .wv{font-size:1.15rem;color:var(--accent);font-weight:800}
+ .wr .wk{font-size:.82rem;color:#9a9082;min-width:5ch;text-align:right}
+ @media(max-width:560px){.world{grid-template-columns:1fr}}
  .foot{margin-top:40px;border-top:2px solid var(--line);padding-top:16px;font-size:.78rem;
    color:#8a8070;font-weight:700}
  .foot a{color:var(--accent)}
@@ -62,16 +79,18 @@
  </div>
  <img class="hero" src="hero.png" alt="A British blueberry in a navy suit and Union-Jack tie">
 </div>
-<div class="idx">Apr 2026 &nbsp;·&nbsp; <b>6,966 t</b> landed this month &nbsp;·&nbsp;
-landed <b>£6.24/kg</b> &rarr; shelf <b>£10.43/kg</b> <span class="sub">this wk</span>
-&nbsp;·&nbsp; UK-grown <b>5.5%</b> &nbsp;·&nbsp; 68K t/yr</div>
+<div class="idx">Apr 2026 &nbsp;·&nbsp; <b>6,966 t</b> landed (<b>£43m</b>) &nbsp;·&nbsp;
+UK-grown <b>5.5%</b> &nbsp;·&nbsp; <b>68K t</b> / <b>£389m</b> a year &nbsp;·&nbsp; world's <b>#4</b> importer</div>
 
-<h2>Who's landing this month — tonnes · share @ landed £/kg, vs last month</h2>
-<div class="tk"><span class="sym" style="color:#e8833a"><span class="code">MAR</span><span class="cty">Morocco</span></span><span class="vol">5.8K t</span><span class="shr">84%</span><span class="at">@</span><span class="px">£6.20</span><span class="chg down">▼ £0.66</span><span class="chip up">+37% vol</span></div>
-<div class="tk"><span class="sym" style="color:#c9a227"><span class="code">ESP</span><span class="cty">Spain</span></span><span class="vol">562 t</span><span class="shr">8%</span><span class="at">@</span><span class="px">£6.54</span><span class="chg down">▼ £2.61</span><span class="chip up">+81% vol</span></div>
-<div class="tk dim"><span class="sym" style="color:#7a8699"><span class="code">NLD</span><span class="cty">Netherlands</span></span><span class="vol">281 t</span><span class="shr">4%</span><span class="at">@</span><span class="px">£6.90</span><span class="chg down">▼ £1.00</span><span class="chip up">+9% vol</span></div>
-<div class="tk dim"><span class="sym" style="color:#4c5fd5"><span class="code">PER</span><span class="cty">Peru</span></span><span class="vol">105 t</span><span class="shr">2%</span><span class="at">@</span><span class="px">£6.01</span><span class="chg up">▲ £0.64</span><span class="chip down">-86% vol</span></div>
-<div class="tk dim"><span class="sym" style="color:#2a9d8f"><span class="code">ZAF</span><span class="cty">South Africa</span></span><span class="vol">8 t</span><span class="shr">0%</span><span class="at">@</span><span class="px">£10.00</span><span class="chg up">▲ £1.37</span><span class="chip down">-94% vol</span></div>
+<h2>Who's landing this month — tonnes · share @ landed £/kg · ▲▼ vs last month · y/y volume</h2>
+<div class="tk"><span class="sym" style="color:#e8833a"><span class="code">MAR</span><span class="cty">Morocco</span></span><span class="vol">5.8K t</span><span class="shr">84%</span><span class="at">@</span><span class="px">£6.20</span><span class="chg down">▼ £0.66</span><span class="chip up">+0% y/y</span></div>
+<div class="tk"><span class="sym" style="color:#c9a227"><span class="code">ESP</span><span class="cty">Spain</span></span><span class="vol">562 t</span><span class="shr">8%</span><span class="at">@</span><span class="px">£6.54</span><span class="chg down">▼ £2.61</span><span class="chip up">+43% y/y</span></div>
+<div class="tk dim"><span class="sym" style="color:#7a8699"><span class="code">NLD</span><span class="cty">Netherlands</span></span><span class="vol">281 t</span><span class="shr">4%</span><span class="at">@</span><span class="px">£6.90</span><span class="chg down">▼ £1.00</span><span class="chip up">+226% y/y</span></div>
+<div class="tk dim"><span class="sym" style="color:#4c5fd5"><span class="code">PER</span><span class="cty">Peru</span></span><span class="vol">105 t</span><span class="shr">2%</span><span class="at">@</span><span class="px">£6.01</span><span class="chg up">▲ £0.64</span><span class="chip up">+197% y/y</span></div>
+<div class="tk dim"><span class="sym" style="color:#2a9d8f"><span class="code">ZAF</span><span class="cty">South Africa</span></span><span class="vol">8 t</span><span class="shr">0%</span><span class="at">@</span><span class="px">£10.00</span><span class="chg up">▲ £1.37</span></div>
+
+<h2>Per-kilo price at each stage — latest free reading (different dates)</h2>
+<div class="journey"><div class="step"><span class="sl">Landed</span><span class="sv">£6.24</span><span class="sn">CIF · Apr</span></div><div class="step-arrow">→</div><div class="step"><span class="sl">Wholesale</span><span class="sv">£13.18</span><span class="sn">Jun 2026</span></div><div class="step-arrow">→</div><div class="step"><span class="sl">Shelf</span><span class="sv">£10.43</span><span class="sn">this wk</span></div></div>
 
 <h2>On the shelf this week — £/kg by retailer (22 Jun 2026)</h2>
 <div class="shrow"><span class="nm" style="color:#5fae2b">Asda</span><span class="packs"><span class="pk"><b class="sz">300g</b> £9.87</span><span class="pk"><b class="sz">500g</b> £8.64</span></span></div><div class="shrow"><span class="nm" style="color:#f06c00">Sainsbury's</span><span class="packs"><span class="pk"><b class="sz">300g</b> £11.00</span></span></div><div class="shrow"><span class="nm" style="color:#00539f">Tesco</span><span class="packs"><span class="pk"><b class="sz">150g</b> £14.67</span><span class="pk"><b class="sz">250g</b> £11.00</span><span class="pk"><b class="sz">500g</b> £9.10</span></span></div>
@@ -81,9 +100,12 @@ landed <b>£6.24/kg</b> &rarr; shelf <b>£10.43/kg</b> <span class="sub">this wk
 
 <h2>Where each player else ships (2024 · % of their tonnage)</h2>
 <div class="sell"><span class="sym" style="color:#4c5fd5"><span class="code">PER</span><span class="cty">Peru</span></span><span class="arrow">→</span><span class="dests">USA 55% · NLD 22% · HK 8% · UK 5%</span></div><div class="sell"><span class="sym" style="color:#6b3fa0"><span class="code">CHL</span><span class="cty">Chile</span></span><span class="arrow">→</span><span class="dests">USA 45% · NLD 22% · GER 8% · UK 8%</span></div><div class="sell"><span class="sym" style="color:#e8833a"><span class="code">MAR</span><span class="cty">Morocco</span></span><span class="arrow">→</span><span class="dests">ESP 30% · NLD 22% · UK 22% · GER 6%</span></div><div class="sell"><span class="sym" style="color:#2a9d8f"><span class="code">ZAF</span><span class="cty">South Africa</span></span><span class="arrow">→</span><span class="dests">UK 36% · NLD 30% · UAE 7% · GER 6%</span></div><div class="sell"><span class="sym" style="color:#c9a227"><span class="code">ESP</span><span class="cty">Spain</span></span><span class="arrow">→</span><span class="dests">GER 32% · NLD 16% · POL 12% · UK 8%</span></div><div class="sell"><span class="sym" style="color:#7a8699"><span class="code">NLD</span><span class="cty">Netherlands</span></span><span class="arrow">→</span><span class="dests">GER 30% · POL 12% · BEL 11% · ESP 5%</span></div>
+<div class="note">↩ The UK also <b>re-exports ~2.0 kt/yr</b> of fresh blueberries — mostly NLD 0.9kt, IRL 0.8kt, FRA 0.1kt.</div>
 
-<div class="foot">Free data: HMRC OTS (monthly imports, ~6-wk lag) · UN Comtrade
-(annual destinations) · DEFRA Horticulture (UK production) · Trolley (multi-retailer shelf, weekly).
+<h2>The world's blueberry trade — 2024 · UN Comtrade</h2><div class="note">The UK is the world's <b>#4</b> blueberry importer.</div><div class="world"><div class="wcol"><h3>Top importers</h3><div class="wr"><span class="wc">United States</span><span class="wv">$2.4bn</span><span class="wk">350 kt</span></div><div class="wr"><span class="wc">Netherlands</span><span class="wv">$789m</span><span class="wk">118 kt</span></div><div class="wr"><span class="wc">Germany</span><span class="wv">$588m</span><span class="wk">83 kt</span></div><div class="wr"><span class="wc">United Kingdom</span><span class="wv">$520m</span><span class="wk">72 kt</span></div><div class="wr"><span class="wc">Canada</span><span class="wv">$402m</span><span class="wk">82 kt</span></div><div class="wr"><span class="wc">China</span><span class="wv">$355m</span><span class="wk">39 kt</span></div></div><div class="wcol"><h3>Top exporters</h3><div class="wr"><span class="wc">Peru</span><span class="wv">$2.2bn</span><span class="wk">326 kt</span></div><div class="wr"><span class="wc">Netherlands</span><span class="wv">$703m</span><span class="wk">91 kt</span></div><div class="wr"><span class="wc">Spain</span><span class="wv">$577m</span><span class="wk">87 kt</span></div><div class="wr"><span class="wc">Chile</span><span class="wv">$468m</span><span class="wk">90 kt</span></div><div class="wr"><span class="wc">Morocco</span><span class="wv">$427m</span><span class="wk">68 kt</span></div><div class="wr"><span class="wc">United States</span><span class="wv">$392m</span><span class="wk">79 kt</span></div></div></div>
+
+<div class="foot">Free data: HMRC OTS (monthly imports + re-exports, ~6-wk lag) · UN Comtrade
+(global trade + destinations) · DEFRA (UK production + wholesale price) · Trolley (multi-retailer shelf, weekly).
 Auto-updates weekly · <a href="deep.html">full editorial view →</a> ·
 generated 2026-06-25.</div>
 </div></body></html>
