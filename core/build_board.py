@@ -135,13 +135,19 @@ def _months(v):
 def _board():
     v = vintage.latest(_ser("hmrc", "imports")).copy(); v["d"] = pd.to_datetime(v["ref_period"])
     val = vintage.latest(_ser("hmrc", "import_value")).copy(); val["d"] = pd.to_datetime(val["ref_period"])
-    # Use the latest *complete* month: HMRC OTS lands ~6 wks late and the most
-    # recent month is usually a partial first-estimate. Treat a month as settled
-    # once it is ≥70 days old; fall back to raw tail if we don't have two settled.
+    # Pick the month "who's landing now" snapshots. HMRC OTS lands ~6 wks late so
+    # a month is only *settled* once ≥70 days old. And for a SEASONAL fruit the
+    # latest settled month can be its off-season trough (e.g. cherries in April →
+    # ~0 t), which makes the snapshot look broken — so we anchor on the latest
+    # settled *active* month: total ≥ 20% of the fruit's own monthly average.
     ms = _months(v)
     today = pd.Timestamp(_dt.date.today())
-    complete = [m for m in ms if (today - pd.Timestamp(m)).days >= 70]
-    use = complete if len(complete) >= 2 else ms
+    settled = [m for m in ms if (today - pd.Timestamp(m)).days >= 70]
+    mvol = v.groupby("d")["value"].sum()
+    base = settled[-12:] if len(settled) >= 12 else settled
+    floor = 0.20 * (mvol[base].mean() if base else 0)
+    active = [m for m in settled if mvol.get(m, 0) >= floor]
+    use = active if len(active) >= 2 else (settled if len(settled) >= 2 else ms)
     cur, prev = use[-1], use[-2]
 
     def vol(d): return v[v["d"] == d].groupby("key")["value"].sum()
