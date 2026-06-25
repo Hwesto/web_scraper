@@ -192,7 +192,8 @@ def _reexports():
 
 
 def _world():
-    """Global trade map (Comtrade): (year, uk_rank, n, top_importers, top_exporters)."""
+    """Global trade map (Comtrade): (year, uk_rank, n, top_importers, top_exporters);
+    each league row is (country, value_usd, net_kg, yoy_pct) vs the prior year."""
     try:
         from deep.market import comtrade_global as cg
     except Exception:
@@ -201,12 +202,20 @@ def _world():
     if df.empty:
         return None, 0, 0, [], []
     yr = int(df["year"].max())
-    rank, n = cg.uk_import_rank(df)
-    imp = [(x.country, float(x.value_usd), float(x.net_kg))
-           for x in cg.top_importers(6, df).itertuples()]
-    exp = [(x.country, float(x.value_usd), float(x.net_kg))
-           for x in cg.top_exporters(6, df).itertuples()]
-    return yr, rank, n, imp, exp
+    cur = df[df["year"] == yr]
+
+    def tbl(role):
+        prev = (df[(df["year"] == yr - 1) & (df["role"] == role)]
+                .set_index("country")["value_usd"].to_dict())
+        out = []
+        for x in cg._table(role, 6, cur).itertuples():
+            p = prev.get(x.country)
+            yoy = (x.value_usd / p - 1) * 100 if p else float("nan")
+            out.append((x.country, float(x.value_usd), float(x.net_kg), yoy))
+        return out
+
+    rank, n = cg.uk_import_rank(cur)
+    return yr, rank, n, tbl("importer"), tbl("exporter")
 
 
 def _ticker_html(r) -> str:
@@ -216,8 +225,7 @@ def _ticker_html(r) -> str:
     yo = "" if r["yoy"] != r["yoy"] else (   # YoY volume vs same month last year
         f'<span class="chip {"up" if r["yoy"]>=0 else "down"}">'
         f'{"+" if r["yoy"]>=0 else ""}{r["yoy"]:.0f}% y/y</span>')
-    dim = "" if r["share"] >= 5 else " dim"
-    return (f'<div class="tk{dim}">'
+    return (f'<div class="tk">'
             f'<span class="sym" style="color:{COLR.get(r["origin"], "#5a3fb0")}">'
             f'<span class="code">{r["code"]}</span><span class="cty">{r["origin"]}</span></span>'
             f'<span class="vol">{tt} t</span>'
@@ -265,15 +273,18 @@ def build() -> str:
     world = ""
     if wimp or wexp:
         def _wrow(items):
-            return "".join(
-                f'<div class="wr"><span class="wc">{c}</span>'
-                f'<span class="wv">{_money(v)}</span>'
-                f'<span class="wk">{kg/1e6:.0f} kt</span></div>'
-                for c, v, kg in items)
-        rankline = (f'The UK is the world\'s <b>#{uk_rank}</b> blueberry importer.'
-                    if uk_rank else 'The UK is a top-tier blueberry importer.')
-        world = (f'<h2>The world\'s blueberry trade — {wyr} · UN Comtrade</h2>'
-                 f'<div class="note">{rankline}</div>'
+            out = ""
+            for c, v, kg, yoy in items:
+                chip = "" if yoy != yoy else (
+                    f'<span class="wy {"up" if yoy >= 0 else "down"}">'
+                    f'{"+" if yoy >= 0 else ""}{yoy:.0f}%</span>')
+                out += (f'<div class="wr"><span class="wc">{c}</span>'
+                        f'<span class="wv">{_money(v)}</span>{chip}'
+                        f'<span class="wk">{kg/1e6:.0f} kt</span></div>')
+            return out
+        rankline = (f"UK is the world's #{uk_rank} importer · " if uk_rank else "")
+        world = (f'<h2>The world\'s blueberry trade</h2>'
+                 f'<p class="lede">{rankline}{wyr} · value, volume &amp; y/y · UN Comtrade</p>'
                  f'<div class="world"><div class="wcol"><h3>Top importers</h3>{_wrow(wimp)}</div>'
                  f'<div class="wcol"><h3>Top exporters</h3>{_wrow(wexp)}</div></div>')
     # On the shelf this week — real per-retailer £/kg, by pack size (Trolley)
@@ -349,11 +360,11 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .packs{{display:flex;flex-wrap:wrap;gap:.4em 1.1em;align-items:baseline}}
  .pk{{font-size:1.5rem;color:var(--ink);white-space:nowrap}}
  .pk .sz{{font-size:.92rem;color:#8a8070;font-weight:800;margin-right:.15em}}
- h2{{text-transform:uppercase;letter-spacing:.12em;font-size:.82rem;color:#8a8070;
-   margin:34px 0 12px;font-weight:800}}
+ h2{{text-transform:uppercase;letter-spacing:.12em;font-size:.82rem;color:var(--accent);
+   margin:34px 0 2px;font-weight:800}}
+ .lede{{margin:0 0 14px;font-size:.86rem;color:#8a8070;font-weight:700}}
  .tk{{display:flex;align-items:baseline;gap:.5em 1em;flex-wrap:wrap;padding:14px 6px;
    border-bottom:1px solid var(--line)}}
- .tk.dim{{opacity:.42}}
  .sym{{display:inline-flex;flex-direction:column;align-self:center;min-width:4.2ch}}
  .sym .code{{font-size:2.3rem;font-weight:800;letter-spacing:-.03em;line-height:.95}}
  .sym .cty{{font-size:.62rem;font-weight:700;color:#9a9082;text-transform:uppercase;
@@ -389,6 +400,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .wr{{display:flex;align-items:baseline;gap:.6em;padding:6px 2px;border-bottom:1px solid var(--line)}}
  .wr .wc{{flex:1;font-size:1.1rem;font-weight:800;color:var(--ink)}}
  .wr .wv{{font-size:1.15rem;color:var(--accent);font-weight:800}}
+ .wr .wy{{font-size:.74rem;font-weight:800}}
  .wr .wk{{font-size:.82rem;color:#9a9082;min-width:5ch;text-align:right}}
  @media(max-width:560px){{.world{{grid-template-columns:1fr}}}}
  .foot{{margin-top:40px;border-top:2px solid var(--line);padding-top:16px;font-size:.78rem;
@@ -407,19 +419,24 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <div class="idx">{month} &nbsp;·&nbsp; <b>{total} t</b> landed (<b>£{spend_m}m</b>) &nbsp;·&nbsp;
 UK-grown <b>{ss}%</b> &nbsp;·&nbsp; <b>{imports}K t</b> / <b>£{spend_yr}m</b> a year{world_rank}</div>
 
-<h2>Who's landing this month — tonnes · share @ landed £/kg · ▲▼ vs last month · y/y volume</h2>
+<h2>Who's landing this month</h2>
+<p class="lede">tonnes · share · landed £/kg · ▲▼ vs last month · y/y volume</p>
 {board}
 
-<h2>Per-kilo price at each stage — latest free reading (different dates)</h2>
+<h2>The price journey</h2>
+<p class="lede">per kilo at each stage · latest reading (dates differ)</p>
 <div class="journey">{journey}</div>
 
-<h2>On the shelf this week — £/kg by retailer ({shelf_when})</h2>
+<h2>On the shelf this week</h2>
+<p class="lede">£/kg by retailer · {shelf_when}</p>
 {shelf_rows}
 
-<h2>The relay — who leads each month</h2>
+<h2>The relay</h2>
+<p class="lede">who leads UK supply each month</p>
 <div class="relay">{relay}</div>
 
-<h2>Where each player else ships (2024 · % of their tonnage)</h2>
+<h2>Where each player else ships</h2>
+<p class="lede">2024 · % of their tonnage</p>
 {sells}
 {rex}
 

@@ -101,23 +101,25 @@ def latest_complete_year() -> int:
 
 
 def refresh(year: int | None = None, cache=CACHE) -> pd.DataFrame:
-    """Pull imports + exports vs World for every country (2 calls), rank, cache.
-    year=None -> auto-detect the latest complete year."""
+    """Pull imports + exports vs World for every country, current + prior year
+    (for YoY), rank, cache. year=None -> auto-detect the latest complete year."""
     if year is None:
         year = latest_complete_year()
     recs = []
-    for flow, role in (("M", "importer"), ("X", "exporter")):
-        for code, (val, kg) in _fetch_flow(year, flow).items():
-            if (val <= 0 and kg <= 0) or code not in COUNTRIES:
-                continue
-            recs.append({"year": year, "role": role, "country_code": code,
-                         "country": COUNTRIES[code], "value_usd": val, "net_kg": kg,
-                         "usd_per_kg": (val / kg) if kg else float("nan")})
-        time.sleep(1.0)
+    for yr in (year, year - 1):
+        for flow, role in (("M", "importer"), ("X", "exporter")):
+            for code, (val, kg) in _fetch_flow(yr, flow).items():
+                if (val <= 0 and kg <= 0) or code not in COUNTRIES:
+                    continue
+                recs.append({"year": yr, "role": role, "country_code": code,
+                             "country": COUNTRIES[code], "value_usd": val, "net_kg": kg,
+                             "usd_per_kg": (val / kg) if kg else float("nan")})
+            time.sleep(1.0)
     df = pd.DataFrame(recs)
     if not df.empty:
         cache.parent.mkdir(parents=True, exist_ok=True)
-        df.sort_values(["role", "value_usd"], ascending=[True, False]).to_csv(cache, index=False)
+        df.sort_values(["year", "role", "value_usd"],
+                       ascending=[False, True, False]).to_csv(cache, index=False)
     return df
 
 
@@ -132,6 +134,7 @@ def _table(role: str, n: int, df: pd.DataFrame | None = None) -> pd.DataFrame:
     df = load() if df is None else df
     if df.empty:
         return df
+    df = df[df["year"] == df["year"].max()]            # latest year only
     return (df[df["role"] == role].sort_values("value_usd", ascending=False)
             .head(n).reset_index(drop=True))
 
