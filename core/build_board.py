@@ -480,8 +480,8 @@ def build(fruit=BLUEBERRY) -> str:
     insn = _inseason_cif()
     inseason = ""
     if insn:
-        chips = " · ".join(
-            f'<span style="color:{COLR.get(o, "#5a3fb0")}"><b>{CODE.get(o, o[:3].upper())}</b> '
+        chips = "".join(
+            f'<span class="ic" style="color:{COLR.get(o, "#5a3fb0")}"><b>{CODE.get(o, o[:3].upper())}</b> '
             f'£{c:.2f}<span class="ctr">£{c*CONTAINER_TONNES:.0f}k</span></span>'
             for o, c in insn)
         basis_full = (f'Per-container figures take <b>~{CONTAINER_TONNES}&#8201;t of fruit per 40-ft reefer</b> '
@@ -711,6 +711,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
    font-weight:700;margin-top:18px;padding-top:16px;border-top:1px solid var(--hair);line-height:1.6}}
  .strip .sl{{font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);
    font-weight:700;margin-right:.3em}}
+ .strip .ic{{white-space:nowrap}}
  .strip .ctr{{font-size:.78rem;color:var(--mut);font-weight:600;margin-left:.3em}}
  .aside{{font-family:var(--serif);font-size:.96rem;color:#3a342b;line-height:1.6;margin-top:16px;
    padding:13px 16px;border-radius:12px;background:#00000007}}
@@ -735,8 +736,9 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .exp[open] summary .more::after{{content:" ⌃"}}
  .xp{{font-family:var(--serif);font-size:.96rem;color:#3a342b;line-height:1.65;margin:11px 0 2px}}
  .xp b{{color:var(--accent);font-weight:700}}
- .relay{{display:grid;grid-template-columns:repeat(12,1fr);gap:7px;padding:8px 0}}
- .rc{{border:1px solid var(--hair);border-radius:11px;padding:11px 2px;text-align:center;background:#fff}}
+ .relay{{display:grid;grid-template-columns:repeat(12,1fr);grid-auto-rows:1fr;gap:7px;padding:8px 0}}
+ .rc{{border:1px solid var(--hair);border-radius:11px;padding:11px 2px;text-align:center;background:#fff;
+   display:flex;flex-direction:column;justify-content:center}}
  .rc b{{display:block;font-size:.62rem;color:var(--mut);font-weight:600;margin-bottom:3px}}
  .rc span{{font-size:.9rem;font-weight:800}}
  .rc.now{{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}}
@@ -779,6 +781,8 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
    .relay{{grid-template-columns:repeat(6,1fr)}}
    .tk-l .code{{font-size:1.5rem}} .tk-r .px{{font-size:1.42rem}}
    .bl .blk{{min-width:11ch}}
+   .strip{{flex-direction:column;align-items:center;text-align:center;gap:.5em}}
+   .strip .sl{{margin:0 0 4px}}
  }}
 </style></head><body><div class="wrap">
 <header class="masthead">
