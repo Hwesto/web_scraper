@@ -47,7 +47,7 @@ jobs:
       - name: Install deps
         run: |
           sudo apt-get update && sudo apt-get install -y unar
-          pip install requests pandas openpyxl scipy matplotlib pyarrow
+          pip install requests pandas openpyxl scipy matplotlib pyarrow beautifulsoup4 lxml
       - name: Run collector
         run: |
           # Parser validated (run #3): push + schedule -> collect; dispatch -> chosen mode.
@@ -76,7 +76,7 @@ jobs:
         run: python -m deep.market.fx || echo "fx refresh skipped"
       - name: Refresh SAG China orchard roster (collect only)
         if: ${{ env.MODE == 'collect' }}
-        run: python scripts/fetch_sag_china.py --mode collect || echo "sag-china fetch skipped"
+        run: python scripts/fetch_sag_china.py || echo "sag-china fetch skipped"
       - name: Ingest vintage sources — HMRC, DEFRA, ODEPA, ONS, retail (collect only)
         if: ${{ env.MODE == 'collect' }}
         # one pass over the registry (per-source try/except inside); brings the HMRC

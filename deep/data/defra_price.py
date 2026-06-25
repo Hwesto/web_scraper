@@ -21,7 +21,6 @@ import io
 
 import pandas as pd
 import requests
-from bs4 import BeautifulSoup
 
 from .base import SignalSource
 from ..config import DEFRA_PRICE_PAGE
@@ -31,6 +30,7 @@ _HEADERS = {"User-Agent": "uk-blueberry-nowcast/0.1 (research)"}
 
 def _discover_csv_url() -> str:
     """Find the current machine-readable CSV link on the DEFRA dataset page."""
+    from bs4 import BeautifulSoup  # lazy: an optional scraper dep must not break module import
     resp = requests.get(DEFRA_PRICE_PAGE, headers=_HEADERS, timeout=30)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.text, "html.parser")

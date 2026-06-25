@@ -17,6 +17,12 @@
  .idx{font-size:1rem;color:#6a6052;border-top:2px solid var(--line);border-bottom:2px solid var(--line);
    padding:10px 0;margin:14px 0 26px;font-weight:700}
  .idx b{color:var(--accent)}
+ .idx .sub{font-size:.72rem;color:#9a9082;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+ .shrow{display:flex;align-items:baseline;gap:.7em 1em;flex-wrap:wrap;padding:11px 6px;
+   border-bottom:1px solid var(--line)}
+ .shrow .nm{font-size:1.5rem;font-weight:800;color:var(--accent);min-width:8ch}
+ .shrow .p{font-size:2rem;color:var(--ink)}
+ .shrow .rng{font-size:.95rem;color:#8a8070;font-weight:700}
  h2{text-transform:uppercase;letter-spacing:.12em;font-size:.82rem;color:#8a8070;
    margin:34px 0 12px;font-weight:800}
  .tk{display:flex;align-items:baseline;gap:.5em 1em;flex-wrap:wrap;padding:14px 6px;
@@ -57,8 +63,8 @@
  <img class="hero" src="hero.png" alt="A British blueberry in a navy suit and Union-Jack tie">
 </div>
 <div class="idx">Apr 2026 &nbsp;·&nbsp; <b>6,966 t</b> landed this month &nbsp;·&nbsp;
-landed <b>£6.24/kg</b> &rarr; shelf <b>£12.44/kg</b> &nbsp;·&nbsp;
-UK-grown <b>5.5%</b> &nbsp;·&nbsp; 68K t/yr</div>
+landed <b>£6.24/kg</b> &rarr; shelf <b>£10.43/kg</b> <span class="sub">this wk</span>
+&nbsp;·&nbsp; UK-grown <b>5.5%</b> &nbsp;·&nbsp; 68K t/yr</div>
 
 <h2>Who's landing this month — tonnes · share @ landed £/kg, vs last month</h2>
 <div class="tk"><span class="sym" style="color:#e8833a">MAR</span><span class="vol">5.8K t</span><span class="shr">84%</span><span class="at">@</span><span class="px">£6.20</span><span class="chg down">▼ £0.66</span><span class="chip up">+37% vol</span></div>
@@ -66,6 +72,9 @@ UK-grown <b>5.5%</b> &nbsp;·&nbsp; 68K t/yr</div>
 <div class="tk dim"><span class="sym" style="color:#7a8699">NLD</span><span class="vol">281 t</span><span class="shr">4%</span><span class="at">@</span><span class="px">£6.90</span><span class="chg down">▼ £1.00</span><span class="chip up">+9% vol</span></div>
 <div class="tk dim"><span class="sym" style="color:#4c5fd5">PER</span><span class="vol">105 t</span><span class="shr">2%</span><span class="at">@</span><span class="px">£6.01</span><span class="chg up">▲ £0.64</span><span class="chip down">-86% vol</span></div>
 <div class="tk dim"><span class="sym" style="color:#2a9d8f">ZAF</span><span class="vol">8 t</span><span class="shr">0%</span><span class="at">@</span><span class="px">£10.00</span><span class="chg up">▲ £1.37</span><span class="chip down">-94% vol</span></div>
+
+<h2>On the shelf this week — £/kg by retailer (22 Jun 2026)</h2>
+<div class="shrow"><span class="nm">Asda</span><span class="p">£9.25</span><span class="rng">£8.64–9.87/kg · 2 packs</span></div><div class="shrow"><span class="nm">Sainsbury's</span><span class="p">£11.00</span><span class="rng">£11.00–11.00/kg · 1 pack</span></div><div class="shrow"><span class="nm">Tesco</span><span class="p">£11.00</span><span class="rng">£9.10–14.67/kg · 3 packs</span></div>
 
 <h2>The relay — who leads each month</h2>
 <div class="relay"><div class="rc" style="border-color:#6b3fa0"><b>Jan</b><span style="color:#6b3fa0">CHL</span></div><div class="rc" style="border-color:#6b3fa0"><b>Feb</b><span style="color:#6b3fa0">CHL</span></div><div class="rc" style="border-color:#e8833a"><b>Mar</b><span style="color:#e8833a">MAR</span></div><div class="rc now" style="border-color:#e8833a"><b>Apr</b><span style="color:#e8833a">MAR</span></div><div class="rc" style="border-color:#e8833a"><b>May</b><span style="color:#e8833a">MAR</span></div><div class="rc" style="border-color:#c9a227"><b>Jun</b><span style="color:#c9a227">ESP</span></div><div class="rc" style="border-color:#b1543a"><b>Jul</b><span style="color:#b1543a">POL</span></div><div class="rc" style="border-color:#b1543a"><b>Aug</b><span style="color:#b1543a">POL</span></div><div class="rc" style="border-color:#4c5fd5"><b>Sep</b><span style="color:#4c5fd5">PER</span></div><div class="rc" style="border-color:#4c5fd5"><b>Oct</b><span style="color:#4c5fd5">PER</span></div><div class="rc" style="border-color:#4c5fd5"><b>Nov</b><span style="color:#4c5fd5">PER</span></div><div class="rc" style="border-color:#2a9d8f"><b>Dec</b><span style="color:#2a9d8f">ZAF</span></div></div>
@@ -77,7 +86,7 @@ UK-grown <b>5.5%</b> &nbsp;·&nbsp; 68K t/yr</div>
 <div class="legend"><span><span class="sw" style="background:#4c5fd5"></span><b>PER</b> Peru</span> &nbsp;·&nbsp; <span><span class="sw" style="background:#e8833a"></span><b>MAR</b> Morocco</span> &nbsp;·&nbsp; <span><span class="sw" style="background:#2a9d8f"></span><b>ZAF</b> South Africa</span> &nbsp;·&nbsp; <span><span class="sw" style="background:#6b3fa0"></span><b>CHL</b> Chile</span> &nbsp;·&nbsp; <span><span class="sw" style="background:#c9a227"></span><b>ESP</b> Spain</span> &nbsp;·&nbsp; <span><span class="sw" style="background:#7a8699"></span><b>NLD</b> Netherlands</span> &nbsp;·&nbsp; <span><span class="sw" style="background:#b1543a"></span><b>POL</b> Poland</span></div>
 
 <div class="foot">Free data: HMRC OTS (monthly imports, ~6-wk lag) · UN Comtrade
-(annual destinations) · DEFRA Horticulture (UK production) · ONS (shelf price, berries proxy).
+(annual destinations) · DEFRA Horticulture (UK production) · Trolley (multi-retailer shelf, weekly).
 Auto-updates weekly · <a href="deep.html">full editorial view →</a> ·
 generated 2026-06-25.</div>
 </div></body></html>

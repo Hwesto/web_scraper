@@ -66,7 +66,7 @@ def _board():
 
 
 def _retail(month):
-    """UK shelf £/kg for the given month — ONS monthly berries proxy (year-round)."""
+    """UK shelf £/kg for the given month — ONS monthly berries proxy (year-round fallback)."""
     r = vintage.latest("ons_blueberry_retail_price").copy()
     r["d"] = pd.to_datetime(r["ref_period"])
     r = r[r["key"] == "proxy_berries_index"].sort_values("d")
@@ -74,6 +74,34 @@ def _retail(month):
         return float("nan")
     at = r[r["d"] <= month]
     return float((at if not at.empty else r).iloc[-1]["value"])
+
+
+def _shelf():
+    """Real blueberry shelf £/kg from the weekly Trolley multi-retailer scrape.
+
+    Returns (week, median_standard_£/kg, [per-retailer rows]). Keys are
+    `Retailer|tier|pack`; we headline on the standard tier (organic/finest are
+    premium). Empty → caller falls back to the ONS proxy.
+    """
+    try:
+        r = vintage.latest("retail_blueberry_price").copy()
+    except Exception:
+        return None, float("nan"), []
+    if r.empty:
+        return None, float("nan"), []
+    r["d"] = pd.to_datetime(r["ref_period"])
+    r = r[r["d"] == r["d"].max()]
+    parts = r["key"].str.split("|", expand=True)
+    r["retailer"], r["tier"] = parts[0], parts[1]
+    std = r[r["tier"] == "standard"]
+    base = std if not std.empty else r
+    per = []
+    for ret, g in base.groupby("retailer"):
+        per.append({"retailer": ret, "med": float(g["value"].median()),
+                    "lo": float(g["value"].min()), "hi": float(g["value"].max()),
+                    "n": int(len(g))})
+    per.sort(key=lambda x: x["med"])
+    return r["d"].max(), float(base["value"].median()), per
 
 
 def _relay(v=None):
@@ -117,9 +145,19 @@ def build() -> str:
     cur, prev, rows, tot, mavg = _board()
     relay = _relay()
     s = _summary()
-    retail = _retail(cur)
+    shelf_wk, shelf, per = _shelf()
+    shelf_lbl = "this wk"
+    if shelf != shelf:                       # no Trolley data → ONS monthly proxy
+        shelf, shelf_lbl = _retail(cur), "proxy"
     cur_m = cur.month
     board = "\n".join(_ticker_html(r) for r in rows)
+    # On the shelf this week — real per-retailer £/kg (Trolley)
+    shelf_rows = "".join(
+        f'<div class="shrow"><span class="nm">{p["retailer"]}</span>'
+        f'<span class="p">£{p["med"]:.2f}</span>'
+        f'<span class="rng">£{p["lo"]:.2f}–{p["hi"]:.2f}/kg · {p["n"]} pack{"s" if p["n"] != 1 else ""}</span></div>'
+        for p in per)
+    shelf_when = pd.Timestamp(shelf_wk).strftime("%-d %b %Y") if shelf_wk is not None else ""
     relay_cells = "".join(
         f'<div class="rc{" now" if m == cur_m else ""}" '
         f'style="border-color:{COLR.get(relay[m-1], "#ccc")}">'
@@ -148,7 +186,9 @@ def build() -> str:
         f'<b>{CODE.get(n, n[:3].upper())}</b> {n}</span>'
         for n in CODE if n in names)
     html = _PAGE.format(month=f"{MONTHS[cur.month-1]} {cur.year}",
-                        total=f"{tot:,.0f}", mavg=f"{mavg:.2f}", retail=f"{retail:.2f}",
+                        total=f"{tot:,.0f}", mavg=f"{mavg:.2f}",
+                        shelf=f"{shelf:.2f}", shelf_lbl=shelf_lbl,
+                        shelf_rows=shelf_rows, shelf_when=shelf_when,
                         imports=f"{s['imports_kt']:.0f}", ss=f"{s['ss']:.1f}",
                         board=board, relay=relay_cells, sells=sells, legend=legend,
                         generated=_dt.date.today().isoformat())
@@ -176,6 +216,12 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .idx{{font-size:1rem;color:#6a6052;border-top:2px solid var(--line);border-bottom:2px solid var(--line);
    padding:10px 0;margin:14px 0 26px;font-weight:700}}
  .idx b{{color:var(--accent)}}
+ .idx .sub{{font-size:.72rem;color:#9a9082;font-weight:700;text-transform:uppercase;letter-spacing:.08em}}
+ .shrow{{display:flex;align-items:baseline;gap:.7em 1em;flex-wrap:wrap;padding:11px 6px;
+   border-bottom:1px solid var(--line)}}
+ .shrow .nm{{font-size:1.5rem;font-weight:800;color:var(--accent);min-width:8ch}}
+ .shrow .p{{font-size:2rem;color:var(--ink)}}
+ .shrow .rng{{font-size:.95rem;color:#8a8070;font-weight:700}}
  h2{{text-transform:uppercase;letter-spacing:.12em;font-size:.82rem;color:#8a8070;
    margin:34px 0 12px;font-weight:800}}
  .tk{{display:flex;align-items:baseline;gap:.5em 1em;flex-wrap:wrap;padding:14px 6px;
@@ -216,11 +262,14 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  <img class="hero" src="hero.png" alt="A British blueberry in a navy suit and Union-Jack tie">
 </div>
 <div class="idx">{month} &nbsp;·&nbsp; <b>{total} t</b> landed this month &nbsp;·&nbsp;
-landed <b>£{mavg}/kg</b> &rarr; shelf <b>£{retail}/kg</b> &nbsp;·&nbsp;
-UK-grown <b>{ss}%</b> &nbsp;·&nbsp; {imports}K t/yr</div>
+landed <b>£{mavg}/kg</b> &rarr; shelf <b>£{shelf}/kg</b> <span class="sub">{shelf_lbl}</span>
+&nbsp;·&nbsp; UK-grown <b>{ss}%</b> &nbsp;·&nbsp; {imports}K t/yr</div>
 
 <h2>Who's landing this month — tonnes · share @ landed £/kg, vs last month</h2>
 {board}
+
+<h2>On the shelf this week — £/kg by retailer ({shelf_when})</h2>
+{shelf_rows}
 
 <h2>The relay — who leads each month</h2>
 <div class="relay">{relay}</div>
@@ -232,7 +281,7 @@ UK-grown <b>{ss}%</b> &nbsp;·&nbsp; {imports}K t/yr</div>
 <div class="legend">{legend}</div>
 
 <div class="foot">Free data: HMRC OTS (monthly imports, ~6-wk lag) · UN Comtrade
-(annual destinations) · DEFRA Horticulture (UK production) · ONS (shelf price, berries proxy).
+(annual destinations) · DEFRA Horticulture (UK production) · Trolley (multi-retailer shelf, weekly).
 Auto-updates weekly · <a href="deep.html">full editorial view →</a> ·
 generated {generated}.</div>
 </div></body></html>"""

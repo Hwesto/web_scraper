@@ -44,7 +44,9 @@ def test_board_data():
     assert rows and all(r["cif"] > 0 for r in rows)      # tickers have a price
     assert tot > 0 and mavg > 0                           # month total + blended landed £/kg
     assert abs(sum(r["share"] for r in rows) - 100) < 25  # shares ~sum to the month
-    assert b._retail(cur) > 0                             # shelf price resolves
+    assert b._retail(cur) > 0                             # ONS proxy fallback resolves
+    wk, shelf, per = b._shelf()                           # real Trolley per-retailer shelf
+    assert shelf > 0 and per and all(p["med"] > 0 for p in per)
     assert len(b._relay()) == 12                          # 12-month relay
     s = b._summary()
     assert s["imports_kt"] > 20 and 0 < s["ss"] < 20      # sane index strip
