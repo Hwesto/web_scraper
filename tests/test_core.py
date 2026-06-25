@@ -36,3 +36,12 @@ def test_uk_production_sane():
         return
     assert {"year", "production_kt"} <= set(p.columns)
     assert p["production_kt"].between(1, 20).all()
+
+
+def test_board_data():
+    from core import build_board as b
+    cur, prev, rows, tot = b._board()
+    assert rows and all(r["cif"] > 0 for r in rows)      # tickers have a price
+    assert len(b._relay()) == 12                          # 12-month relay
+    s = b._summary()
+    assert s["imports_kt"] > 20 and 0 < s["ss"] < 20      # sane index strip

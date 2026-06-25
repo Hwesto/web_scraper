@@ -31,7 +31,7 @@ from deep import price
 from deep.market import asia_access, comtrade, fx, netback, origin_prices
 from deep.store import vintage
 
-OUT = REPO_ROOT / "docs" / "index.html"
+OUT = REPO_ROOT / "docs" / "deep.html"
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 

@@ -82,9 +82,11 @@ jobs:
         # one pass over the registry (per-source try/except inside); brings the HMRC
         # anchor + DEFRA/ODEPA onto the weekly cadence, and refreshes ONS + retail too
         run: python -m deep.pipeline ingest || echo "vintage ingest skipped"
-      - name: Rebuild static dashboard (collect only)
+      - name: Rebuild pages — ticker board (index) + deep dashboard (collect only)
         if: ${{ env.MODE == 'collect' }}
-        run: python scripts/build_static_dashboard.py || echo "dashboard build skipped"
+        run: |
+          python -m core.build_board || echo "board build skipped"
+          python scripts/build_static_dashboard.py || echo "deep dashboard build skipped"
       - name: Commit data + dashboard (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: |
