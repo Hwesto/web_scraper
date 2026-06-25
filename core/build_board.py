@@ -50,6 +50,8 @@ def _board():
 
     vc, vp, cc, cp = vol(cur), vol(prev), cif(cur), cif(prev)
     tot = vc.sum()
+    mval = val[val["d"] == cur]["value"].sum()
+    mavg = mval / (tot * 1000) if tot else float("nan")  # month blended landed £/kg
     rows = []
     for o in vc.sort_values(ascending=False).index:
         t = vc[o]
@@ -60,7 +62,18 @@ def _board():
         dv = (t / vp[o] - 1) * 100 if o in vp.index and vp[o] else float("nan")
         rows.append({"origin": o, "code": CODE[o], "t": t, "cif": pkg,
                      "dprice": dpr, "dvol": dv, "share": t / tot * 100})
-    return pd.Timestamp(cur), pd.Timestamp(prev), rows, tot
+    return pd.Timestamp(cur), pd.Timestamp(prev), rows, tot, mavg
+
+
+def _retail(month):
+    """UK shelf £/kg for the given month — ONS monthly berries proxy (year-round)."""
+    r = vintage.latest("ons_blueberry_retail_price").copy()
+    r["d"] = pd.to_datetime(r["ref_period"])
+    r = r[r["key"] == "proxy_berries_index"].sort_values("d")
+    if r.empty:
+        return float("nan")
+    at = r[r["d"] <= month]
+    return float((at if not at.empty else r).iloc[-1]["value"])
 
 
 def _relay(v=None):
@@ -95,14 +108,16 @@ def _ticker_html(r) -> str:
     return (f'<div class="tk{dim}">'
             f'<span class="sym" style="color:{COLR.get(r["origin"], "#5a3fb0")}">{r["code"]}</span>'
             f'<span class="vol">{tt} t</span>'
+            f'<span class="shr">{r["share"]:.0f}%</span>'
             f'<span class="at">@</span><span class="px">£{r["cif"]:.2f}</span>'
             f'<span class="chg {cls}">{arr} £{abs(r["dprice"]):.2f}</span>{dv}</div>')
 
 
 def build() -> str:
-    cur, prev, rows, tot = _board()
+    cur, prev, rows, tot, mavg = _board()
     relay = _relay()
     s = _summary()
+    retail = _retail(cur)
     cur_m = cur.month
     board = "\n".join(_ticker_html(r) for r in rows)
     relay_cells = "".join(
@@ -124,9 +139,18 @@ def build() -> str:
             sells += (f'<div class="sell"><span class="sym" '
                       f'style="color:{COLR.get(p, "#5a3fb0")}">{CODE[p]}</span>'
                       f'<span class="arrow">→</span><span class="dests">{dests}</span></div>')
+    # Country-code legend — every code shown on the page, in trade-rank order
+    names = {r["origin"] for r in rows} | {x for x in relay if x}
+    if not pe.empty:
+        names |= set(pe["player"].unique())
+    legend = " &nbsp;·&nbsp; ".join(
+        f'<span><span class="sw" style="background:{COLR.get(n, "#5a3fb0")}"></span>'
+        f'<b>{CODE.get(n, n[:3].upper())}</b> {n}</span>'
+        for n in CODE if n in names)
     html = _PAGE.format(month=f"{MONTHS[cur.month-1]} {cur.year}",
-                        imports=f"{s['imports_kt']:.0f}", avg=f"{s['avg']:.2f}",
-                        ss=f"{s['ss']:.1f}", board=board, relay=relay_cells, sells=sells,
+                        total=f"{tot:,.0f}", mavg=f"{mavg:.2f}", retail=f"{retail:.2f}",
+                        imports=f"{s['imports_kt']:.0f}", ss=f"{s['ss']:.1f}",
+                        board=board, relay=relay_cells, sells=sells, legend=legend,
                         generated=_dt.date.today().isoformat())
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(html, encoding="utf-8")
@@ -146,7 +170,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .wrap{{max-width:840px;margin:0 auto;padding:34px 20px 60px}}
  .masthead{{display:flex;align-items:center;justify-content:space-between;gap:18px}}
  .head{{min-width:0}}
- .hero{{width:150px;height:auto;flex:none;filter:drop-shadow(0 6px 14px rgba(42,38,34,.22))}}
+ .hero{{width:184px;height:auto;flex:none;filter:drop-shadow(0 6px 14px rgba(42,38,34,.22))}}
  .kick{{text-transform:uppercase;letter-spacing:.2em;font-size:.72rem;color:var(--accent);font-weight:800}}
  h1{{font-size:2.6rem;margin:.1em 0 .05em;letter-spacing:-.02em;color:var(--ink)}}
  .idx{{font-size:1rem;color:#6a6052;border-top:2px solid var(--line);border-bottom:2px solid var(--line);
@@ -159,6 +183,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .tk.dim{{opacity:.42}}
  .sym{{font-size:2.3rem;font-weight:800;letter-spacing:-.03em;min-width:3.4ch}}
  .vol{{font-size:1.5rem;color:#5a5347}}
+ .shr{{font-size:1.05rem;color:#8a8070;font-weight:800}}
  .at{{color:#aaa091;font-size:1.2rem}}
  .px{{font-size:2.1rem;color:var(--ink)}}
  .chg{{font-size:1.6rem}} .up{{color:var(--up)}} .down{{color:var(--down)}}
@@ -173,11 +198,15 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .sell{{display:flex;align-items:baseline;gap:.7em;padding:9px 6px;border-bottom:1px solid var(--line)}}
  .sell .sym{{font-size:1.5rem;min-width:3.4ch}} .arrow{{color:#aaa091}}
  .dests{{font-size:1.05rem;color:#5a5347;font-weight:700}}
+ .legend{{margin-top:18px;font-size:.9rem;color:#6a6052;font-weight:700;line-height:1.9}}
+ .legend b{{color:var(--ink);font-weight:800}}
+ .legend .sw{{display:inline-block;width:.72em;height:.72em;border-radius:50%;margin-right:.35em;
+   vertical-align:middle}}
  .foot{{margin-top:40px;border-top:2px solid var(--line);padding-top:16px;font-size:.78rem;
    color:#8a8070;font-weight:700}}
  .foot a{{color:var(--accent)}}
  @media(max-width:560px){{h1{{font-size:2rem}}.sym{{font-size:1.8rem}}.px{{font-size:1.6rem}}
-   .relay{{grid-template-columns:repeat(6,1fr)}}.hero{{width:96px}}}}
+   .relay{{grid-template-columns:repeat(6,1fr)}}.hero{{width:112px}}}}
 </style></head><body><div class="wrap">
 <div class="masthead">
  <div class="head">
@@ -186,10 +215,11 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  </div>
  <img class="hero" src="hero.png" alt="A British blueberry in a navy suit and Union-Jack tie">
 </div>
-<div class="idx">{month} &nbsp;·&nbsp; UK imports <b>{imports}K t</b>/yr &nbsp;·&nbsp;
-avg <b>£{avg}/kg</b> &nbsp;·&nbsp; UK-grown <b>{ss}%</b> of supply</div>
+<div class="idx">{month} &nbsp;·&nbsp; <b>{total} t</b> landed this month &nbsp;·&nbsp;
+landed <b>£{mavg}/kg</b> &rarr; shelf <b>£{retail}/kg</b> &nbsp;·&nbsp;
+UK-grown <b>{ss}%</b> &nbsp;·&nbsp; {imports}K t/yr</div>
 
-<h2>Who's landing this month — tonnes @ landed £/kg, vs last month</h2>
+<h2>Who's landing this month — tonnes · share @ landed £/kg, vs last month</h2>
 {board}
 
 <h2>The relay — who leads each month</h2>
@@ -198,8 +228,12 @@ avg <b>£{avg}/kg</b> &nbsp;·&nbsp; UK-grown <b>{ss}%</b> of supply</div>
 <h2>Where each player else ships (2024 · % of their tonnage)</h2>
 {sells}
 
+<h2>Country codes</h2>
+<div class="legend">{legend}</div>
+
 <div class="foot">Free data: HMRC OTS (monthly imports, ~6-wk lag) · UN Comtrade
-(annual destinations) · DEFRA Horticulture (UK production). Auto-updates weekly · <a href="deep.html">full editorial view →</a> ·
+(annual destinations) · DEFRA Horticulture (UK production) · ONS (shelf price, berries proxy).
+Auto-updates weekly · <a href="deep.html">full editorial view →</a> ·
 generated {generated}.</div>
 </div></body></html>"""
 
