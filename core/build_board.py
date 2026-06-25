@@ -292,17 +292,25 @@ def build() -> str:
     wyr, uk_rank, wgro, wexp, wimp = _world()
     cur_m = cur.month
     board = "\n".join(_ticker_html(r) for r in rows)
-    # The price journey — landed (HMRC) → wholesale (DEFRA, Jun–Nov) → shelf (Trolley)
+    # The price journey — landed import CIF (HMRC) → supermarket shelf (Trolley).
+    # DEFRA wholesale is deliberately NOT a middle step: it's British-season,
+    # home-grown New Covent Garden spot (premium loose fruit), so it runs above
+    # both — a different product/season, shown as a side-note not a false ladder.
     def _step(label, val, note):
         v = f"£{val:.2f}" if val == val else "—"
         return (f'<div class="step"><span class="sl">{label}</span>'
                 f'<span class="sv">{v}</span><span class="sn">{note}</span></div>')
-    wnote = (pd.Timestamp(when_w).strftime("%b %Y")
-             if (when_w is not None and whole == whole) else "Jun–Nov only")
-    journey = ('<div class="step-arrow">→</div>'.join([
-        _step("Landed", mavg, f"CIF · {MONTHS[cur.month-1]}"),
-        _step("Wholesale", whole, wnote),
-        _step("Shelf", shelf, shelf_lbl)]))
+    markup = (f'+{(shelf/mavg - 1)*100:.0f}%'
+              if (mavg == mavg and mavg > 0 and shelf == shelf) else '→')
+    journey = (f'{_step("Landed", mavg, f"import CIF · {MONTHS[cur.month-1]}")}'
+               f'<div class="step-arrow">{markup}</div>'
+               f'{_step("Shelf", shelf, f"supermarket · {shelf_lbl}")}')
+    whole_note = ""
+    if whole == whole and when_w is not None:
+        whole_note = (f'<div class="note">UK-grown, British-season <b>wholesale</b> '
+                      f'(DEFRA · New Covent Garden) runs higher again — '
+                      f'<b>£{whole:.2f}/kg</b> ({pd.Timestamp(when_w).strftime("%b %Y")}) '
+                      f'— premium loose fruit, a different product to imported retail.</div>')
     # UK re-exports (HMRC export flows)
     rex = ""
     if rex_kt == rex_kt and rex_kt > 0:
@@ -398,6 +406,7 @@ def build() -> str:
                         total=f"{tot:,.0f}", mavg=f"{mavg:.2f}", spend_m=f"{mval/1e6:.0f}",
                         shelf=f"{shelf:.2f}", shelf_lbl=shelf_lbl,
                         shelf_rows=shelf_rows, shelf_when=shelf_when, journey=journey,
+                        whole_note=whole_note,
                         imports=f"{s['imports_kt']:.0f}", spend_yr=f"{s['imports_gbp_m']:.0f}",
                         ss=f"{s['ss']:.1f}", world_rank=world_rank, rex=rex, world=world,
                         market=market,
@@ -463,7 +472,8 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .step .sl{{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:#8a8070;font-weight:800}}
  .step .sv{{font-size:2rem;color:var(--accent)}}
  .step .sn{{font-size:.72rem;color:#9a9082;font-weight:700}}
- .step-arrow{{align-self:center;color:#bcb3a0;font-size:1.6rem;font-weight:800}}
+ .step-arrow{{align-self:center;color:var(--accent);font-size:1.15rem;font-weight:800;
+   white-space:nowrap}}
  .note{{font-size:1rem;color:#5a5347;font-weight:700;padding:12px 4px;line-height:1.5}}
  .note b{{color:var(--accent)}}
  .world,.world3{{display:grid;grid-template-columns:1fr 1fr;gap:10px 26px}}
@@ -505,8 +515,9 @@ UK-grown <b>{ss}%</b> &nbsp;·&nbsp; <b>{imports}K t</b> / <b>£{spend_yr}m</b> 
 {board}
 
 <h2>The price journey</h2>
-<p class="lede">per kilo at each stage · latest reading (dates differ)</p>
+<p class="lede">border to shelf · per kilo (dates differ)</p>
 <div class="journey">{journey}</div>
+{whole_note}
 
 <h2>On the shelf this week</h2>
 <p class="lede">£/kg by retailer · {shelf_when}</p>
