@@ -12,17 +12,34 @@ import datetime as _dt
 
 import pandas as pd
 
-from deep.config import (REPO_ROOT, FRUIT_NAME, FRUIT_EMOJI, SUPPLY_ORIGINS, INSEASON_ORIGINS,
-                         PRODUCTION_OVERRIDES, PRODUCTION_GAP_NOTE)
+from deep.config import REPO_ROOT
 from deep.store import vintage
 from core import player_exports, uk_production
+from core.fruit import FRUITS, BLUEBERRY
 
-OUT = REPO_ROOT / "docs" / "index.html"
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-# Origin code + colour maps, derived from the single per-fruit ORIGINS config.
-CODE = {name: code for name, (_m49, code, _col) in SUPPLY_ORIGINS.items()}
-COLR = {name: col for name, (_m49, _code, col) in SUPPLY_ORIGINS.items()}
+# Per-fruit render context — set by build(fruit). The vintage-reading helpers and
+# the rendering maps below read off the active fruit, so the whole board is just
+# re-run per fruit in a loop. CODE/COLR derive from the fruit's supply_origins.
+_FRUIT = BLUEBERRY
+CODE: dict = {}
+COLR: dict = {}
+
+
+def _ser(prefix: str, suffix: str) -> str:
+    """Active fruit's vintage series name, e.g. ('hmrc','imports') -> hmrc_<slug>_imports."""
+    return _FRUIT.series(prefix, suffix)
+
+
+def _set_fruit(fruit) -> None:
+    global _FRUIT, CODE, COLR
+    _FRUIT = fruit
+    CODE = {name: code for name, (_m, code, _c) in fruit.supply_origins.items()}
+    COLR = {name: col for name, (_m, _code, col) in fruit.supply_origins.items()}
+
+
+_set_fruit(BLUEBERRY)
 # Clean short codes for export destinations (Comtrade names → readable)
 DEST_CODE = {"United Kingdom": "UK", "United States": "USA", "Hong Kong": "HK",
              "United Arab Emirates": "UAE", "China": "CHN", "Germany": "GER",
@@ -116,8 +133,8 @@ def _months(v):
 
 
 def _board():
-    v = vintage.latest("hmrc_blueberry_imports").copy(); v["d"] = pd.to_datetime(v["ref_period"])
-    val = vintage.latest("hmrc_blueberry_import_value").copy(); val["d"] = pd.to_datetime(val["ref_period"])
+    v = vintage.latest(_ser("hmrc", "imports")).copy(); v["d"] = pd.to_datetime(v["ref_period"])
+    val = vintage.latest(_ser("hmrc", "import_value")).copy(); val["d"] = pd.to_datetime(val["ref_period"])
     # Use the latest *complete* month: HMRC OTS lands ~6 wks late and the most
     # recent month is usually a partial first-estimate. Treat a month as settled
     # once it is ≥70 days old; fall back to raw tail if we don't have two settled.
@@ -161,12 +178,12 @@ def _inseason_cif(years=3, frac=0.25, min_t=2000):
     Returns [(origin, £/kg)] cheapest→dearest — the counter-season workhorse
     prices a single thin month (April) never reveals.
     """
-    v = vintage.latest("hmrc_blueberry_imports").copy(); v["d"] = pd.to_datetime(v["ref_period"])
-    val = vintage.latest("hmrc_blueberry_import_value").copy(); val["d"] = pd.to_datetime(val["ref_period"])
+    v = vintage.latest(_ser("hmrc", "imports")).copy(); v["d"] = pd.to_datetime(v["ref_period"])
+    val = vintage.latest(_ser("hmrc", "import_value")).copy(); val["d"] = pd.to_datetime(val["ref_period"])
     cut = v["d"].max() - pd.DateOffset(years=years)
     v, val = v[v["d"] >= cut], val[val["d"] >= cut]
     out = []
-    for o in INSEASON_ORIGINS:
+    for o in _FRUIT.inseason:
         vo = v[v["key"] == o]
         by_m = vo.groupby("d")["value"].sum()
         if by_m.empty or by_m.max() <= 0:
@@ -181,7 +198,7 @@ def _inseason_cif(years=3, frac=0.25, min_t=2000):
 
 def _retail(month):
     """UK shelf £/kg for the given month — ONS monthly berries proxy (year-round fallback)."""
-    r = vintage.latest("ons_blueberry_retail_price").copy()
+    r = vintage.latest(_ser("ons", "retail_price")).copy()
     r["d"] = pd.to_datetime(r["ref_period"])
     r = r[r["key"] == "proxy_berries_index"].sort_values("d")
     if r.empty:
@@ -200,7 +217,7 @@ def _shelf():
     £/kg and would inflate a naive all-pack median. Empty → caller uses the proxy.
     """
     try:
-        r = vintage.latest("retail_blueberry_price").copy()
+        r = vintage.latest(_ser("retail", "price")).copy()
     except Exception:
         return None, float("nan"), [], 0
     if r.empty:
@@ -228,7 +245,7 @@ def _shelf():
 
 
 def _relay(v=None):
-    v = v or vintage.latest("hmrc_blueberry_imports").copy()
+    v = v or vintage.latest(_ser("hmrc", "imports")).copy()
     v["d"] = pd.to_datetime(v["ref_period"]); v["m"] = v["d"].dt.month
     recent = v[v["d"] >= v["d"].max() - pd.DateOffset(months=60)]
     lead = (recent.groupby(["m", "key"])["value"].sum().reset_index()
@@ -237,8 +254,8 @@ def _relay(v=None):
 
 
 def _summary():
-    v = vintage.latest("hmrc_blueberry_imports").copy(); v["d"] = pd.to_datetime(v["ref_period"])
-    val = vintage.latest("hmrc_blueberry_import_value").copy(); val["d"] = pd.to_datetime(val["ref_period"])
+    v = vintage.latest(_ser("hmrc", "imports")).copy(); v["d"] = pd.to_datetime(v["ref_period"])
+    val = vintage.latest(_ser("hmrc", "import_value")).copy(); val["d"] = pd.to_datetime(val["ref_period"])
     l12v = v[v["d"] >= v["d"].max() - pd.DateOffset(months=11)]["value"].sum()
     l12val = val[val["d"] >= val["d"].max() - pd.DateOffset(months=11)]["value"].sum()
     avg = l12val / (l12v * 1000)
@@ -254,7 +271,7 @@ def _wholesale():
     """UK wholesale-market £/kg (DEFRA, weekly Jun–Nov) — the price-journey middle.
     Returns (date, £/kg) of the latest reading, or (None, nan) if unheld."""
     try:
-        w = vintage.latest("defra_blueberry_price").copy()
+        w = vintage.latest(_ser("defra", "price")).copy()
     except Exception:
         return None, float("nan")
     if w.empty:
@@ -267,7 +284,7 @@ def _wholesale():
 def _reexports():
     """UK re-exports (HMRC export flows): (trailing-year kt, [(dest, kt)…])."""
     try:
-        r = vintage.latest("hmrc_blueberry_reexports").copy()
+        r = vintage.latest(_ser("hmrc", "reexports")).copy()
     except Exception:
         return float("nan"), []
     if r.empty:
@@ -385,7 +402,8 @@ def _money(usd):
     return f"${usd/1e9:.1f}bn" if usd >= 1e9 else f"${usd/1e6:.0f}m"
 
 
-def build() -> str:
+def build(fruit=BLUEBERRY) -> str:
+    _set_fruit(fruit)
     cur, prev, rows, tot, mavg, mval = _board()
     relay = _relay()
     s = _summary()
@@ -490,7 +508,7 @@ def build() -> str:
 
         def _trow(items):                       # trade: $ value + yoy(value) + kt
             return "".join(
-                f'<div class="wr"><span class="wc">{c}{"†" if c in PRODUCTION_OVERRIDES else ""}</span>'
+                f'<div class="wr"><span class="wc">{c}{"†" if c in _FRUIT.production_overrides else ""}</span>'
                 f'<span class="wv">{_money(v)}</span>{_yc(yoy)}'
                 f'<span class="wk">{kg/1e6:.0f} kt</span></div>'
                 for c, v, kg, yoy in items)
@@ -507,9 +525,9 @@ def build() -> str:
                 f'<div class="wcol"><h3>Top importers</h3>'
                 f'<div class="wsub">trade value · $ · y/y value · kt volume</div>{_trow(wimp)}</div>')
         rankline = (f"UK is the world's #{uk_rank} importer · " if uk_rank else "")
-        gap = f'<p class="note">{PRODUCTION_GAP_NOTE}</p>' if (PRODUCTION_OVERRIDES and PRODUCTION_GAP_NOTE) else ""
+        gap = f'<p class="note">{_FRUIT.gap_note}</p>' if (_FRUIT.production_overrides and _FRUIT.gap_note) else ""
         world = (f'<section class="sec"><div class="shead">'
-                 f'<h2>The world\'s {FRUIT_NAME.lower()} map</h2>'
+                 f'<h2>The world\'s {_FRUIT.name.lower()} map</h2>'
                  f'<p class="lede">{rankline}grow → export → import · {wyr} · '
                  f'FAOSTAT production, UN Comtrade trade</p></div>'
                  f'<div class="card"><div class="world3">{cols}</div>{gap}</div></section>')
@@ -532,7 +550,7 @@ def build() -> str:
                    f'<span class="ms">{label}</span></div>')
         if flagged:
             ov = "; ".join(f'<b>{c}</b> ~{t/1000:.0f} kt, {src}'
-                           for c, (t, _yr, src) in PRODUCTION_OVERRIDES.items())
+                           for c, (t, _yr, src) in _FRUIT.production_overrides.items())
             foot = (f'<p class="note">† {ov} — sourced industry estimate(s), not in FAOSTAT; '
                     f'all other production is FAOSTAT (UK: DEFRA).</p>')
         else:
@@ -573,7 +591,7 @@ def build() -> str:
     pe = player_exports.load()
     sells = ""
     if not pe.empty:
-        for p in INSEASON_ORIGINS:
+        for p in _FRUIT.inseason:
             d = pe[pe["player"] == p]
             d = d[~d["destination"].str.startswith(("M49-", "Other"))].head(4)
             if d.empty:
@@ -593,16 +611,16 @@ def build() -> str:
     kpis = "".join(f'<div class="kpi"><span class="kl">{l}</span>'
                    f'<span class="kv">{v}</span><span class="ku">{u}</span></div>'
                    for l, v, u in kpi)
-    emoji_html = f'<span aria-hidden="true">{FRUIT_EMOJI}</span> ' if FRUIT_EMOJI else ''
+    emoji_html = f'<span aria-hidden="true">{_FRUIT.emoji}</span> ' if _FRUIT.emoji else ''
     html = _PAGE.format(month=f"{MONTHS[cur.month-1]} {cur.year}", lag_wks=lag_wks,
-                        commodity=FRUIT_NAME, commodity_lc=FRUIT_NAME.lower(), emoji_html=emoji_html,
+                        commodity=_FRUIT.name, commodity_lc=_FRUIT.name.lower(), emoji_html=emoji_html,
                         kpis=kpis, shelf_rows=shelf_rows, shelf_lede=shelf_lede, journey=journey,
                         inseason=inseason, rex=rex, world=world,
                         market=market, board=board, relay=relay_cells,
                         relay_legend=relay_legend, sells=sells,
                         generated=_dt.date.today().isoformat())
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(html, encoding="utf-8")
+    fruit.out.parent.mkdir(parents=True, exist_ok=True)
+    fruit.out.write_text(html, encoding="utf-8")
     return html
 
 
@@ -791,6 +809,80 @@ year (UN Comtrade + FAOSTAT); UK production + wholesale (DEFRA). Auto-updates we
 </div></body></html>"""
 
 
+_HUB = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Britain's Fruit Boards — the atlas</title>
+<style>
+ :root{{--ink:#241f1a;--accent:#5a3fb0;--mut:#7a7163;--card:#fdfbf7;--bg:#e8e1d3}}
+ *{{box-sizing:border-box}}
+ body{{margin:0;color:var(--ink);background:var(--bg);line-height:1.45;-webkit-font-smoothing:antialiased;
+   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,Helvetica,Arial,sans-serif}}
+ .wrap{{max-width:760px;margin:0 auto;padding:56px 20px 100px}}
+ .kick{{text-transform:uppercase;letter-spacing:.16em;font-size:.7rem;color:var(--accent);font-weight:700}}
+ h1{{font-size:2.6rem;line-height:1.04;margin:.16em 0 .12em;letter-spacing:-.025em;font-weight:800}}
+ .sub{{font-size:1rem;color:var(--mut);font-weight:500;margin:0 0 34px;max-width:48ch;line-height:1.5}}
+ .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:16px}}
+ .fcard{{display:flex;flex-direction:column;gap:7px;text-decoration:none;color:inherit;
+   background:var(--card);border-radius:20px;padding:22px;
+   box-shadow:0 1px 2px rgba(36,31,26,.05),0 16px 34px -20px rgba(36,31,26,.26);
+   transition:transform .12s ease,box-shadow .12s ease}}
+ .fcard:hover{{transform:translateY(-2px);box-shadow:0 2px 4px rgba(36,31,26,.06),0 22px 44px -20px rgba(36,31,26,.34)}}
+ .femoji{{font-size:2rem;line-height:1}}
+ .fname{{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}}
+ .fstat{{font-size:.84rem;color:var(--mut);font-weight:500;line-height:1.5}}
+ .fstat b{{color:var(--accent);font-weight:700}}
+ .foot{{margin-top:50px;font-size:.8rem;color:var(--mut);font-weight:500;line-height:1.7}}
+ .foot a{{color:var(--accent)}}
+</style></head><body><div class="wrap">
+<div class="kick"><span aria-hidden="true">🇬🇧</span> free data · UK fresh-fruit trade</div>
+<h1>Britain's Fruit Boards</h1>
+<p class="sub">At-a-glance monthly boards for the UK fresh-fruit trade — who supplies Britain,
+when, at what landed price, and where each sits in the world. One page per HS code.</p>
+<div class="grid">{items}</div>
+<div class="foot">{n} fruit{plural} · built from free data (HMRC · UN Comtrade · FAOSTAT · DEFRA · Trolley) ·
+auto-updates weekly · generated {generated}.</div>
+</div></body></html>"""
+
+
+def _hub_card(fruit):
+    """A summary card for the atlas hub (call with _FRUIT already set to `fruit`)."""
+    s = _summary()
+    cur, prev, rows, tot, mavg, mval = _board()
+    top = rows[0]["origin"] if rows else "—"
+    return {"slug": fruit.slug, "name": fruit.name, "emoji": fruit.emoji,
+            "imports_kt": s["imports_kt"], "landed": s["avg"], "top": top}
+
+
+def build_all():
+    """Build one page per fruit in the registry, then the atlas hub. A fruit with
+    missing data is skipped (so a fruit can be added before its data is fetched)."""
+    cards = []
+    for f in FRUITS.values():
+        try:
+            build(f)
+            cards.append(_hub_card(f))
+            print(f"built docs/{f.slug}.html")
+        except Exception as exc:
+            print(f"[build_board] skip {f.slug}: {type(exc).__name__}: {exc}")
+    build_hub(cards)
+    return cards
+
+
+def build_hub(cards):
+    items = "".join(
+        f'<a class="fcard" href="{c["slug"]}.html">'
+        f'<span class="femoji" aria-hidden="true">{c["emoji"]}</span>'
+        f'<span class="fname">{c["name"]}</span>'
+        f'<span class="fstat"><b>{c["imports_kt"]:.0f}K t</b> imports/yr · '
+        f'top {c["top"]} · landed <b>£{c["landed"]:.2f}</b>/kg</span></a>'
+        for c in cards)
+    html = _HUB.format(items=items, n=len(cards), plural="" if len(cards) == 1 else "s",
+                       generated=_dt.date.today().isoformat())
+    out = REPO_ROOT / "docs" / "index.html"
+    out.write_text(html, encoding="utf-8")
+    print(f"built docs/index.html (atlas hub, {len(cards)} fruits)")
+    return html
+
+
 if __name__ == "__main__":
-    build()
-    print(f"wrote {OUT}")
+    build_all()
