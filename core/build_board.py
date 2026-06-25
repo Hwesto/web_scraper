@@ -53,6 +53,11 @@ FRESH_FRUIT_SHRINK = 0.126    # fresh-fruit retail shrink by weight — USDA ERS
 RETAIL_NET_MARGIN = 0.017     # food-retail net profit margin — FMI, Food Retailing
 #                               Industry Speaks (2024); berries often a loss-leader
 #                               (Richards & Hamilton, AJAE 88(3), 2006)
+# Net fruit per 40-ft reefer. Blueberries are volume/airflow-limited (clamshells +
+# ventilation gaps), so well under the ~26 t weight cap: ~20 pallets/40-ft reefer
+# (ICE Transport / FreightAmigo logistics specs, "20–25 pallets") × ~1 t per export
+# pallet ≈ ~20 t. Industry approximation — varies with punnet size & packout.
+CONTAINER_TONNES = 20
 
 
 def _cost_buildup(landed, shelf):
@@ -425,6 +430,10 @@ def build() -> str:
         journey = (f'<div class="bbar">{bar}</div>'
                    f'<div class="bends"><span>£{landed:.2f} landed</span>'
                    f'<span>{markup}</span><span>£{shelf:.2f} shelf</span></div>'
+                   f'<div class="bcont">A <b>40-ft reefer (~{CONTAINER_TONNES} t)</b> lands at '
+                   f'~<b>£{landed*CONTAINER_TONNES:.0f}k</b> and rings up at '
+                   f'~<b>£{shelf*CONTAINER_TONNES:.0f}k</b> on shelf '
+                   f'<span class="src">~20 pallets × ~1 t · ICE Transport / industry, packout-dependent</span></div>'
                    f'<div class="blegend">{legend}</div>{econ}')
     else:
         journey = f'<div class="note">Landed £{landed:.2f}/kg → shelf £{shelf:.2f}/kg.</div>'
@@ -640,6 +649,10 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .bends{{display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;
    font-size:1.05rem;font-weight:800;color:var(--ink)}}
  .bends span:nth-child(2){{font-size:.82rem;color:var(--accent)}}
+ .bcont{{margin-top:12px;font-size:1.05rem;color:var(--ink);font-weight:700;line-height:1.5}}
+ .bcont b{{color:var(--accent)}}
+ .bcont .src{{display:block;font-size:.7rem;color:var(--mut);font-weight:700;font-style:italic;
+   text-transform:none;letter-spacing:0;margin-top:2px}}
  .blegend{{margin-top:20px}}
  .bl{{display:flex;align-items:baseline;gap:.6em 1em;flex-wrap:wrap;padding:9px 2px}}
  .bl .dot{{width:.85em;height:.85em;border-radius:2px;align-self:center;flex:none}}
