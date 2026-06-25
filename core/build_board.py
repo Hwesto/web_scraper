@@ -53,10 +53,14 @@ FRESH_FRUIT_SHRINK = 0.126    # fresh-fruit retail shrink by weight — USDA ERS
 RETAIL_NET_MARGIN = 0.017     # food-retail net profit margin — FMI, Food Retailing
 #                               Industry Speaks (2024); berries often a loss-leader
 #                               (Richards & Hamilton, AJAE 88(3), 2006)
-# Net fruit per 40-ft reefer. Blueberries are volume/airflow-limited (clamshells +
-# ventilation gaps), so well under the ~26 t weight cap: ~20 pallets/40-ft reefer
-# (ICE Transport / FreightAmigo logistics specs, "20–25 pallets") × ~1 t per export
-# pallet ≈ ~20 t. Industry approximation — varies with punnet size & packout.
+# Net fruit per 40-ft reefer — the cross-fruit reference for any commodity that
+# reuses this board. A 40-ft HC reefer takes ~20 standard (1×1.2 m) pallets in a
+# single layer (no double-stacking of fresh produce, airflow gaps) — carrier/
+# logistics specs: ICE Transport, FreightAmigo, RFL Cargo, "20-23 pallets". At
+# ~1 t of fruit per pallet that is ~20 t net. Light clamshell fruit (berries,
+# cherries, grapes) is VOLUME-bound at roughly this; dense fruit (apples, citrus,
+# stone fruit) is WEIGHT-bound nearer the reefer's ~26-28 t payload cap. So ~20 t
+# is the planning figure; set per-commodity when copied to another fruit.
 CONTAINER_TONNES = 20
 
 
@@ -433,7 +437,7 @@ def build() -> str:
                    f'<div class="bcont">A <b>40-ft reefer (~{CONTAINER_TONNES} t)</b> lands at '
                    f'~<b>£{landed*CONTAINER_TONNES:.0f}k</b> and rings up at '
                    f'~<b>£{shelf*CONTAINER_TONNES:.0f}k</b> on shelf '
-                   f'<span class="src">~20 pallets × ~1 t · ICE Transport / industry, packout-dependent</span></div>'
+                   f'<span class="src">~{CONTAINER_TONNES} t net per 40-ft reefer — basis &amp; sources below</span></div>'
                    f'<div class="blegend">{legend}</div>{econ}')
     else:
         journey = f'<div class="note">Landed £{landed:.2f}/kg → shelf £{shelf:.2f}/kg.</div>'
@@ -443,9 +447,17 @@ def build() -> str:
     strip = ""
     if insn:
         chips = " · ".join(
-            f'<span style="color:{COLR.get(o, "#5a3fb0")}"><b>{CODE.get(o, o[:3].upper())}</b> £{c:.2f}</span>'
+            f'<span style="color:{COLR.get(o, "#5a3fb0")}"><b>{CODE.get(o, o[:3].upper())}</b> '
+            f'£{c:.2f}<span class="ctr">£{c*CONTAINER_TONNES:.0f}k</span></span>'
             for o, c in insn)
-        strip = (f'<div class="strip"><span class="sl">In season, landed £/kg</span>{chips}</div>')
+        strip = (f'<div class="strip"><span class="sl">In season · £/kg &amp; per {CONTAINER_TONNES}-t reefer</span>'
+                 f'{chips}</div>'
+                 f'<p class="note">Per-container figures take <b>~{CONTAINER_TONNES} t of fruit per 40-ft '
+                 f'reefer</b> — ~20 standard (1×1.2 m) pallets in a single layer (no double-stacking; airflow '
+                 f'gaps) at ~1 t of fruit each. Berries and other light clamshell fruit are <b>volume-bound</b> '
+                 f'near this; dense fruit (apples, citrus, stone fruit) is <b>weight-bound</b>, nearer the '
+                 f'reefer\'s ~26 t payload cap. '
+                 f'<span class="src">40-ft HC reefer pallet capacity: ICE Transport · FreightAmigo · RFL Cargo.</span></p>')
     whole_note = ""
     if whole == whole and when_w is not None:
         whole_note = (f'<div class="aside"><span class="tag">not a journey step</span> '
@@ -661,6 +673,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
    font-weight:700;margin-top:18px;padding-top:16px;border-top:1px solid var(--hair);line-height:1.6}}
  .strip .sl{{font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);
    font-weight:700;margin-right:.3em}}
+ .strip .ctr{{font-size:.78rem;color:var(--mut);font-weight:600;margin-left:.3em}}
  .aside{{font-family:var(--serif);font-size:.96rem;color:#3a342b;line-height:1.6;margin-top:16px;
    padding:13px 16px;border-radius:12px;background:#00000007}}
  .aside .tag{{display:inline-block;font-family:var(--sans);font-size:.58rem;text-transform:uppercase;
@@ -669,6 +682,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .aside b{{color:var(--ink);font-weight:700}}
  .note{{font-family:var(--serif);font-size:1rem;color:#3a342b;line-height:1.65;margin:14px 0 2px}}
  .note b{{color:var(--accent);font-weight:700}}
+ .note .src{{font-size:.8rem;color:var(--mut);font-style:italic}}
  .relay{{display:grid;grid-template-columns:repeat(12,1fr);gap:7px;padding:8px 0}}
  .rc{{border:1px solid var(--hair);border-radius:11px;padding:11px 2px;text-align:center;background:#fff}}
  .rc b{{display:block;font-size:.62rem;color:var(--mut);font-weight:600;margin-bottom:3px}}
