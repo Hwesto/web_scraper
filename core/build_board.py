@@ -12,7 +12,8 @@ import datetime as _dt
 
 import pandas as pd
 
-from deep.config import REPO_ROOT
+from deep.config import (REPO_ROOT, FRUIT_NAME, FRUIT_EMOJI, INSEASON_ORIGINS,
+                         PRODUCTION_OVERRIDES, PRODUCTION_GAP_NOTE)
 from deep.store import vintage
 from core import player_exports, uk_production
 
@@ -154,10 +155,6 @@ def _board():
                      "dvol": dv, "yoy": yoy, "share": t / tot * 100})
     return pd.Timestamp(cur), pd.Timestamp(prev), rows, tot, mavg, mval
 
-
-# The origins that actually supply the UK in volume — the strip stays legible and
-# avoids tiny-lane unit-value artefacts (e.g. a few hundred kg of US fruit @ £2/kg).
-INSEASON_ORIGINS = ["Chile", "Peru", "Morocco", "Spain", "Netherlands", "South Africa"]
 
 
 def _inseason_cif(years=3, frac=0.25, min_t=2000):
@@ -496,7 +493,7 @@ def build() -> str:
 
         def _trow(items):                       # trade: $ value + yoy(value) + kt
             return "".join(
-                f'<div class="wr"><span class="wc">{c}{"†" if c == "China" else ""}</span>'
+                f'<div class="wr"><span class="wc">{c}{"†" if c in PRODUCTION_OVERRIDES else ""}</span>'
                 f'<span class="wv">{_money(v)}</span>{_yc(yoy)}'
                 f'<span class="wk">{kg/1e6:.0f} kt</span></div>'
                 for c, v, kg, yoy in items)
@@ -513,16 +510,12 @@ def build() -> str:
                 f'<div class="wcol"><h3>Top importers</h3>'
                 f'<div class="wsub">trade value · $ · y/y value · kt volume</div>{_trow(wimp)}</div>')
         rankline = (f"UK is the world's #{uk_rank} importer · " if uk_rank else "")
+        gap = f'<p class="note">{PRODUCTION_GAP_NOTE}</p>' if (PRODUCTION_OVERRIDES and PRODUCTION_GAP_NOTE) else ""
         world = (f'<section class="sec"><div class="shead">'
-                 f'<h2>The world\'s blueberry map</h2>'
+                 f'<h2>The world\'s {FRUIT_NAME.lower()} map</h2>'
                  f'<p class="lede">{rankline}grow → export → import · {wyr} · '
                  f'FAOSTAT production, UN Comtrade trade</p></div>'
-                 f'<div class="card"><div class="world3">{cols}</div>'
-                 f'<p class="note">† <b>China</b> looks small here but grows most of what it eats — '
-                 f'reported (IBO) as the world\'s largest producer, yet it reports no output to FAOSTAT '
-                 f'and imports little, so <b>no free dataset captures its true scale</b>. '
-                 f'Netherlands, Belgium &amp; Hong Kong are re-export hubs (high trade, low home demand).'
-                 f'</p></div></section>')
+                 f'<div class="card"><div class="world3">{cols}</div>{gap}</div></section>')
     # Domestic market — apparent consumption (production + imports − exports)
     cyr, crows = _consumption()
     market = ""
@@ -540,9 +533,13 @@ def build() -> str:
             mr += (f'<div class="mr"><span class="mc">{c}{star}</span>'
                    f'<span class="mv">{cons:,.0f} kt</span>{bar}'
                    f'<span class="ms">{label}</span></div>')
-        foot = ('<p class="note">† <b>China</b> production is a sourced industry estimate '
-                '(Produce Report / IBO, ~525 kt 2023) — it reports none to FAOSTAT; '
-                'all other production is FAOSTAT (UK: DEFRA).</p>' if flagged else "")
+        if flagged:
+            ov = "; ".join(f'<b>{c}</b> ~{t/1000:.0f} kt, {src}'
+                           for c, (t, _yr, src) in PRODUCTION_OVERRIDES.items())
+            foot = (f'<p class="note">† {ov} — sourced industry estimate(s), not in FAOSTAT; '
+                    f'all other production is FAOSTAT (UK: DEFRA).</p>')
+        else:
+            foot = ""
         market = (f'<section class="sec"><div class="shead">'
                   f'<h2>Domestic market — who actually eats it</h2>'
                   f'<p class="lede">apparent consumption = production + imports − exports · {cyr}'
@@ -599,7 +596,9 @@ def build() -> str:
     kpis = "".join(f'<div class="kpi"><span class="kl">{l}</span>'
                    f'<span class="kv">{v}</span><span class="ku">{u}</span></div>'
                    for l, v, u in kpi)
+    emoji_html = f'<span aria-hidden="true">{FRUIT_EMOJI}</span> ' if FRUIT_EMOJI else ''
     html = _PAGE.format(month=f"{MONTHS[cur.month-1]} {cur.year}", lag_wks=lag_wks,
+                        commodity=FRUIT_NAME, commodity_lc=FRUIT_NAME.lower(), emoji_html=emoji_html,
                         kpis=kpis, shelf_rows=shelf_rows, shelf_lede=shelf_lede, journey=journey,
                         inseason=inseason, rex=rex, world=world,
                         market=market, board=board, relay=relay_cells,
@@ -612,7 +611,7 @@ def build() -> str:
 
 _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Britain's Blueberry Board</title>
+<title>Britain's {commodity} Board</title>
 <style>
  :root{{--ink:#241f1a;--accent:#5a3fb0;--up:#1a7f37;--down:#c0392b;--mut:#7a7163;
    --card:#fdfbf7;--hair:#efe8da;--bg:#e8e1d3;
@@ -622,9 +621,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  body{{margin:0;color:var(--ink);background:var(--bg);font-family:var(--sans);line-height:1.45;
    -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}}
  .wrap{{max-width:760px;margin:0 auto;padding:46px 20px 100px}}
- .masthead{{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}}
- .head{{min-width:0}}
- .hero{{width:124px;height:auto;flex:none;filter:drop-shadow(0 8px 18px rgba(36,31,26,.18))}}
+ .masthead{{margin-bottom:2px}}
  .kick{{text-transform:uppercase;letter-spacing:.16em;font-size:.7rem;color:var(--accent);font-weight:700}}
  h1{{font-size:2.5rem;line-height:1.04;margin:.16em 0 0;letter-spacing:-.025em;font-weight:800;color:var(--ink)}}
  .stamp{{margin:26px 0 13px;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;
@@ -756,11 +753,8 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  }}
 </style></head><body><div class="wrap">
 <header class="masthead">
- <div class="head">
-  <div class="kick"><span aria-hidden="true">🫐</span> the UK fresh-blueberry market</div>
-  <h1>Britain's Blueberry Board</h1>
- </div>
- <img class="hero" src="hero.png" alt="A British blueberry in a navy suit and Union-Jack tie">
+ <div class="kick">{emoji_html}the UK fresh-{commodity_lc} market</div>
+ <h1>Britain's {commodity} Board</h1>
 </header>
 <p class="stamp">data through {month} · latest settled HMRC month · ~{lag_wks} wks behind today</p>
 <div class="kpis">{kpis}</div>

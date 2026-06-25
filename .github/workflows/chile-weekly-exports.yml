@@ -48,46 +48,52 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y unar
           pip install requests pandas openpyxl scipy matplotlib pyarrow beautifulsoup4 lxml
-      - name: Run collector
+      - name: Set cadence (mode + monthly gate)
         run: |
-          # Parser validated (run #3): push + schedule -> collect; dispatch -> chosen mode.
+          # push/schedule -> collect; dispatch -> chosen mode (inspect|collect).
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             MODE="${{ github.event.inputs.mode }}"
           else
             MODE=collect
           fi
           echo "MODE=$MODE" >> "$GITHUB_ENV"
-          # Full history (2018-2026) is backfilled + committed; the weekly run
-          # only refreshes the active + prior season. Re-backfill via the years
-          # input or by temporarily widening this default.
-          YEARS="${{ github.event.inputs.years || '2025,2026' }}"
-          echo "Running mode=$MODE years=$YEARS"
-          python scripts/fetch_chile_weekly_exports.py \
-            --mode "$MODE" --years "$YEARS" \
-            --month-token "${{ github.event.inputs.month_token || 'enero' }}"
-      - name: Refresh destination economics (collect only)
+          # Lean cron: only HMRC/Trolley/DEFRA/ONS move week-to-week, so they run
+          # every Monday. The annual (Comtrade/FAOSTAT) and deep-only sources are
+          # slow-changing — refresh them in the month's FIRST week (first Monday),
+          # or on any manual dispatch. Saves the weekly 34 MB FAOSTAT pull etc.
+          if [ "$(date +%d)" -le 7 ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "MONTHLY=true" >> "$GITHUB_ENV"
+          else
+            echo "MONTHLY=false" >> "$GITHUB_ENV"
+          fi
+          echo "YEARS=${{ github.event.inputs.years || '2025,2026' }}" >> "$GITHUB_ENV"
+          echo "MONTH_TOKEN=${{ github.event.inputs.month_token || 'enero' }}" >> "$GITHUB_ENV"
+
+      # ---- WEEKLY — the only sources that actually move week-to-week (core board) ----
+      - name: Ingest weekly vintages — HMRC + re-exports, DEFRA, ONS, Trolley retail
         if: ${{ env.MODE == 'collect' }}
-        run: python -m deep.market.comtrade || echo "comtrade refresh skipped"
-      - name: Refresh per-origin export prices (collect only)
-        if: ${{ env.MODE == 'collect' }}
-        run: python -m deep.market.origin_prices || echo "origin prices refresh skipped"
-      - name: Refresh USD->GBP FX rate (collect only)
-        if: ${{ env.MODE == 'collect' }}
-        run: python -m deep.market.fx || echo "fx refresh skipped"
-      - name: Refresh global trade map — Comtrade world league (collect only)
-        if: ${{ env.MODE == 'collect' }}
-        run: python -m deep.market.comtrade_global || echo "global trade refresh skipped"
-      - name: Refresh global production — FAOSTAT growers (collect only)
-        if: ${{ env.MODE == 'collect' }}
-        run: python -m deep.market.production || echo "global production refresh skipped"
-      - name: Refresh SAG China orchard roster (collect only)
-        if: ${{ env.MODE == 'collect' }}
-        run: python scripts/fetch_sag_china.py || echo "sag-china fetch skipped"
-      - name: Ingest vintage sources — HMRC, DEFRA, ODEPA, ONS, retail (collect only)
-        if: ${{ env.MODE == 'collect' }}
-        # one pass over the registry (per-source try/except inside); brings the HMRC
-        # anchor + DEFRA/ODEPA onto the weekly cadence, and refreshes ONS + retail too
         run: python -m deep.pipeline ingest || echo "vintage ingest skipped"
+
+      # ---- MONTHLY (first week) or manual — annual + deep-only sources ----
+      - name: (monthly) Chile weekly export history — deep nowcast
+        if: ${{ env.MONTHLY == 'true' }}
+        run: |
+          python scripts/fetch_chile_weekly_exports.py \
+            --mode "${{ env.MODE }}" --years "${{ env.YEARS }}" \
+            --month-token "${{ env.MONTH_TOKEN }}" || echo "chile fetch skipped"
+      - name: (monthly) Core world map — Comtrade global, FAOSTAT production, destinations
+        if: ${{ env.MODE == 'collect' && env.MONTHLY == 'true' }}
+        run: |
+          python -m deep.market.comtrade_global || echo "global trade skipped"
+          python -m deep.market.production || echo "global production skipped"
+          python -m core.player_exports || echo "player destinations skipped"
+      - name: (monthly) Deep-only economics — destinations, FOB prices, FX, SAG roster
+        if: ${{ env.MODE == 'collect' && env.MONTHLY == 'true' }}
+        run: |
+          python -m deep.market.comtrade || echo "comtrade skipped"
+          python -m deep.market.origin_prices || echo "origin prices skipped"
+          python -m deep.market.fx || echo "fx skipped"
+          python scripts/fetch_sag_china.py || echo "sag-china skipped"
       - name: Rebuild pages — ticker board (index) + deep dashboard (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: |

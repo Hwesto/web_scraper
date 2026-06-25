@@ -19,13 +19,13 @@ from pathlib import Path
 
 import pandas as pd
 
-from deep.config import DATA_DIR
+from deep.config import DATA_DIR, HS6
 
 CACHE = DATA_DIR / "market" / "chile_destinations.csv"
 PERU_CACHE = DATA_DIR / "market" / "peru_destinations.csv"
 _CHILE = 152
 PERU = 604
-_HS = "081040"
+_HS = HS6
 _PREVIEW = ("https://comtradeapi.un.org/public/v1/preview/C/A/HS"
             "?reporterCode={rep}&period={yr}&cmdCode={hs}&flowCode=X"
             "&partnerCode=&motCode=0&customsCode=C00")

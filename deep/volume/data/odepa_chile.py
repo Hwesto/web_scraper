@@ -19,13 +19,13 @@ import pandas as pd
 import requests
 
 from ...data.base import SignalSource
-from ...config import KG_PER_TONNE
+from ...config import KG_PER_TONNE, ODEPA_HS_PREFIX
 
 _CKAN = "https://datos.odepa.gob.cl/api/3/action"
 _PACKAGE = "comercio-exterior"
 _HEADERS = {"User-Agent": "Mozilla/5.0 (uk-blueberry-nowcast/0.1)"}
 _DEST = "Reino Unido"
-_FRESH_PREFIX = "081040"     # fresh Vaccinium (frozen would be 0811 -- excluded)
+_FRESH_PREFIX = ODEPA_HS_PREFIX   # fresh HS6 prefix (frozen 0811 excluded) — config
 
 
 def _to_float(raw) -> float:

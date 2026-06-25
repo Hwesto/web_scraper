@@ -16,10 +16,10 @@ import time
 import pandas as pd
 import requests
 
-from ..config import DATA_DIR
+from ..config import DATA_DIR, HS6
 
 CACHE = DATA_DIR / "market" / "global_trade.csv"
-_HS = "081040"
+_HS = HS6
 # partner2Code=0 is essential: it pins the World-World aggregate (the true
 # reporter total). Without it the preview also returns a full partner2 breakdown
 # that, summed, double-counts the total for countries that report it (UK, DE…).

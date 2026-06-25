@@ -14,13 +14,33 @@ DATA_DIR = REPO_ROOT / "data"
 VINTAGE_DIR = DATA_DIR / "vintages"          # append-only, gitignored
 VINTAGE_DIR.mkdir(parents=True, exist_ok=True)
 
-# -- Target commodity --
-# CN8 08104050 = "Fresh fruit of species Vaccinium macrocarpum and Vaccinium
-# corymbosum" i.e. cultivated blueberry (corymbosum) + large cranberry
-# (macrocarpum). This is the commercial blueberry line. NB the spec's original
-# 08104010 is lingonberry/cowberry -- wrong code.
-COMMODITY_ID = 8104050
+# ====================== FRUIT — the single retarget point ======================
+# Change THIS block to point the whole board/atlas at another fruit. Everything
+# downstream (HMRC, Comtrade, FAOSTAT, the masthead, the in-season strip, the
+# production caveat) reads from here, so a new fruit is one edit, not fifteen.
+FRUIT_NAME = "Blueberry"          # masthead title: "Britain's {FRUIT_NAME} Board"
+FRUIT_EMOJI = "🫐"                # optional eyebrow glyph; set "" to omit
+HS6 = "081040"                    # UN Comtrade HS-6 (global trade + production trade)
+# HMRC UK CN8 08104050 = "Fresh Vaccinium macrocarpum & corymbosum" = cultivated
+# blueberry + large cranberry (the commercial blueberry line; 08104010 is the
+# wrong code = lingonberry/cowberry).
+COMMODITY_ID = 8104050            # HMRC numeric CommodityId
 COMMODITY_CN8 = "08104050"
+FAOSTAT_ITEM = "Blueberries"      # FAOSTAT QCL production item name
+ODEPA_HS_PREFIX = "081040"        # Chile ODEPA fresh-fruit prefix (deep nowcast)
+# Major UK-supply origins in volume — the in-season per-origin landed price strip.
+INSEASON_ORIGINS = ["Chile", "Peru", "Morocco", "Spain", "Netherlands", "South Africa"]
+# Production the FREE sources miss — documented per-country overrides, NOT fabricated.
+# {country: (tonnes, year, source)}. Empty {} for fruits FAOSTAT covers fully — then
+# the gap note below is unused and the consumption section needs no caveat.
+PRODUCTION_OVERRIDES = {"China": (525_000, 2023, "Produce Report / IBO (2023 est.)")}
+# World-map caveat shown only when an override exists (commodity-specific narrative).
+PRODUCTION_GAP_NOTE = (
+    "† <b>China</b> looks small here but grows most of what it eats — reported (IBO) "
+    "as the world's largest producer, yet it reports no output to FAOSTAT and imports "
+    "little, so <b>no free dataset captures its true scale</b>. Netherlands, Belgium "
+    "&amp; Hong Kong are re-export hubs (high trade, low home demand).")
+# ===============================================================================
 
 # -- HMRC OData API --
 HMRC_API_BASE = "https://api.uktradeinfo.com"

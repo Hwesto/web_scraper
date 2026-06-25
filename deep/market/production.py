@@ -21,7 +21,7 @@ import zipfile
 import pandas as pd
 import requests
 
-from ..config import DATA_DIR
+from ..config import DATA_DIR, FAOSTAT_ITEM, PRODUCTION_OVERRIDES
 
 CACHE = DATA_DIR / "market" / "global_production.csv"
 _BULK = ("https://bulks-faostat.fao.org/production/"
@@ -41,7 +41,7 @@ def refresh(cache=CACHE) -> pd.DataFrame:
     rows = []
     with zf.open(name) as fh:
         for r in csv.DictReader(io.TextIOWrapper(fh, encoding="latin-1")):
-            if r.get("Item") != "Blueberries" or r.get("Element") != "Production":
+            if r.get("Item") != FAOSTAT_ITEM or r.get("Element") != "Production":
                 continue
             try:
                 area_code = int(r.get("Area Code") or 0)
@@ -72,18 +72,10 @@ def load(cache=CACHE) -> pd.DataFrame:
 _RENAME = {"United States of America": "United States", "Russian Federation": "Russia",
            "Netherlands (Kingdom of the)": "Netherlands", "China, mainland": "China"}
 
-# Countries FAOSTAT omits but that are documented elsewhere. Sourced + dated, not
-# fabricated — kept here as the single, citable override. China is the big one:
-# it reports no blueberries to FAOSTAT despite being the world's largest grower.
-MANUAL = {
-    "China": {"tonnes": 525_000, "year": 2023,
-              "source": "Produce Report / IBO (2023 est.)"},
-}
-
-
 def production_by_country(df: pd.DataFrame | None = None) -> dict:
     """{country: (tonnes, year, source)} — FAOSTAT latest year (source=None) plus
-    the documented MANUAL overrides for countries FAOSTAT omits."""
+    the documented per-fruit overrides for countries FAOSTAT omits (config
+    PRODUCTION_OVERRIDES; e.g. China for blueberries). Sourced, not fabricated."""
     df = load() if df is None else df
     out: dict[str, tuple] = {}
     if not df.empty:
@@ -92,8 +84,8 @@ def production_by_country(df: pd.DataFrame | None = None) -> dict:
         yr = int(df["year"].max())
         for x in df[df["year"] == yr].itertuples():
             out[x.country] = (float(x.tonnes), yr, None)
-    for c, m in MANUAL.items():
-        out.setdefault(c, (float(m["tonnes"]), m["year"], m["source"]))
+    for c, (tonnes, year, source) in PRODUCTION_OVERRIDES.items():
+        out.setdefault(c, (float(tonnes), year, source))
     return out
 
 
