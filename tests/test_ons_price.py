@@ -8,8 +8,8 @@ import io
 import pandas as pd
 import pytest
 
-from nowcast.data import ons_price
-from nowcast.data.ons_price import OnsRetailBlueberryPrice
+from deep.data import ons_price
+from deep.data.ons_price import OnsRetailBlueberryPrice
 
 
 def _old_xlsx() -> bytes:

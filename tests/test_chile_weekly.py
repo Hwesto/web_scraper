@@ -1,7 +1,7 @@
 """Tests for the cron-collected weekly Chile->UK export loader."""
 import pandas as pd
 
-from nowcast.volume.data import chile_weekly
+from deep.volume.data import chile_weekly
 
 
 def _write(tmp_path):

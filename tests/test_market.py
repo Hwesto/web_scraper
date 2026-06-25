@@ -6,7 +6,7 @@ survives freight, the US is the volume sink), not exact prices that drift each y
 """
 import pandas as pd
 
-from nowcast.market import comtrade, netback
+from deep.market import comtrade, netback
 
 
 def test_comtrade_cache_loads_and_is_sane():

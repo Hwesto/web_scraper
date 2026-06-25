@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-from nowcast.volume import series
+from deep.volume import series
 
 
 def test_shape_indicator_uses_transit_shifted_export(monkeypatch):

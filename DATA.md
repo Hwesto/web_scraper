@@ -14,7 +14,7 @@ Status: `LIVE` wired · `DERIVED` computed · `PROXY` stand-in · `PROBE` valida
 
 | Data point | Source · link | Depth | Ours | Theirs | Status |
 |---|---|---|---|---|---|
-| UK imports by origin (tonnes) | HMRC OTS · `api.uktradeinfo.com` | 2018→now | weekly-cron (`pipeline ingest`) | monthly (~6wk lag) | LIVE |
+| UK imports by origin (tonnes) | HMRC OTS · `api.uktradeinfo.com` | 2018→now | weekly-cron (`deep.pipeline ingest`) | monthly (~6wk lag) | LIVE |
 | UK import value by origin (£) | HMRC OTS · `api.uktradeinfo.com` | 2018→now | weekly-cron | monthly | LIVE |
 | Chile→UK volume (net kg) | Chile DUS · `datos.gob.cl` | 2018→now | weekly-cron | ~daily | LIVE |
 | Chile→UK named producer / exporter / cultivar / region | Chile DUS · `datos.gob.cl` | season | weekly-cron | ~daily | LIVE |
@@ -66,7 +66,7 @@ Status: `LIVE` wired · `DERIVED` computed · `PROXY` stand-in · `PROBE` valida
 ## Renewal: ours vs theirs — where they diverge
 
 - **HMRC (the anchor), DEFRA and ODEPA now refresh on the weekly cron** via
-  `pipeline ingest` (alongside ONS + retail) — the ground-truth series stay as current
+  `deep.pipeline ingest` (alongside ONS + retail) — the ground-truth series stay as current
   as the rest. **NDVI** is the only series still manual (not in the ingest registry; parked).
 - **Comtrade**: we re-pull weekly but it only publishes annually — harmless (the rolling
   refresh just re-reads recent years), the deep history is backfilled once and merged.

@@ -9,8 +9,8 @@ import datetime as _dt
 
 import numpy as np
 
-from nowcast.model.calendar import build_week_grid
-from nowcast.model.ssm import build_system, state_dim
+from deep.model.calendar import build_week_grid
+from deep.model.ssm import build_system, state_dim
 
 
 def _propagate(system, grid, x0):

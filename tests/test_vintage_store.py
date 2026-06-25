@@ -9,8 +9,8 @@ import datetime as _dt
 import pandas as pd
 import pytest
 
-from nowcast.data.base import TIDY_COLUMNS
-from nowcast.store import vintage
+from deep.data.base import TIDY_COLUMNS
+from deep.store import vintage
 
 
 def _row(series, ref_period, value, vintage_date, key=""):

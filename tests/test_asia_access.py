@@ -5,7 +5,7 @@ proven independently of when the real SAG China orchard list lands via the cron.
 """
 import pandas as pd
 
-from nowcast.market import asia_access
+from deep.market import asia_access
 
 
 def _roster(tmp_path):

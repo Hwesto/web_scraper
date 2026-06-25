@@ -6,7 +6,7 @@ follow the indicator's shape (a flat indicator => flat weekly split).
 """
 import numpy as np
 
-from nowcast.volume.benchmark import denton_pfd, proportional
+from deep.volume.benchmark import denton_pfd, proportional
 
 
 def _grid(n_months=4, weeks_per_month=4):

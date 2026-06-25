@@ -11,7 +11,7 @@ import datetime as _dt
 import json
 import urllib.request
 
-from nowcast.config import DATA_DIR
+from deep.config import DATA_DIR
 
 CACHE = DATA_DIR / "market" / "fx_usd_gbp.csv"
 _URL = "https://api.frankfurter.app/latest?from=USD&to=GBP"

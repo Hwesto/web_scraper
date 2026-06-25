@@ -25,11 +25,11 @@ import numpy as np
 import pandas as pd
 from matplotlib.ticker import FuncFormatter
 
-from nowcast.backtest.within_month import calibrated_run
-from nowcast.config import REPO_ROOT
-from nowcast import price
-from nowcast.market import asia_access, comtrade, fx, netback, origin_prices
-from nowcast.store import vintage
+from deep.backtest.within_month import calibrated_run
+from deep.config import REPO_ROOT
+from deep import price
+from deep.market import asia_access, comtrade, fx, netback, origin_prices
+from deep.store import vintage
 
 OUT = REPO_ROOT / "docs" / "index.html"
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -297,7 +297,7 @@ def chart_peru_outlook(f: pd.DataFrame):
 
 def chart_asia(top: pd.DataFrame):
     """Top China-approved producers, sized by the Asia-premium prize they can capture."""
-    from nowcast.farm import names
+    from deep.farm import names
     g = top.copy()
     g["label"] = g["producer"].map(names.canonicalize)      # fold cargo-text variants
     d = (g.groupby("label", as_index=False)["net_kg"].sum()

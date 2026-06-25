@@ -17,9 +17,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from nowcast.config import DATA_DIR
-from nowcast.farm import sag_china
-from nowcast.market import netback
+from deep.config import DATA_DIR
+from deep.farm import sag_china
+from deep.market import netback
 
 ROSTER = DATA_DIR / "market" / "sag_china_orchards.csv"
 _ASIA = {"South Korea", "China", "Japan", "Taiwan", "Hong Kong", "Singapore",

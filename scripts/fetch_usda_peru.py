@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 
-from nowcast.config import DATA_DIR
+from deep.config import DATA_DIR
 
 OUT = DATA_DIR / "market" / "peru_fundamentals.csv"
 REPORT_URL = ("https://apps.fas.usda.gov/newgainapi/api/Report/DownloadReportByFileName"

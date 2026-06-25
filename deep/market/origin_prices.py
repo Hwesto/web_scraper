@@ -25,8 +25,8 @@ import urllib.request
 
 import pandas as pd
 
-from nowcast.config import DATA_DIR
-from nowcast.market.comtrade import _HS, _PREVIEW
+from deep.config import DATA_DIR
+from deep.market.comtrade import _HS, _PREVIEW
 
 CACHE = DATA_DIR / "market" / "origin_export_prices.csv"
 # major UK blueberry origins: reporter M49 -> name (covers ~all material supply)
@@ -103,8 +103,8 @@ def by_country(year: int | None = None, dest: str = "United Kingdom") -> pd.Data
 
 def _hmrc_cif_annual(year: int) -> pd.Series:
     """Volume-weighted HMRC UK-landed CIF (GBP/kg) per origin for one year."""
-    from nowcast.config import KG_PER_TONNE
-    from nowcast.store import vintage
+    from deep.config import KG_PER_TONNE
+    from deep.store import vintage
     vol = vintage.latest("hmrc_blueberry_imports")
     val = vintage.latest("hmrc_blueberry_import_value")
     if vol.empty or val.empty:
@@ -127,7 +127,7 @@ def wedge(year: int | None = None, usd_gbp: float | None = None,
     tiny-sample artifact (Comtrade revises these heavily). Origins present on both sides.
     """
     if usd_gbp is None:
-        from nowcast.market import fx
+        from deep.market import fx
         usd_gbp = fx.gbp_per_usd()
     fob = by_country(year, dest="United Kingdom")
     if fob.empty:

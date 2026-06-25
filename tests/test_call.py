@@ -1,7 +1,7 @@
 """Smoke tests for the 'this week's call' hero panel."""
 import datetime as _dt
 
-from nowcast import call
+from deep import call
 
 
 def test_in_season_call_has_supply_and_action():

@@ -1,7 +1,7 @@
 """Tests for the pure cert-layer logic (status inference + GGN attach)."""
 import pandas as pd
 
-from nowcast.farm import certs
+from deep.farm import certs
 
 
 def _producers():

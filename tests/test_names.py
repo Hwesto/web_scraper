@@ -1,5 +1,5 @@
 """Tests for entity-name canonicalisation + roster matching."""
-from nowcast.farm import names
+from deep.farm import names
 
 
 def test_canonicalize_strips_legal_and_cargo_artefacts():

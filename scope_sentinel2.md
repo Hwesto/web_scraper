@@ -52,7 +52,7 @@ Target series we already hold: **Chile→UK exports** (HMRC + DUS, multi-season)
 - **Catastro** → comuna AOIs + hectare weights + area validation.
 - **capacity.py** → the structural baseline the index is tested *against*.
 - **HMRC/DUS exports** → the target.
-- **SignalSource + vintage store** → drop-in (`nowcast/data/sentinel_ndvi.py`).
+- **SignalSource + vintage store** → drop-in (`deep/data/sentinel_ndvi.py`).
 
 ## Portability — the payoff
 
@@ -87,7 +87,7 @@ density, climate, polytunnels differ) — flag and re-validate per region.
 
 ## Deliverables
 
-`nowcast/data/sentinel_ndvi.py` (SignalSource) · a backtest diagnostic (index vs export
+`deep/data/sentinel_ndvi.py` (SignalSource) · a backtest diagnostic (index vs export
 residual, leave-one-out) · a one-page GO/NO-GO memo on signal strength after Phase 2a.
 
 > Standing rule honoured: STAC access verified before scoping; S3 COG pixel reads to be
@@ -169,7 +169,7 @@ against the capacity residual.
 | 5 | **All blueberry comunas, Catastro-weighted** | 3 AOIs is thin | iterate Catastro top-hectare comunas; hectare-weight |
 | 6 | **Event cases as natural experiments** | sanity check | does masked NDVI dip in the 2022 dry summer / where 2023 fires burned? right place, right time? |
 
-**Deliverables.** `nowcast/data/sentinel_ndvi.py` (SignalSource: tifffile+fsspec reader,
+**Deliverables.** `deep/data/sentinel_ndvi.py` (SignalSource: tifffile+fsspec reader,
 persistence mask, integrated metric) · a backtest diagnostic (whole-AOI vs masked vs
 capacity-residual, leave-one-out) · GO/NO-GO memo for Tier 3.
 

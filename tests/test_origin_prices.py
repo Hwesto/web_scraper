@@ -1,6 +1,6 @@
 """Per-origin export price (Comtrade, all reporters). Committed-table sanity +
 offline parse test of the World/UK extraction."""
-from nowcast.market import origin_prices
+from deep.market import origin_prices
 
 
 def test_committed_table_is_sane():

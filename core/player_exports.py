@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from nowcast.config import DATA_DIR
-from nowcast.market import comtrade
+from deep.config import DATA_DIR
+from deep.market import comtrade
 
 OUT = DATA_DIR / "market" / "player_destinations.csv"
 # major UK-supply origins (~90% of UK imports): reporter M49 -> name

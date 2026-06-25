@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from nowcast.market import comtrade
+from deep.market import comtrade
 
 # --- The one assumption: ocean reefer freight, USD/kg, ex San Antonio/Valparaiso. ---
 # Derived transparently as (40ft reefer rate per container) / (blueberry payload),

@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from nowcast.config import DATA_DIR
+from deep.config import DATA_DIR
 
 CACHE = DATA_DIR / "market" / "chile_destinations.csv"
 PERU_CACHE = DATA_DIR / "market" / "peru_destinations.csv"

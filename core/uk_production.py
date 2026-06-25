@@ -14,7 +14,7 @@ import zipfile
 
 import pandas as pd
 
-from nowcast.config import DATA_DIR
+from deep.config import DATA_DIR
 
 OUT = DATA_DIR / "market" / "uk_blueberry_production.csv"
 REPORT_URL = ("https://assets.publishing.service.gov.uk/media/685ba429e9509f1a908eb16b/"

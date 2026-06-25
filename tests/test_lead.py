@@ -8,7 +8,7 @@ seasonal-naive. (Same principle as the price-fusion synthetic guard.)
 import numpy as np
 import pandas as pd
 
-from nowcast.backtest import lead
+from deep.backtest import lead
 
 
 def _synthetic_lead(n=72, seed=0):

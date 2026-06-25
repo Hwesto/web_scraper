@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import datetime as _dt
 
-from nowcast.config import REPO_ROOT
+from deep.config import REPO_ROOT
 from core import player_exports, uk_market
 
 OUT = REPO_ROOT / "core" / "uk_market_report.md"

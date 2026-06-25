@@ -53,20 +53,20 @@ Full reasoning in the chat that produced this; condensed in `SOURCES.md` / `DATA
 
 ## 4. Repo map
 
-- `nowcast/data/` — SignalSources (HMRC, DEFRA, ONS, retail, NDVI, job_boards) + `base.py`
-  (tidy schema) ; `nowcast/store/vintage.py` — append-only vintage store (look-ahead-free).
-- `nowcast/market/` — `comtrade.py` (destinations, any reporter), `origin_prices.py`
+- `deep/data/` — SignalSources (HMRC, DEFRA, ONS, retail, NDVI, job_boards) + `base.py`
+  (tidy schema) ; `deep/store/vintage.py` — append-only vintage store (look-ahead-free).
+- `deep/market/` — `comtrade.py` (destinations, any reporter), `origin_prices.py`
   (export FOB + FOB→CIF wedge), `netback.py` (origin-aware), `fx.py`, `asia_access.py`.
-- `nowcast/farm/` — `catastro.py`→`capacity.py` (orchard area→bearing capacity), `sag_china.py`
+- `deep/farm/` — `catastro.py`→`capacity.py` (orchard area→bearing capacity), `sag_china.py`
   (phyto roster), `names.py` (entity matching), `certs.py`.
-- `nowcast/volume/`, `nowcast/model/`, `nowcast/backtest/` — the volume nowcast stack.
+- `deep/volume/`, `deep/model/`, `deep/backtest/` — the volume nowcast stack.
 - `scripts/` — `fetch_chile_weekly_exports.py`, `fetch_sag_china.py`, `fetch_usda_peru.py`,
   `sentinel_probe.py`, `build_static_dashboard.py`.
 - `data/` — `weekly/` (Chile), `market/` (Comtrade caches, fx, peru_fundamentals, sag),
   `vintages/<series>/<date>.parquet`, `farm/` (catastro parquet).
 - `.github/workflows/chile-weekly-exports.yml` — the only workflow. Monday 06:17 UTC,
   `mode=collect`. Runs: Chile DUS → comtrade (Chile+Peru) → origin_prices → fx → sag →
-  **`pipeline ingest`** (HMRC/DEFRA/ODEPA/ONS/retail) → dashboard → commit.
+  **`deep.pipeline ingest`** (HMRC/DEFRA/ODEPA/ONS/retail) → dashboard → commit.
 - Tests: `tests/` — 64 passing; `python -m pytest -q`.
 
 ## 5. Hard-won gotchas (do NOT relearn these)

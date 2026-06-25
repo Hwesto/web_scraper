@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-from nowcast import price
-from nowcast.config import REPO_ROOT
-from nowcast.store import vintage
+from deep import price
+from deep.config import REPO_ROOT
+from deep.store import vintage
 from core import uk_production
 
 _MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",

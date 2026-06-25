@@ -9,7 +9,7 @@ and checks the fused nowcast beats the price-free one.
 import numpy as np
 import pandas as pd
 
-from nowcast.model.structural import BlueberryStructuralModel
+from deep.model.structural import BlueberryStructuralModel
 
 
 def _synthetic_volume(n_months=60, seed=0):

@@ -4,7 +4,7 @@ only deep-sea (counter-season) months may be reattributed.
 import numpy as np
 import pandas as pd
 
-from nowcast.volume.deconvolve import deconvolve_netherlands
+from deep.volume.deconvolve import deconvolve_netherlands
 
 
 def _frame():

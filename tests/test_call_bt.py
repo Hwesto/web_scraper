@@ -1,6 +1,6 @@
 """The call back-test must separate the validated supply half from the weak
 price half and report both honestly."""
-from nowcast.backtest import call_bt
+from deep.backtest import call_bt
 
 
 def test_backtest_reports_both_halves():

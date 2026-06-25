@@ -67,13 +67,13 @@ jobs:
             --month-token "${{ github.event.inputs.month_token || 'enero' }}"
       - name: Refresh destination economics (collect only)
         if: ${{ env.MODE == 'collect' }}
-        run: python -m nowcast.market.comtrade || echo "comtrade refresh skipped"
+        run: python -m deep.market.comtrade || echo "comtrade refresh skipped"
       - name: Refresh per-origin export prices (collect only)
         if: ${{ env.MODE == 'collect' }}
-        run: python -m nowcast.market.origin_prices || echo "origin prices refresh skipped"
+        run: python -m deep.market.origin_prices || echo "origin prices refresh skipped"
       - name: Refresh USD->GBP FX rate (collect only)
         if: ${{ env.MODE == 'collect' }}
-        run: python -m nowcast.market.fx || echo "fx refresh skipped"
+        run: python -m deep.market.fx || echo "fx refresh skipped"
       - name: Refresh SAG China orchard roster (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: python scripts/fetch_sag_china.py --mode collect || echo "sag-china fetch skipped"
@@ -81,7 +81,7 @@ jobs:
         if: ${{ env.MODE == 'collect' }}
         # one pass over the registry (per-source try/except inside); brings the HMRC
         # anchor + DEFRA/ODEPA onto the weekly cadence, and refreshes ONS + retail too
-        run: python -m nowcast.pipeline ingest || echo "vintage ingest skipped"
+        run: python -m deep.pipeline ingest || echo "vintage ingest skipped"
       - name: Rebuild static dashboard (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: python scripts/build_static_dashboard.py || echo "dashboard build skipped"

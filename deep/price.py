@@ -41,7 +41,7 @@ def chile_fob_weekly(gbp: bool = False, usd_gbp: float | None = None) -> pd.Seri
     if not FOB_CSV.exists():
         return pd.Series(dtype=float, name="chile_fob")
     if usd_gbp is None:
-        from nowcast.market import fx
+        from deep.market import fx
         usd_gbp = fx.gbp_per_usd()
     df = pd.read_csv(FOB_CSV)
     df["d"] = df["iso_week"].map(

@@ -1,7 +1,7 @@
 """Tests for the planting-age -> bearing-capacity model."""
 import pandas as pd
 
-from nowcast.farm import capacity
+from deep.farm import capacity
 
 
 def test_yield_fraction_is_monotonic_and_bounded():

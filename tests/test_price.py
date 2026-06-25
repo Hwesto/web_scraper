@@ -1,5 +1,5 @@
 """Tests for the price layers (HMRC unit value + Chilean FOB)."""
-from nowcast import price
+from deep import price
 
 
 def test_import_unit_value_by_origin_is_sane():

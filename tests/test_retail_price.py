@@ -1,8 +1,8 @@
 """Retail price collector: JSON-LD parse + GBP/kg, offline (no network)."""
 import datetime as dt
 
-from nowcast.data import retail_price
-from nowcast.data.retail_price import RetailBlueberryPrice, _parse
+from deep.data import retail_price
+from deep.data.retail_price import RetailBlueberryPrice, _parse
 
 
 def _ld(name, price):

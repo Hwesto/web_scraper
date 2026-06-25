@@ -1,5 +1,5 @@
 """Light tests for the whole-market fusion helpers (no network/model fit)."""
-from nowcast.volume import uk_total
+from deep.volume import uk_total
 
 
 def test_week_to_month_uses_thursday():

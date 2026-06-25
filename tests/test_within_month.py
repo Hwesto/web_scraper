@@ -6,7 +6,7 @@ contemporaneous signal and (b) invents none from noise.
 import numpy as np
 import pandas as pd
 
-from nowcast.backtest import within_month
+from deep.backtest import within_month
 
 
 def _seasonal(n=72, seed=0, noise=150.0):

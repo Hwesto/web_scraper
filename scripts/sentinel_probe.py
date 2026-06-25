@@ -15,7 +15,7 @@ import pandas as pd
 import tifffile
 from pyproj import Transformer
 
-from nowcast.store import vintage
+from deep.store import vintage
 
 STAC = "https://earth-search.aws.element84.com/v1/search"
 # blueberry AOIs (small ~8 km boxes in the heart of the producing comunas)

@@ -13,10 +13,10 @@ import datetime as _dt
 import pandas as pd
 import streamlit as st
 
-from nowcast.call import weekly_call
-from nowcast.config import REPO_ROOT
-from nowcast.price import chile_fob_weekly
-from nowcast.volume.uk_total import build_uk_total
+from deep.call import weekly_call
+from deep.config import REPO_ROOT
+from deep.price import chile_fob_weekly
+from deep.volume.uk_total import build_uk_total
 
 st.set_page_config(page_title="UK Blueberry Intelligence", layout="wide",
                    initial_sidebar_state="expanded")
