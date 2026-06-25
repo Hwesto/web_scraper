@@ -413,6 +413,16 @@ def build() -> str:
     # DEFRA wholesale stays an aside (British-season home-grown spot, not a step).
     markup = (f'+{(shelf/landed - 1)*100:.0f}%'
               if (landed == landed and landed > 0 and shelf == shelf) else '')
+    # DEFRA British-season wholesale — a caveat aside, not a journey step.
+    whole_note = ""
+    if whole == whole and when_w is not None:
+        whole_note = (f'<div class="aside"><span class="tag">not a journey step</span> '
+                      f'UK-grown, British-season <b>wholesale</b> (DEFRA · New Covent Garden) is '
+                      f'<b>£{whole:.2f}/kg</b> ({pd.Timestamp(when_w).strftime("%b %Y")}) — premium '
+                      f'loose fruit sold spot, a different product/season to imported retail, so it '
+                      f'sits above both prices.</div>')
+    # Card 1 — the cost build-up (border → shelf). Landed = 12-mo all-origin
+    # volume-weighted average; the heavy economics fold into a drop-down.
     segs, loss_leader = _cost_buildup(landed, shelf)
     if segs:
         bar = "".join(f'<i class="seg {css}" style="width:{pct:.1f}%" '
@@ -425,46 +435,48 @@ def build() -> str:
             for lbl, v, pct, src, css in segs)
         ll = (' At this blend the spread barely covers a normal retail margin — '
               'consistent with berries sold near break-even.' if loss_leader else '')
-        econ = (f'<div class="note">That ~{RETAIL_GROSS_MARGIN*100:.0f}% retail slice is gross, '
-                f'not profit: fresh fruit loses <b>{FRESH_FRUIT_SHRINK*100:.0f}%+</b> by weight to '
-                f'shrink (USDA ERS, 2016) — soft berries more — so the initial markup is set ~40–50% '
-                f'to net it down; food-retail <b>net</b> margin is only ~<b>{RETAIL_NET_MARGIN*100:.1f}%</b> '
-                f'(FMI, 2024), and berries are often run as a deliberate <b>loss-leader</b> in peak '
-                f'season (Richards &amp; Hamilton, 2006).{ll} Border &amp; shelf measured; split modelled.</div>')
+        econ_full = (f'That ~{RETAIL_GROSS_MARGIN*100:.0f}% retail slice is gross, not profit: fresh fruit '
+                     f'loses <b>{FRESH_FRUIT_SHRINK*100:.0f}%+</b> by weight to shrink (USDA ERS, 2016) — soft '
+                     f'berries more — so the initial markup is set ~40–50% to net it down; food-retail <b>net</b> '
+                     f'margin is only ~<b>{RETAIL_NET_MARGIN*100:.1f}%</b> (FMI, 2024), and berries are often run '
+                     f'as a deliberate <b>loss-leader</b> in peak season (Richards &amp; Hamilton, 2006).{ll} '
+                     f'Border &amp; shelf are measured; the split is modelled.')
+        econ = (f'<details class="exp"><summary>The retailer\'s ~{RETAIL_GROSS_MARGIN*100:.0f}% slice is '
+                f'<b>gross margin, not profit</b><span class="more">why</span></summary>'
+                f'<p class="xp">{econ_full}</p></details>')
+        cap = (f'<p class="cap"><b>Landed</b> is the 12-month average across all origins (volume-weighted); '
+               f'this month alone runs £{mavg:.2f}. <b>Shelf</b> is a standard 500&#8201;g punnet, {shelf_lbl}.</p>')
         journey = (f'<div class="bbar">{bar}</div>'
                    f'<div class="bends"><span>£{landed:.2f} landed</span>'
                    f'<span>{markup}</span><span>£{shelf:.2f} shelf</span></div>'
+                   f'{cap}'
                    f'<div class="bcont">A <b>40-ft reefer (~{CONTAINER_TONNES} t)</b> lands at '
                    f'~<b>£{landed*CONTAINER_TONNES:.0f}k</b> and rings up at '
-                   f'~<b>£{shelf*CONTAINER_TONNES:.0f}k</b> on shelf '
-                   f'<span class="src">~{CONTAINER_TONNES} t net per 40-ft reefer — basis &amp; sources below</span></div>'
-                   f'<div class="blegend">{legend}</div>{econ}')
+                   f'~<b>£{shelf*CONTAINER_TONNES:.0f}k</b> on shelf.</div>'
+                   f'<div class="blegend">{legend}</div>{econ}{whole_note}')
     else:
         journey = f'<div class="note">Landed £{landed:.2f}/kg → shelf £{shelf:.2f}/kg.</div>'
-    # In-season per-origin landed prices — the cheap counter-season workhorses a
-    # single shoulder month hides (Chile is out of season in April and never shows).
+    # Card 2 — the per-origin in-season prices that compose the blend, + per-container.
     insn = _inseason_cif()
-    strip = ""
+    inseason = ""
     if insn:
         chips = " · ".join(
             f'<span style="color:{COLR.get(o, "#5a3fb0")}"><b>{CODE.get(o, o[:3].upper())}</b> '
             f'£{c:.2f}<span class="ctr">£{c*CONTAINER_TONNES:.0f}k</span></span>'
             for o, c in insn)
-        strip = (f'<div class="strip"><span class="sl">In season · £/kg &amp; per {CONTAINER_TONNES}-t reefer</span>'
-                 f'{chips}</div>'
-                 f'<p class="note">Per-container figures take <b>~{CONTAINER_TONNES} t of fruit per 40-ft '
-                 f'reefer</b> — ~20 standard (1×1.2 m) pallets in a single layer (no double-stacking; airflow '
-                 f'gaps) at ~1 t of fruit each. Berries and other light clamshell fruit are <b>volume-bound</b> '
-                 f'near this; dense fruit (apples, citrus, stone fruit) is <b>weight-bound</b>, nearer the '
-                 f'reefer\'s ~26 t payload cap. '
-                 f'<span class="src">40-ft HC reefer pallet capacity: ICE Transport · FreightAmigo · RFL Cargo.</span></p>')
-    whole_note = ""
-    if whole == whole and when_w is not None:
-        whole_note = (f'<div class="aside"><span class="tag">not a journey step</span> '
-                      f'UK-grown, British-season <b>wholesale</b> (DEFRA · New Covent Garden) is '
-                      f'<b>£{whole:.2f}/kg</b> ({pd.Timestamp(when_w).strftime("%b %Y")}) — premium '
-                      f'loose fruit sold spot, a different product/season to imported retail, so it '
-                      f'sits above both prices above.</div>')
+        basis_full = (f'Per-container figures take <b>~{CONTAINER_TONNES}&#8201;t of fruit per 40-ft reefer</b> '
+                      f'— ~20 standard (1×1.2&#8201;m) pallets in a single layer (no double-stacking; airflow gaps) '
+                      f'at ~1&#8201;t of fruit each. Berries and other light clamshell fruit are <b>volume-bound</b> '
+                      f'near this; dense fruit (apples, citrus, stone fruit) is <b>weight-bound</b>, nearer the '
+                      f'reefer\'s ~26&#8201;t payload cap. '
+                      f'<span class="src">40-ft HC reefer pallet capacity: ICE Transport · FreightAmigo · RFL Cargo.</span>')
+        basis = (f'<details class="exp"><summary>Per-container = <b>~{CONTAINER_TONNES}&#8201;t</b> of fruit per '
+                 f'40-ft reefer<span class="more">how</span></summary><p class="xp">{basis_full}</p></details>')
+        intro = (f'<p class="cap">The per-origin prices that average (volume-weighted) to the '
+                 f'<b>£{landed:.2f}</b> landed figure above — the cheap counter-season origins (Chile) '
+                 f'pull the blend below the spring shoulder.</p>')
+        inseason = (f'{intro}<div class="strip"><span class="sl">£/kg · per {CONTAINER_TONNES}-t reefer</span>'
+                    f'{chips}</div>{basis}')
     # UK re-exports (HMRC export flows)
     rex = ""
     if rex_kt == rex_kt and rex_kt > 0:
@@ -589,7 +601,7 @@ def build() -> str:
                    for l, v, u in kpi)
     html = _PAGE.format(month=f"{MONTHS[cur.month-1]} {cur.year}", lag_wks=lag_wks,
                         kpis=kpis, shelf_rows=shelf_rows, shelf_lede=shelf_lede, journey=journey,
-                        strip=strip, whole_note=whole_note, rex=rex, world=world,
+                        inseason=inseason, rex=rex, world=world,
                         market=market, board=board, relay=relay_cells,
                         relay_legend=relay_legend, sells=sells,
                         generated=_dt.date.today().isoformat())
@@ -682,7 +694,21 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .aside b{{color:var(--ink);font-weight:700}}
  .note{{font-family:var(--serif);font-size:1rem;color:#3a342b;line-height:1.65;margin:14px 0 2px}}
  .note b{{color:var(--accent);font-weight:700}}
- .note .src{{font-size:.8rem;color:var(--mut);font-style:italic}}
+ .note .src,.xp .src{{font-size:.8rem;color:var(--mut);font-style:italic}}
+ .cap{{font-family:var(--serif);font-size:.92rem;color:#3a342b;line-height:1.55;margin:12px 0 2px}}
+ .cap b{{color:var(--ink);font-weight:700}}
+ .exp{{margin-top:16px;padding-top:14px;border-top:1px solid var(--hair)}}
+ .exp summary{{cursor:pointer;list-style:none;display:flex;align-items:center;gap:.6em;
+   font-size:.96rem;font-weight:600;color:var(--ink)}}
+ .exp summary::-webkit-details-marker{{display:none}}
+ .exp summary b{{color:var(--accent);font-weight:700}}
+ .exp summary .more{{margin-left:auto;flex:none;font-size:.66rem;text-transform:uppercase;
+   letter-spacing:.06em;color:var(--mut);font-weight:700;border:1px solid var(--hair);
+   border-radius:20px;padding:4px 11px;background:#fff}}
+ .exp summary .more::after{{content:" ⌄";font-weight:800}}
+ .exp[open] summary .more::after{{content:" ⌃"}}
+ .xp{{font-family:var(--serif);font-size:.96rem;color:#3a342b;line-height:1.65;margin:11px 0 2px}}
+ .xp b{{color:var(--accent);font-weight:700}}
  .relay{{display:grid;grid-template-columns:repeat(12,1fr);gap:7px;padding:8px 0}}
  .rc{{border:1px solid var(--hair);border-radius:11px;padding:11px 2px;text-align:center;background:#fff}}
  .rc b{{display:block;font-size:.62rem;color:var(--mut);font-weight:600;margin-bottom:3px}}
@@ -744,8 +770,12 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <div class="card">{board}</div></section>
 
 <section class="sec"><div class="shead"><h2>The price journey</h2>
-<p class="lede">where a kilo's shelf price comes from · border &amp; shelf measured, the split modelled</p></div>
-<div class="card">{journey}{strip}{whole_note}</div></section>
+<p class="lede">border to shelf · what a kilo costs at each stage · measured ends, modelled split</p></div>
+<div class="card">{journey}</div></section>
+
+<section class="sec"><div class="shead"><h2>In season, landed by origin</h2>
+<p class="lede">the cheaper counter-season prices behind the blend · with value per 20-t reefer</p></div>
+<div class="card">{inseason}</div></section>
 
 <section class="sec"><div class="shead"><h2>On the shelf this week</h2>
 <p class="lede">{shelf_lede}</p></div>
