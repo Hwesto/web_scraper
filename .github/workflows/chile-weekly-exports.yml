@@ -77,6 +77,9 @@ jobs:
       - name: Refresh global trade map — Comtrade world league (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: python -m deep.market.comtrade_global || echo "global trade refresh skipped"
+      - name: Refresh global production — FAOSTAT growers (collect only)
+        if: ${{ env.MODE == 'collect' }}
+        run: python -m deep.market.production || echo "global production refresh skipped"
       - name: Refresh SAG China orchard roster (collect only)
         if: ${{ env.MODE == 'collect' }}
         run: python scripts/fetch_sag_china.py || echo "sag-china fetch skipped"

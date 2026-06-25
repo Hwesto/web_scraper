@@ -36,6 +36,7 @@ COUNTRIES = {
     842: "United States", 32: "Argentina", 156: "China", 620: "Portugal",
     276: "Germany", 826: "United Kingdom", 251: "France", 380: "Italy",
     56: "Belgium", 643: "Russia", 392: "Japan", 752: "Sweden", 372: "Ireland",
+    344: "Hong Kong",   # China's main blueberry import gateway / re-export hub
 }
 
 

@@ -192,15 +192,15 @@ def _reexports():
 
 
 def _world():
-    """Global trade map (Comtrade): (year, uk_rank, n, top_importers, top_exporters);
-    each league row is (country, value_usd, net_kg, yoy_pct) vs the prior year."""
+    """Global blueberry map: (year, uk_rank, top_growers, top_exporters, top_importers).
+    Trade rows are (country, value_usd, net_kg, yoy); grower rows (country, tonnes, yoy)."""
     try:
         from deep.market import comtrade_global as cg
     except Exception:
-        return None, 0, 0, [], []
+        return None, 0, [], [], []
     df = cg.load()
     if df.empty:
-        return None, 0, 0, [], []
+        return None, 0, [], [], []
     yr = int(df["year"].max())
     cur = df[df["year"] == yr]
 
@@ -214,8 +214,13 @@ def _world():
             out.append((x.country, float(x.value_usd), float(x.net_kg), yoy))
         return out
 
-    rank, n = cg.uk_import_rank(cur)
-    return yr, rank, n, tbl("importer"), tbl("exporter")
+    try:
+        from deep.market import production as pr
+        growers = pr.top_growers(6)
+    except Exception:
+        growers = []
+    rank, _ = cg.uk_import_rank(cur)
+    return yr, rank, growers, tbl("exporter"), tbl("importer")
 
 
 def _ticker_html(r) -> str:
@@ -249,7 +254,7 @@ def build() -> str:
         shelf, shelf_lbl = _retail(cur), "proxy"
     when_w, whole = _wholesale()
     rex_kt, rex_top = _reexports()
-    wyr, uk_rank, wn, wimp, wexp = _world()
+    wyr, uk_rank, wgro, wexp, wimp = _world()
     cur_m = cur.month
     board = "\n".join(_ticker_html(r) for r in rows)
     # The price journey — landed (HMRC) → wholesale (DEFRA, Jun–Nov) → shelf (Trolley)
@@ -269,24 +274,39 @@ def build() -> str:
         dests = ", ".join(f"{_dcode(k)} {v:.1f}kt" for k, v in rex_top)
         rex = (f'<div class="note">↩ The UK also <b>re-exports ~{rex_kt:.1f} kt/yr</b> '
                f'of fresh blueberries — mostly {dests}.</div>')
-    # The world map (Comtrade global, latest complete year)
+    # The world map — grow → export → import (Comtrade + FAOSTAT)
     world = ""
-    if wimp or wexp:
-        def _wrow(items):
-            out = ""
-            for c, v, kg, yoy in items:
-                chip = "" if yoy != yoy else (
-                    f'<span class="wy {"up" if yoy >= 0 else "down"}">'
-                    f'{"+" if yoy >= 0 else ""}{yoy:.0f}%</span>')
-                out += (f'<div class="wr"><span class="wc">{c}</span>'
-                        f'<span class="wv">{_money(v)}</span>{chip}'
-                        f'<span class="wk">{kg/1e6:.0f} kt</span></div>')
-            return out
+    if wimp or wexp or wgro:
+        def _yc(yoy):
+            return "" if yoy != yoy else (
+                f'<span class="wy {"up" if yoy >= 0 else "down"}">'
+                f'{"+" if yoy >= 0 else ""}{yoy:.0f}%</span>')
+
+        def _trow(items):                       # trade: value + yoy + kt
+            return "".join(
+                f'<div class="wr"><span class="wc">{c}</span>'
+                f'<span class="wv">{_money(v)}</span>{_yc(yoy)}'
+                f'<span class="wk">{kg/1e6:.0f} kt</span></div>'
+                for c, v, kg, yoy in items)
+
+        def _grow(items):                       # production: tonnes + yoy
+            return "".join(
+                f'<div class="wr"><span class="wc">{c}</span>'
+                f'<span class="wv">{t/1000:.0f} kt</span>{_yc(yoy)}</div>'
+                for c, t, yoy in items)
+        cols = (f'<div class="wcol"><h3>Top growers</h3>{_grow(wgro)}</div>'
+                f'<div class="wcol"><h3>Top exporters</h3>{_trow(wexp)}</div>'
+                f'<div class="wcol"><h3>Top importers</h3>{_trow(wimp)}</div>')
         rankline = (f"UK is the world's #{uk_rank} importer · " if uk_rank else "")
-        world = (f'<h2>The world\'s blueberry trade</h2>'
-                 f'<p class="lede">{rankline}{wyr} · value, volume &amp; y/y · UN Comtrade</p>'
-                 f'<div class="world"><div class="wcol"><h3>Top importers</h3>{_wrow(wimp)}</div>'
-                 f'<div class="wcol"><h3>Top exporters</h3>{_wrow(wexp)}</div></div>')
+        world = (f'<h2>The world\'s blueberry map</h2>'
+                 f'<p class="lede">{rankline}grow → export → import · {wyr} · '
+                 f'FAOSTAT production, UN Comtrade trade</p>'
+                 f'<div class="world3">{cols}</div>'
+                 f'<div class="note">⚠ <b>China</b> looks small here because it grows most of '
+                 f'what it eats — widely reported (IBO) as the world\'s largest producer, yet it '
+                 f'reports no blueberry output to FAOSTAT and imports little, so <b>no free dataset '
+                 f'captures its true scale</b>. The US is also a major grower; Netherlands, Belgium '
+                 f'&amp; Hong Kong are re-export hubs.</div>')
     # On the shelf this week — real per-retailer £/kg, by pack size (Trolley)
     def _packs_html(p):
         return "".join(
@@ -394,15 +414,17 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .step-arrow{{align-self:center;color:#bcb3a0;font-size:1.6rem;font-weight:800}}
  .note{{font-size:1rem;color:#5a5347;font-weight:700;padding:12px 4px;line-height:1.5}}
  .note b{{color:var(--accent)}}
- .world{{display:grid;grid-template-columns:1fr 1fr;gap:10px 26px}}
+ .world,.world3{{display:grid;grid-template-columns:1fr 1fr;gap:10px 26px}}
+ .world3{{grid-template-columns:1fr 1fr 1fr}}
  .world h3{{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:#8a8070;
    margin:6px 0 4px;font-weight:800}}
- .wr{{display:flex;align-items:baseline;gap:.6em;padding:6px 2px;border-bottom:1px solid var(--line)}}
- .wr .wc{{flex:1;font-size:1.1rem;font-weight:800;color:var(--ink)}}
- .wr .wv{{font-size:1.15rem;color:var(--accent);font-weight:800}}
- .wr .wy{{font-size:.74rem;font-weight:800}}
- .wr .wk{{font-size:.82rem;color:#9a9082;min-width:5ch;text-align:right}}
- @media(max-width:560px){{.world{{grid-template-columns:1fr}}}}
+ .wr{{display:flex;align-items:baseline;gap:.35em .5em;flex-wrap:wrap;padding:6px 2px;
+   border-bottom:1px solid var(--line)}}
+ .wr .wc{{flex:1 1 100%;font-size:.92rem;font-weight:800;color:var(--ink)}}
+ .wr .wv{{font-size:1.05rem;color:var(--accent);font-weight:800}}
+ .wr .wy{{font-size:.72rem;font-weight:800}}
+ .wr .wk{{font-size:.78rem;color:#9a9082;margin-left:auto}}
+ @media(max-width:560px){{.world,.world3{{grid-template-columns:1fr}}}}
  .foot{{margin-top:40px;border-top:2px solid var(--line);padding-top:16px;font-size:.78rem;
    color:#8a8070;font-weight:700}}
  .foot a{{color:var(--accent)}}
