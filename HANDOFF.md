@@ -105,5 +105,43 @@ Full reasoning in the chat that produced this; condensed in `SOURCES.md` / `DATA
 - ProArándanos weekly (Peru) has no structured free feed (press/PDF only).
 - USDA `REPORT_URL` needs a manual bump when the next annual publishes.
 
+## 8. Atlas framework + target product (decided in late discussion)
+
+**Access tiers (record per source, not free/paid binary):**
+- `free-open` — no auth (Comtrade, HMRC, ONS, DEFRA, FX, SAG, USDA-FAS…)
+- `free-key` — free but needs a registered key (**US Census Intl Trade API** — the US
+  HMRC-equivalent; key as a GH Actions secret, never committed)
+- `free-public-not-automatable` — public by law but no free machine feed (**US AMS
+  bill-of-lading**: 19 CFR 103.31, but CD-ROM / aggregate-portal only)
+- `paid` — Panjiva/ImportGenius/Datamyne, Kantar/NielsenIQ/Circana, Xeneta, CIREN
+
+**Per-country mapping rule:** every country has a **base (free) version and a paid
+version** — record both. Comtrade is the free global *base layer* (all pairs, annual,
+no key); national feeds (HMRC/Census/COMEXT…) are the granular overlays.
+
+**Three laws that decide where paid is worth it:**
+1. **Structure ≠ identity.** Ag censuses + cadastres give anonymised farm *structure*
+   (region × size × crop area) — free, ~every country. Named *growers* are never in them
+   (confidentiality); they come from customs-that-names (Chile DUS), phyto/cert rosters
+   (SAG/GACC), or paid registries.
+2. **No free ID join (Chile).** The key is **RUT/rol**; it's *masked* on the customs
+   producer side and *absent* from the census + free Catastro. So free joins stop at the
+   **comuna** level; ID-level grower↔structure linkage needs the **paid CIREN** directory
+   (rol→entity/RUT). Free bridge = name↔name fuzzy (`names.py`).
+3. **Paid value follows manifest-openness.** US/India/much of LatAm release shipment-level
+   manifests → paid (or public-but-clunky) adds shipper↔consignee names. UK/EU/China/Japan/
+   Canada are closed → free official stats are the ceiling; paid just repackages them.
+   Flag each country `manifest_access ∈ {open-public, commercial-only, closed}`.
+
+**Target product after mapping (scale back from the deep per-lane build to two clean,
+comparable views):**
+- **View 1 — into the UK:** major players' volume + price into UK + UK's own
+  British-season price. *Gap: UK domestic production (volume + farmgate) not held —
+  DEFRA Horticulture Stats / AHDB / British Berry Growers (free).*
+- **View 2 — out of each player:** prices to all destinations, % tonnage by destination,
+  variants. *Variety is rich for Chile (DUS+Catastro), thin elsewhere — show the asymmetry.*
+
+The Chile/Peru deep build is the **proof-of-depth reference**, not the template to repeat.
+
 **Start with Phase 0/1 (registry schema + HS table + Comtrade global ranking).** That's the
 foundation the whole atlas hangs off, and it's mostly cataloguing, not building.
