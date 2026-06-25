@@ -137,6 +137,15 @@ def _months(v):
     return sorted(v["d"].unique())
 
 
+def _last(df, col) -> float:
+    """Latest non-null value of `col` in a year-indexed frame (0.0 if absent) — robust
+    to a trailing year that carries value/yield but no production yet."""
+    if df is None or df.empty or col not in df:
+        return 0.0
+    s = df[col].dropna()
+    return float(s.iloc[-1]) if not s.empty else 0.0
+
+
 def _board():
     v = vintage.latest(_ser("hmrc", "imports")).copy(); v["d"] = pd.to_datetime(v["ref_period"])
     val = vintage.latest(_ser("hmrc", "import_value")).copy(); val["d"] = pd.to_datetime(val["ref_period"])
@@ -275,10 +284,10 @@ def _summary():
     l12v = v[v["d"] >= v["d"].max() - pd.DateOffset(months=11)]["value"].sum()
     l12val = val[val["d"] >= val["d"].max() - pd.DateOffset(months=11)]["value"].sum()
     avg = l12val / (l12v * 1000)
-    prod = uk_production.load() if _FRUIT.defra_production else pd.DataFrame()
-    pk = float(prod["production_kt"].iloc[-1]) if not prod.empty else 0
+    prod = uk_production.load(_FRUIT.slug) if _FRUIT.defra_production else pd.DataFrame()
+    pk = _last(prod, "production_kt")            # latest reported UK-grown kt
     ss = pk / (l12v / 1000 + pk) * 100 if l12v else 0
-    pv = float(prod["value_gbp_m"].iloc[-1]) if "value_gbp_m" in prod and not prod.empty else 0
+    pv = _last(prod, "value_gbp_m")
     return {"imports_kt": l12v / 1000, "avg": avg, "ss": ss,
             "imports_gbp_m": l12val / 1e6, "uk_value_gbp_m": pv}
 
@@ -362,9 +371,10 @@ def _consumption():
     prod = pr.production_by_country(pr.load(_FRUIT.cache("global_production")),
                                     overrides=_FRUIT.production_overrides)
     try:                                              # UK absent from FAOSTAT → DEFRA
-        ukp = uk_production.load() if _FRUIT.defra_production else pd.DataFrame()
-        if not ukp.empty and "United Kingdom" not in prod:
-            prod["United Kingdom"] = (float(ukp["production_kt"].iloc[-1]) * 1000, yr, "DEFRA")
+        ukp = uk_production.load(_FRUIT.slug) if _FRUIT.defra_production else pd.DataFrame()
+        ukt = _last(ukp, "production_kt")
+        if ukt and "United Kingdom" not in prod:
+            prod["United Kingdom"] = (ukt * 1000, yr, "DEFRA")
     except Exception:
         pass
     rows = []

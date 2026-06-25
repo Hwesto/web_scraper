@@ -31,10 +31,16 @@ class Fruit:
     production_overrides: dict = field(default_factory=dict)  # {country: (t, yr, src)}
     gap_note: str = ""              # world-map caveat when overrides exist
     odepa_prefix: str = ""          # Chile ODEPA HS prefix (deep nowcast; blueberry only)
-    defra_production: bool = False  # do we hold UK production for this fruit?
+    defra_rows: tuple = ()          # DEFRA Hort-stats Table-6/7 row labels to SUM for UK
+                                    # production (e.g. apple = Dessert + Culinary); () = none
     container_t: int = 24           # fruit per 40-ft reefer: soft/clamshell is
                                     # volume-bound (~20 t); dense cartoned fruit is
                                     # weight-bound, nearer the ~26 t payload cap.
+
+    @property
+    def defra_production(self) -> bool:
+        """Do we hold UK-grown production for this fruit (DEFRA Horticulture stats)?"""
+        return bool(self.defra_rows)
 
     def cache(self, name: str):
         suffix = "" if self.slug == "blueberry" else f"_{self.slug}"
@@ -83,11 +89,11 @@ BLUEBERRY = Fruit(
     hs6=_cfg.HS6, commodity_ids=(_cfg.COMMODITY_ID,), faostat_item=_cfg.FAOSTAT_ITEM,
     supply_origins=_cfg.SUPPLY_ORIGINS, inseason=_cfg.INSEASON_ORIGINS,
     production_overrides=_cfg.PRODUCTION_OVERRIDES, gap_note=_cfg.PRODUCTION_GAP_NOTE,
-    odepa_prefix=_cfg.ODEPA_HS_PREFIX, defra_production=True, container_t=20,
+    odepa_prefix=_cfg.ODEPA_HS_PREFIX, defra_rows=("Blueberry",), container_t=20,
 )
 CHERRY = _f("cherry", "Cherry", "🍒", "080929", "Cherries",  # sweet cherries (080920 obsolete)
             ["Chile", "Spain", "Turkey", "Greece", "Portugal", "Italy"],
-            commodity_ids=(8092900,), container_t=20)
+            commodity_ids=(8092900,), container_t=20, defra_rows=("Cherries :",))
 
 # Top UK fresh-fruit imports — HS6 verified, CN8 auto-discovered (all CN8 under HS6).
 _TOP = [
@@ -96,13 +102,16 @@ _TOP = [
     _f("grape", "Grape", "🍇", "080610", "Grapes",
        ["Spain", "South Africa", "Chile", "Egypt", "Peru", "India"], container_t=20),
     _f("apple", "Apple", "🍎", "080810", "Apples",
-       ["France", "South Africa", "Chile", "New Zealand", "Italy", "Netherlands"]),
+       ["France", "South Africa", "Chile", "New Zealand", "Italy", "Netherlands"],
+       defra_rows=("Total Dessert Apples", "Total Culinary Apples")),
     _f("strawberry", "Strawberry", "🍓", "081010", "Strawberries",
-       ["Spain", "Egypt", "Morocco", "Netherlands", "Belgium"], container_t=20),
+       ["Spain", "Egypt", "Morocco", "Netherlands", "Belgium"], container_t=20,
+       defra_rows=("Strawberries",)),
     _f("avocado", "Avocado", "🥑", "080440", "Avocados",
        ["Peru", "South Africa", "Chile", "Israel", "Spain", "Colombia"]),
     _f("raspberry", "Raspberry", "🫐", "081020", "Raspberries",
-       ["Spain", "Morocco", "Portugal", "Mexico", "Netherlands"], container_t=20),
+       ["Spain", "Morocco", "Portugal", "Mexico", "Netherlands"], container_t=20,
+       defra_rows=("Raspberries",)),
     _f("mandarin", "Mandarin", "🍊", "080521", "Tangerines, mandarins, clementines",
        ["Spain", "South Africa", "Morocco", "Peru", "Egypt", "Turkey"]),
     _f("mango", "Mango", "🥭", "080450", "Mangoes, guavas and mangosteens",
@@ -112,7 +121,8 @@ _TOP = [
     _f("lemon", "Lemon", "🍋", "080550", "Lemons and limes",
        ["Spain", "South Africa", "Argentina", "Turkey", "Brazil"]),
     _f("pear", "Pear", "🍐", "080830", "Pears",
-       ["Netherlands", "South Africa", "Belgium", "Argentina", "Chile", "Spain"]),
+       ["Netherlands", "South Africa", "Belgium", "Argentina", "Chile", "Spain"],
+       defra_rows=("Total Pears",)),
     _f("peach", "Peach", "🍑", "080930", "Peaches and nectarines",
        ["Spain", "Italy", "Greece", "South Africa", "Chile"]),
     _f("watermelon", "Watermelon", "🍉", "080711", "Watermelons",
@@ -124,7 +134,7 @@ _TOP = [
     _f("kiwi", "Kiwi", "🥝", "081050", "Kiwi fruit",
        ["Italy", "New Zealand", "Greece", "Chile", "France"]),
     _f("plum", "Plum", "🟣", "080940", "Plums and sloes",
-       ["Spain", "South Africa", "Chile", "Namibia"]),
+       ["Spain", "South Africa", "Chile", "Namibia"], defra_rows=("Total Plums",)),
     _f("date", "Date", "🌴", "080410", "Dates",
        ["Tunisia", "Israel", "Egypt", "Iran", "Saudi Arabia"]),
 ]
