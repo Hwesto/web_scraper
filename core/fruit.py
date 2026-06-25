@@ -30,6 +30,7 @@ class Fruit:
     production_overrides: dict = field(default_factory=dict)  # {country: (t, yr, src)}
     gap_note: str = ""              # world-map caveat when overrides exist
     odepa_prefix: str = ""          # Chile ODEPA HS prefix (deep nowcast; blueberry only)
+    defra_production: bool = False  # do we hold UK production for this fruit? (self-sufficiency)
 
     # Per-fruit data paths — blueberry keeps the original un-suffixed names.
     def cache(self, name: str):
@@ -50,11 +51,14 @@ BLUEBERRY = Fruit(
     faostat_item=_cfg.FAOSTAT_ITEM, supply_origins=_cfg.SUPPLY_ORIGINS,
     inseason=_cfg.INSEASON_ORIGINS, production_overrides=_cfg.PRODUCTION_OVERRIDES,
     gap_note=_cfg.PRODUCTION_GAP_NOTE, odepa_prefix=_cfg.ODEPA_HS_PREFIX,
+    defra_production=True,
 )
 
 CHERRY = Fruit(
     slug="cherry", name="Cherry", emoji="🍒",
-    hs6="080920", cn8="08092000", commodity_id=8092000, faostat_item="Cherries",
+    # Sweet cherries: HS2012+ split 0809 into 080921 (sour) / 080929 (sweet) —
+    # the old 080920 is obsolete. UK CN8 08092900 = fresh sweet cherries.
+    hs6="080929", cn8="08092900", commodity_id=8092900, faostat_item="Cherries",
     # UK cherry suppliers (Europe in summer, Chile/US counter-/early-season).
     supply_origins={
         "Spain":         (724, "ESP", "#c9a227"),

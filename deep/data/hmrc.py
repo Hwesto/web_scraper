@@ -51,10 +51,10 @@ def _get(url: str, params: dict | None = None) -> dict:
     return {}
 
 
-def _page_flow(flow_id: int) -> list[dict]:
-    """Fetch every OTS blueberry row for a flow (ALL origins), paging nextLink.
+def _page_flow(flow_id: int, commodity_id: int = COMMODITY_ID) -> list[dict]:
+    """Fetch every OTS row for a flow + commodity (ALL origins), paging nextLink.
     No country filter -> whole-market coverage, not just a curated few."""
-    flt = (f"CommodityId eq {COMMODITY_ID} and FlowTypeId eq {flow_id} "
+    flt = (f"CommodityId eq {commodity_id} and FlowTypeId eq {flow_id} "
            f"and MonthId ge {HISTORY_START_MONTH}")
     params = {"$filter": flt, "$select": "MonthId,CountryId,Value,NetMass", "$top": "5000"}
     rows: list[dict] = []
@@ -92,9 +92,12 @@ def _month_to_iso(month_id: int) -> str:
 class HmrcBlueberryImports(SignalSource):
     """Monthly blueberry import tonnage by origin from HMRC OTS (ALL origins)."""
 
-    series = "hmrc_blueberry_imports"
     freq = "M"
     unit = "tonnes"
+
+    def __init__(self, commodity_id=COMMODITY_ID, slug="blueberry"):
+        self.commodity_id = commodity_id
+        self.series = f"hmrc_{slug}_imports"
 
     def fetch(self, vintage_date: _dt.date | None = None) -> "pd.DataFrame":  # noqa: F821
         vintage_date = vintage_date or _dt.date.today()
@@ -102,7 +105,7 @@ class HmrcBlueberryImports(SignalSource):
 
         raw: list[dict] = []
         for flow_id in (FLOW_EU_IMPORTS, FLOW_NONEU_IMPORTS):
-            raw.extend(_page_flow(flow_id))
+            raw.extend(_page_flow(flow_id, self.commodity_id))
             time.sleep(HMRC_PAGE_DELAY_S)
 
         # Aggregate the per-port rows -> one tonnage per (month, country).
@@ -131,16 +134,19 @@ class HmrcBlueberryImportValue(SignalSource):
     """Monthly blueberry import VALUE (GBP) by origin -> with the volume series
     gives a reconciled import unit value (GBP/kg) per origin, free."""
 
-    series = "hmrc_blueberry_import_value"
     freq = "M"
     unit = "gbp"
+
+    def __init__(self, commodity_id=COMMODITY_ID, slug="blueberry"):
+        self.commodity_id = commodity_id
+        self.series = f"hmrc_{slug}_import_value"
 
     def fetch(self, vintage_date: _dt.date | None = None) -> "pd.DataFrame":  # noqa: F821
         vintage_date = vintage_date or _dt.date.today()
         _country_name(0)
         raw: list[dict] = []
         for flow_id in (FLOW_EU_IMPORTS, FLOW_NONEU_IMPORTS):
-            raw.extend(_page_flow(flow_id))
+            raw.extend(_page_flow(flow_id, self.commodity_id))
             time.sleep(HMRC_PAGE_DELAY_S)
         agg: dict[tuple[int, int], float] = {}
         for row in raw:
@@ -162,16 +168,19 @@ class HmrcBlueberryReExports(SignalSource):
     dispatch) + 4 (non-EU export). Same CN8 08104050 as the import side.
     """
 
-    series = "hmrc_blueberry_reexports"
     freq = "M"
     unit = "tonnes"
+
+    def __init__(self, commodity_id=COMMODITY_ID, slug="blueberry"):
+        self.commodity_id = commodity_id
+        self.series = f"hmrc_{slug}_reexports"
 
     def fetch(self, vintage_date: _dt.date | None = None) -> "pd.DataFrame":  # noqa: F821
         vintage_date = vintage_date or _dt.date.today()
         _country_name(0)
         raw: list[dict] = []
         for flow_id in (FLOW_EU_EXPORTS, FLOW_NONEU_EXPORTS):
-            raw.extend(_page_flow(flow_id))
+            raw.extend(_page_flow(flow_id, self.commodity_id))
             time.sleep(HMRC_PAGE_DELAY_S)
         agg: dict[tuple[int, int], float] = {}
         for row in raw:

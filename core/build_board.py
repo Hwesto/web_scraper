@@ -259,7 +259,7 @@ def _summary():
     l12v = v[v["d"] >= v["d"].max() - pd.DateOffset(months=11)]["value"].sum()
     l12val = val[val["d"] >= val["d"].max() - pd.DateOffset(months=11)]["value"].sum()
     avg = l12val / (l12v * 1000)
-    prod = uk_production.load()
+    prod = uk_production.load() if _FRUIT.defra_production else pd.DataFrame()
     pk = float(prod["production_kt"].iloc[-1]) if not prod.empty else 0
     ss = pk / (l12v / 1000 + pk) * 100 if l12v else 0
     pv = float(prod["value_gbp_m"].iloc[-1]) if "value_gbp_m" in prod and not prod.empty else 0
@@ -303,7 +303,7 @@ def _world():
         from deep.market import comtrade_global as cg
     except Exception:
         return None, 0, [], [], []
-    df = cg.load()
+    df = cg.load(_FRUIT.cache("global_trade"))
     if df.empty:
         return None, 0, [], [], []
     yr = int(df["year"].max())
@@ -321,7 +321,7 @@ def _world():
 
     try:
         from deep.market import production as pr
-        growers = pr.top_growers(6)
+        growers = pr.top_growers(6, pr.load(_FRUIT.cache("global_production")))
     except Exception:
         growers = []
     rank, _ = cg.uk_import_rank(cur)
@@ -336,16 +336,17 @@ def _consumption():
         from deep.market import comtrade_global as cg, production as pr
     except Exception:
         return None, []
-    tr = cg.load()
+    tr = cg.load(_FRUIT.cache("global_trade"))
     if tr.empty:
         return None, []
     yr = int(tr["year"].max())
     cur = tr[tr["year"] == yr]
     imp = cur[cur["role"] == "importer"].set_index("country")["net_kg"].div(1e6).to_dict()
     exp = cur[cur["role"] == "exporter"].set_index("country")["net_kg"].div(1e6).to_dict()
-    prod = pr.production_by_country()                 # {country: (tonnes, yr, src)}
+    prod = pr.production_by_country(pr.load(_FRUIT.cache("global_production")),
+                                    overrides=_FRUIT.production_overrides)
     try:                                              # UK absent from FAOSTAT → DEFRA
-        ukp = uk_production.load()
+        ukp = uk_production.load() if _FRUIT.defra_production else pd.DataFrame()
         if not ukp.empty and "United Kingdom" not in prod:
             prod["United Kingdom"] = (float(ukp["production_kt"].iloc[-1]) * 1000, yr, "DEFRA")
     except Exception:
@@ -466,8 +467,15 @@ def build(fruit=BLUEBERRY) -> str:
                    f'~<b>£{landed*CONTAINER_TONNES:.0f}k</b> and rings up at '
                    f'~<b>£{shelf*CONTAINER_TONNES:.0f}k</b> on shelf.</div>'
                    f'<div class="blegend">{legend}</div>{econ}{whole_note}')
+    elif landed == landed:                            # have landed, no shelf feed yet
+        journey = (f'<div class="bends"><span>£{landed:.2f}/kg landed</span></div>'
+                   f'<div class="bcont">A <b>40-ft reefer (~{CONTAINER_TONNES} t)</b> lands at '
+                   f'~<b>£{landed*CONTAINER_TONNES:.0f}k</b>.</div>'
+                   f'<p class="note">No supermarket shelf-price feed for '
+                   f'{_FRUIT.name.lower()} yet, so the border→shelf build-up isn\'t shown. '
+                   f'Landed is the 12-month all-origin average (volume-weighted).</p>')
     else:
-        journey = f'<div class="note">Landed £{landed:.2f}/kg → shelf £{shelf:.2f}/kg.</div>'
+        journey = '<p class="note">Insufficient price data.</p>'
     # Card 2 — the per-origin in-season prices that compose the blend, + per-container.
     insn = _inseason_cif()
     inseason = ""
@@ -574,8 +582,13 @@ def build(fruit=BLUEBERRY) -> str:
         f'<span class="packs">{_packs_html(p)}</span></div>'
         for p in per)
     shelf_when = pd.Timestamp(shelf_wk).strftime("%-d %b %Y") if shelf_wk is not None else ""
-    shelf_lede = (f"{len(per)} of 11 retailers · {n_packs} packs · w/c {shelf_when} · "
-                  f"£/kg = pack price ÷ weight, so small punnets read dearer")
+    if per:
+        shelf_lede = (f"{len(per)} of 11 retailers · {n_packs} packs · w/c {shelf_when} · "
+                      f"£/kg = pack price ÷ weight, so small punnets read dearer")
+    else:                                             # no retail feed for this fruit yet
+        shelf_rows = (f'<p class="note">No multi-retailer shelf scrape is configured for '
+                      f'{_FRUIT.name.lower()} yet — add its Trolley product URLs to light this up.</p>')
+        shelf_lede = "retail price feed not yet configured"
     now_m = pd.Timestamp(_dt.date.today()).month
     relay_cells = "".join(
         f'<div class="rc{" now" if m == now_m else ""}" title="{relay[m-1] or "—"}" '
@@ -588,7 +601,7 @@ def build(fruit=BLUEBERRY) -> str:
         f'<b style="color:{COLR.get(o, "#5a3fb0")}">{CODE.get(o, o[:3].upper())}</b> {o}'
         for o in dict.fromkeys(relay) if o)
     # View 2 — where each origin sends its fruit (annual)
-    pe = player_exports.load()
+    pe = player_exports.load(_FRUIT.cache("player_destinations"))
     sells = ""
     if not pe.empty:
         for p in _FRUIT.inseason:
@@ -605,7 +618,8 @@ def build(fruit=BLUEBERRY) -> str:
     # Headline KPI cards — the summary stats, each its own card so they read distinct
     kpi = [("This month", f"{tot:,.0f} t", f"£{mval/1e6:.0f}m landed"),
            ("Per year", f"{s['imports_kt']:.0f}K t", f"£{s['imports_gbp_m']:.0f}m imported"),
-           ("UK-grown", f"{s['ss']:.1f}%", "of all supply")]
+           ("UK-grown", f"{s['ss']:.1f}%" if _FRUIT.defra_production else "n/a",
+            "of all supply" if _FRUIT.defra_production else "no DEFRA data")]
     if uk_rank:
         kpi.append(("World rank", f"#{uk_rank}", "blueberry importer"))
     kpis = "".join(f'<div class="kpi"><span class="kl">{l}</span>'

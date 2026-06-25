@@ -51,8 +51,8 @@ def _num(row: dict, key: str) -> float:
     return float(v) if isinstance(v, (int, float)) else 0.0
 
 
-def _fetch_year(year: int, reporter: int = _CHILE, retries: int = 4) -> pd.DataFrame:
-    url = _PREVIEW.format(rep=reporter, yr=year, hs=_HS)
+def _fetch_year(year: int, reporter: int = _CHILE, retries: int = 4, hs: str = _HS) -> pd.DataFrame:
+    url = _PREVIEW.format(rep=reporter, yr=year, hs=hs)
     last = None
     for attempt in range(retries):
         try:

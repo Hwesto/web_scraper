@@ -31,17 +31,19 @@ _HEADERS = {"User-Agent": "uk-blueberry-atlas/0.1 (research)"}
 _AGG_FLOOR = 5000
 
 
-def refresh(cache=CACHE) -> pd.DataFrame:
-    """Download the FAOSTAT bulk, keep Blueberries production for real countries,
-    cache the latest two years. Returns the tidy frame."""
-    resp = requests.get(_BULK, headers=_HEADERS, timeout=240)
-    resp.raise_for_status()
-    zf = zipfile.ZipFile(io.BytesIO(resp.content))
+def refresh(cache=CACHE, item: str = FAOSTAT_ITEM, content: bytes | None = None) -> pd.DataFrame:
+    """Filter the FAOSTAT bulk for `item` production by country, cache the latest
+    two years. `content` lets a caller reuse one download across many fruits."""
+    if content is None:
+        resp = requests.get(_BULK, headers=_HEADERS, timeout=240)
+        resp.raise_for_status()
+        content = resp.content
+    zf = zipfile.ZipFile(io.BytesIO(content))
     name = next(n for n in zf.namelist() if n.endswith(".csv"))
     rows = []
     with zf.open(name) as fh:
         for r in csv.DictReader(io.TextIOWrapper(fh, encoding="latin-1")):
-            if r.get("Item") != FAOSTAT_ITEM or r.get("Element") != "Production":
+            if r.get("Item") != item or r.get("Element") != "Production":
                 continue
             try:
                 area_code = int(r.get("Area Code") or 0)
@@ -72,11 +74,12 @@ def load(cache=CACHE) -> pd.DataFrame:
 _RENAME = {"United States of America": "United States", "Russian Federation": "Russia",
            "Netherlands (Kingdom of the)": "Netherlands", "China, mainland": "China"}
 
-def production_by_country(df: pd.DataFrame | None = None) -> dict:
+def production_by_country(df: pd.DataFrame | None = None, overrides: dict | None = None) -> dict:
     """{country: (tonnes, year, source)} — FAOSTAT latest year (source=None) plus
-    the documented per-fruit overrides for countries FAOSTAT omits (config
-    PRODUCTION_OVERRIDES; e.g. China for blueberries). Sourced, not fabricated."""
+    the documented per-fruit `overrides` for countries FAOSTAT omits (e.g. China
+    for blueberries; empty {} for fruits FAOSTAT covers). Sourced, not fabricated."""
     df = load() if df is None else df
+    overrides = PRODUCTION_OVERRIDES if overrides is None else overrides
     out: dict[str, tuple] = {}
     if not df.empty:
         df = df.copy()
@@ -84,7 +87,7 @@ def production_by_country(df: pd.DataFrame | None = None) -> dict:
         yr = int(df["year"].max())
         for x in df[df["year"] == yr].itertuples():
             out[x.country] = (float(x.tonnes), yr, None)
-    for c, (tonnes, year, source) in PRODUCTION_OVERRIDES.items():
+    for c, (tonnes, year, source) in overrides.items():
         out.setdefault(c, (float(tonnes), year, source))
     return out
 

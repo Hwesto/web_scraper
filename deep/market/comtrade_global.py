@@ -48,7 +48,7 @@ def _num(row: dict, key: str) -> float:
         return 0.0
 
 
-def _fetch_flow(year: int, flow: str, retries: int = 4) -> dict[int, tuple[float, float]]:
+def _fetch_flow(year: int, flow: str, hs: str = _HS, retries: int = 4) -> dict[int, tuple[float, float]]:
     """One batched call: every COUNTRIES reporter vs World for a flow.
 
     With partnerCode=0 AND partner2Code=0 the endpoint returns exactly one
@@ -57,7 +57,7 @@ def _fetch_flow(year: int, flow: str, retries: int = 4) -> dict[int, tuple[float
     {reporter_code: (value_usd, net_kg)}.
     """
     reps = ",".join(str(c) for c in COUNTRIES)
-    url = _PREVIEW.format(rep=reps, yr=year, hs=_HS, flow=flow)
+    url = _PREVIEW.format(rep=reps, yr=year, hs=hs, flow=flow)
     delay = 2.0
     rows: list[dict] = []
     for attempt in range(1, retries + 1):
@@ -85,14 +85,14 @@ def _fetch_flow(year: int, flow: str, retries: int = 4) -> dict[int, tuple[float
 _BELLWETHERS = (842, 276, 826, 124, 156)  # US, Germany, UK, Canada, China
 
 
-def latest_complete_year() -> int:
+def latest_complete_year(hs: str = _HS) -> int:
     """Most recent year with full coverage: every bellwether importer present
     and >$30m. Annual data lags, so walk back from last year until solid."""
     import datetime
     y0 = datetime.date.today().year
     for y in range(y0 - 1, y0 - 6, -1):
         try:
-            imp = _fetch_flow(y, "M")
+            imp = _fetch_flow(y, "M", hs=hs)
         except Exception:
             imp = {}
         if all(imp.get(c, (0.0, 0.0))[0] > 3e7 for c in _BELLWETHERS):
@@ -101,15 +101,15 @@ def latest_complete_year() -> int:
     return y0 - 3
 
 
-def refresh(year: int | None = None, cache=CACHE) -> pd.DataFrame:
+def refresh(year: int | None = None, cache=CACHE, hs: str = _HS) -> pd.DataFrame:
     """Pull imports + exports vs World for every country, current + prior year
     (for YoY), rank, cache. year=None -> auto-detect the latest complete year."""
     if year is None:
-        year = latest_complete_year()
+        year = latest_complete_year(hs)
     recs = []
     for yr in (year, year - 1):
         for flow, role in (("M", "importer"), ("X", "exporter")):
-            for code, (val, kg) in _fetch_flow(yr, flow).items():
+            for code, (val, kg) in _fetch_flow(yr, flow, hs=hs).items():
                 if (val <= 0 and kg <= 0) or code not in COUNTRIES:
                     continue
                 recs.append({"year": yr, "role": role, "country_code": code,

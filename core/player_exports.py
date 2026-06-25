@@ -17,10 +17,12 @@ OUT = DATA_DIR / "market" / "player_destinations.csv"
 PLAYERS = {SUPPLY_ORIGINS[n][0]: n for n in INSEASON_ORIGINS}
 
 
-def refresh(year: int = 2024) -> pd.DataFrame:
+def refresh(year: int = 2024, players: dict | None = None, hs: str | None = None,
+            cache=OUT) -> pd.DataFrame:
+    players = PLAYERS if players is None else players
     rows = []
-    for code, name in PLAYERS.items():
-        df = comtrade._fetch_year(year, code)
+    for code, name in players.items():
+        df = comtrade._fetch_year(year, code, hs=hs) if hs else comtrade._fetch_year(year, code)
         if df.empty:
             continue
         df = df[df["net_kg"] >= 50_000].copy()
@@ -30,15 +32,17 @@ def refresh(year: int = 2024) -> pd.DataFrame:
         df["pct_tonnage"] = (df["net_kg"] / tot * 100).round(1)
         rows.append(df[["player", "year", "destination", "net_kg",
                         "cif_usd_kg", "pct_tonnage"]])
+    if not rows:
+        return pd.DataFrame()
     out = pd.concat(rows, ignore_index=True).sort_values(
         ["player", "net_kg"], ascending=[True, False])
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    out.to_csv(OUT, index=False)
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    out.to_csv(cache, index=False)
     return out
 
 
-def load() -> pd.DataFrame:
-    return pd.read_csv(OUT) if OUT.exists() else pd.DataFrame()
+def load(cache=OUT) -> pd.DataFrame:
+    return pd.read_csv(cache) if cache.exists() else pd.DataFrame()
 
 
 def by_player(name: str) -> pd.DataFrame:
