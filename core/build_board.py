@@ -415,8 +415,6 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  :root{{--ink:#2a2622;--accent:#5a3fb0;--up:#1a8a3c;--down:#c0392b;--line:#dcd4c4}}
  *{{box-sizing:border-box}}
  body{{margin:0;color:var(--ink);background:#ece6d8;
-   background-image:linear-gradient(#e2dac9 1px,transparent 1px),linear-gradient(90deg,#e2dac9 1px,transparent 1px);
-   background-size:24px 24px;
    font-family:"Helvetica Neue",Arial,sans-serif;font-weight:700;font-stretch:condensed}}
  .wrap{{max-width:840px;margin:0 auto;padding:34px 20px 60px}}
  .masthead{{display:flex;align-items:center;justify-content:space-between;gap:18px}}
