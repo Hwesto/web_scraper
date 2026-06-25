@@ -51,11 +51,11 @@ def _get(url: str, params: dict | None = None) -> dict:
     return {}
 
 
-def _page_flow(flow_id: int, commodity_id: int = COMMODITY_ID) -> list[dict]:
-    """Fetch every OTS row for a flow + commodity (ALL origins), paging nextLink.
-    No country filter -> whole-market coverage, not just a curated few."""
-    flt = (f"CommodityId eq {commodity_id} and FlowTypeId eq {flow_id} "
-           f"and MonthId ge {HISTORY_START_MONTH}")
+def _page_flow(flow_id: int, commodity_ids=(COMMODITY_ID,)) -> list[dict]:
+    """Fetch every OTS row for a flow + the fruit's CN8 codes (ALL origins), paging
+    nextLink. A fruit sums all CN8 under its HS6, so commodity_ids is a list."""
+    cid = "(" + " or ".join(f"CommodityId eq {c}" for c in commodity_ids) + ")"
+    flt = f"{cid} and FlowTypeId eq {flow_id} and MonthId ge {HISTORY_START_MONTH}"
     params = {"$filter": flt, "$select": "MonthId,CountryId,Value,NetMass", "$top": "5000"}
     rows: list[dict] = []
     payload = _get(f"{HMRC_API_BASE}/OTS", params=params)
@@ -65,6 +65,14 @@ def _page_flow(flow_id: int, commodity_id: int = COMMODITY_ID) -> list[dict]:
         payload = _get(payload["@odata.nextLink"])
         rows.extend(payload.get("value", []))
     return rows
+
+
+def discover_cn8(hs6: str) -> tuple[int, ...]:
+    """All HMRC CN8 commodity ids under an HS6 — a fruit sums these when it pins
+    no explicit commodity_ids. e.g. '081040' -> (8104010, 8104050, ...)."""
+    j = _get(f"{HMRC_API_BASE}/Commodity",
+             {"$filter": f"Hs6Code eq '{hs6}'", "$select": "CommodityId"})
+    return tuple(sorted(int(x["CommodityId"]) for x in j.get("value", [])))
 
 
 _COUNTRY_CACHE: dict[int, str] = {}
@@ -95,8 +103,8 @@ class HmrcBlueberryImports(SignalSource):
     freq = "M"
     unit = "tonnes"
 
-    def __init__(self, commodity_id=COMMODITY_ID, slug="blueberry"):
-        self.commodity_id = commodity_id
+    def __init__(self, commodity_ids=(COMMODITY_ID,), slug="blueberry"):
+        self.commodity_ids = tuple(commodity_ids)
         self.series = f"hmrc_{slug}_imports"
 
     def fetch(self, vintage_date: _dt.date | None = None) -> "pd.DataFrame":  # noqa: F821
@@ -105,7 +113,7 @@ class HmrcBlueberryImports(SignalSource):
 
         raw: list[dict] = []
         for flow_id in (FLOW_EU_IMPORTS, FLOW_NONEU_IMPORTS):
-            raw.extend(_page_flow(flow_id, self.commodity_id))
+            raw.extend(_page_flow(flow_id, self.commodity_ids))
             time.sleep(HMRC_PAGE_DELAY_S)
 
         # Aggregate the per-port rows -> one tonnage per (month, country).
@@ -137,8 +145,8 @@ class HmrcBlueberryImportValue(SignalSource):
     freq = "M"
     unit = "gbp"
 
-    def __init__(self, commodity_id=COMMODITY_ID, slug="blueberry"):
-        self.commodity_id = commodity_id
+    def __init__(self, commodity_ids=(COMMODITY_ID,), slug="blueberry"):
+        self.commodity_ids = tuple(commodity_ids)
         self.series = f"hmrc_{slug}_import_value"
 
     def fetch(self, vintage_date: _dt.date | None = None) -> "pd.DataFrame":  # noqa: F821
@@ -146,7 +154,7 @@ class HmrcBlueberryImportValue(SignalSource):
         _country_name(0)
         raw: list[dict] = []
         for flow_id in (FLOW_EU_IMPORTS, FLOW_NONEU_IMPORTS):
-            raw.extend(_page_flow(flow_id, self.commodity_id))
+            raw.extend(_page_flow(flow_id, self.commodity_ids))
             time.sleep(HMRC_PAGE_DELAY_S)
         agg: dict[tuple[int, int], float] = {}
         for row in raw:
@@ -171,8 +179,8 @@ class HmrcBlueberryReExports(SignalSource):
     freq = "M"
     unit = "tonnes"
 
-    def __init__(self, commodity_id=COMMODITY_ID, slug="blueberry"):
-        self.commodity_id = commodity_id
+    def __init__(self, commodity_ids=(COMMODITY_ID,), slug="blueberry"):
+        self.commodity_ids = tuple(commodity_ids)
         self.series = f"hmrc_{slug}_reexports"
 
     def fetch(self, vintage_date: _dt.date | None = None) -> "pd.DataFrame":  # noqa: F821
@@ -180,7 +188,7 @@ class HmrcBlueberryReExports(SignalSource):
         _country_name(0)
         raw: list[dict] = []
         for flow_id in (FLOW_EU_EXPORTS, FLOW_NONEU_EXPORTS):
-            raw.extend(_page_flow(flow_id, self.commodity_id))
+            raw.extend(_page_flow(flow_id, self.commodity_ids))
             time.sleep(HMRC_PAGE_DELAY_S)
         agg: dict[tuple[int, int], float] = {}
         for row in raw:

@@ -1,0 +1,198 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Britain's Pear Board</title>
+<style>
+ :root{--ink:#241f1a;--accent:#5a3fb0;--up:#1a7f37;--down:#c0392b;--mut:#7a7163;
+   --card:#fdfbf7;--hair:#efe8da;--bg:#e8e1d3;
+   --sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+   --serif:ui-serif,"New York",Georgia,"Times New Roman",serif}
+ *{box-sizing:border-box}
+ body{margin:0;color:var(--ink);background:var(--bg);font-family:var(--sans);line-height:1.45;
+   -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+ .wrap{max-width:760px;margin:0 auto;padding:46px 20px 100px}
+ .masthead{margin-bottom:2px}
+ .kick{text-transform:uppercase;letter-spacing:.16em;font-size:.7rem;color:var(--accent);font-weight:700}
+ h1{font-size:2.5rem;line-height:1.04;margin:.16em 0 0;letter-spacing:-.025em;font-weight:800;color:var(--ink)}
+ .stamp{margin:26px 0 13px;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;
+   color:var(--mut);font-weight:600}
+ .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:13px}
+ .kpi{background:var(--card);border-radius:18px;padding:17px 19px;
+   box-shadow:0 1px 2px rgba(36,31,26,.05),0 14px 28px -16px rgba(36,31,26,.22)}
+ .kl{font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:700}
+ .kv{display:block;font-size:1.95rem;font-weight:800;letter-spacing:-.025em;margin:4px 0 1px;color:var(--ink)}
+ .ku{font-size:.8rem;color:var(--mut);font-weight:600}
+ .sec{margin-top:42px}
+ .shead{margin:0 4px 13px}
+ h2{font-size:1.34rem;font-weight:800;letter-spacing:-.02em;color:var(--ink);margin:0}
+ .lede{margin:4px 0 0;font-size:.9rem;color:var(--mut);font-weight:500;line-height:1.45}
+ .card{background:var(--card);border-radius:22px;padding:4px 22px;
+   box-shadow:0 1px 2px rgba(36,31,26,.05),0 20px 38px -22px rgba(36,31,26,.26)}
+ .tk{display:flex;justify-content:space-between;align-items:center;gap:1em;
+   padding:16px 2px;border-bottom:1px solid var(--hair)}
+ .tk:last-child{border-bottom:none}
+ .tk-l{min-width:0}
+ .tk-l .code{font-size:1.7rem;font-weight:800;letter-spacing:-.02em}
+ .tk-l .sub{display:block;font-size:.82rem;color:var(--mut);font-weight:600;margin-top:1px}
+ .tk-r{display:flex;align-items:baseline;gap:.55em;flex:none}
+ .tk-r .px{font-size:1.6rem;font-weight:800;color:var(--ink)}
+ .chg{font-size:1rem;font-weight:700} .up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--mut)}
+ .small-lane{font-size:.92rem;color:var(--mut);font-style:italic}
+ .chip{font-size:.72rem;padding:3px 9px;border-radius:20px;font-weight:700;
+   background:#00000008} .chip.up{color:var(--up)} .chip.down{color:var(--down)} .chip.flat{color:var(--mut)}
+ .shrow{display:flex;align-items:baseline;gap:.6em 1.2em;flex-wrap:wrap;padding:16px 2px;
+   border-bottom:1px solid var(--hair)}
+ .shrow:last-child{border-bottom:none}
+ .shrow .nm{font-size:1.25rem;font-weight:800;min-width:8ch}
+ .packs{display:flex;flex-wrap:wrap;gap:.5em 1.2em;align-items:baseline}
+ .pk{font-size:1.2rem;color:var(--ink);font-weight:700;white-space:nowrap}
+ .pk .sz{font-size:.8rem;color:var(--mut);font-weight:700;margin-right:.15em}
+ .tier{font-size:.58rem;text-transform:uppercase;letter-spacing:.04em;color:#fff;background:#bcb3a0;
+   border-radius:5px;padding:1px 5px;margin-left:.25em;vertical-align:.1em;font-weight:700}
+ .bbar{display:flex;height:40px;border-radius:11px;overflow:hidden;margin-top:10px}
+ .bbar .seg{height:100%}
+ .seg.border,.dot.border{background:#5a3fb0}
+ .seg.dist,.dot.dist{background:#b9a7e0}
+ .seg.retail,.dot.retail{background:#e8833a}
+ .bends{display:flex;justify-content:space-between;align-items:baseline;margin-top:11px;
+   font-size:1.3rem;font-weight:800;color:var(--ink)}
+ .bends span:nth-child(2){font-size:.9rem;color:var(--accent);font-weight:700}
+ .bcont{margin-top:15px;font-family:var(--serif);font-size:1.02rem;color:#3a342b;line-height:1.55}
+ .bcont b{color:var(--accent);font-weight:700}
+ .bcont .src{display:block;font-size:.8rem;color:var(--mut);font-style:italic;margin-top:3px}
+ .blegend{margin:18px 0 2px}
+ .bl{display:flex;align-items:baseline;gap:.55em 1em;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--hair)}
+ .bl:last-child{border-bottom:none}
+ .bl .dot{width:.8em;height:.8em;border-radius:3px;align-self:center;flex:none}
+ .bl .blk{font-weight:700;min-width:13ch}
+ .bl .blv{font-size:1.2rem;color:var(--accent);font-weight:800;min-width:4ch}
+ .bl .blp{color:var(--mut);font-weight:700;min-width:3ch}
+ .bl .bls{font-family:var(--serif);font-size:.8rem;color:var(--mut);font-style:italic}
+ .strip{display:flex;flex-wrap:wrap;align-items:baseline;gap:.55em 1.3em;font-size:1.05rem;
+   font-weight:700;margin-top:18px;padding-top:16px;border-top:1px solid var(--hair);line-height:1.6}
+ .strip .sl{font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);
+   font-weight:700;margin-right:.3em}
+ .strip .ic{white-space:nowrap}
+ .strip .ctr{font-size:.78rem;color:var(--mut);font-weight:600;margin-left:.3em}
+ .aside{font-family:var(--serif);font-size:.96rem;color:#3a342b;line-height:1.6;margin-top:16px;
+   padding:13px 16px;border-radius:12px;background:#00000007}
+ .aside .tag{display:inline-block;font-family:var(--sans);font-size:.58rem;text-transform:uppercase;
+   letter-spacing:.08em;color:#fff;background:#bcb3a0;border-radius:5px;padding:2px 7px;
+   margin-right:.5em;vertical-align:.1em;font-weight:700}
+ .aside b{color:var(--ink);font-weight:700}
+ .note{font-family:var(--serif);font-size:1rem;color:#3a342b;line-height:1.65;margin:14px 0 2px}
+ .note b{color:var(--accent);font-weight:700}
+ .note .src,.xp .src{font-size:.8rem;color:var(--mut);font-style:italic}
+ .cap{font-family:var(--serif);font-size:.92rem;color:#3a342b;line-height:1.55;margin:12px 0 2px}
+ .cap b{color:var(--ink);font-weight:700}
+ .exp{margin-top:16px;padding-top:14px;border-top:1px solid var(--hair)}
+ .exp summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:.6em;
+   font-size:.96rem;font-weight:600;color:var(--ink)}
+ .exp summary::-webkit-details-marker{display:none}
+ .exp summary b{color:var(--accent);font-weight:700}
+ .exp summary .more{margin-left:auto;flex:none;font-size:.66rem;text-transform:uppercase;
+   letter-spacing:.06em;color:var(--mut);font-weight:700;border:1px solid var(--hair);
+   border-radius:20px;padding:4px 11px;background:#fff}
+ .exp summary .more::after{content:" ⌄";font-weight:800}
+ .exp[open] summary .more::after{content:" ⌃"}
+ .xp{font-family:var(--serif);font-size:.96rem;color:#3a342b;line-height:1.65;margin:11px 0 2px}
+ .xp b{color:var(--accent);font-weight:700}
+ .relay{display:grid;grid-template-columns:repeat(12,1fr);grid-auto-rows:1fr;gap:7px;padding:8px 0}
+ .rc{border:1px solid var(--hair);border-radius:11px;padding:11px 2px;text-align:center;background:#fff;
+   display:flex;flex-direction:column;justify-content:center}
+ .rc b{display:block;font-size:.62rem;color:var(--mut);font-weight:600;margin-bottom:3px}
+ .rc span{font-size:.9rem;font-weight:800}
+ .rc.now{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+ .rc i{display:block;font-size:.46rem;font-style:normal;font-weight:800;color:var(--accent);
+   text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
+ .relay-key{margin:12px 2px 6px;font-size:.82rem;color:var(--mut);font-weight:500;line-height:1.9}
+ .relay-key b{font-weight:800}
+ .sell{display:flex;align-items:center;gap:.9em;padding:14px 2px;border-bottom:1px solid var(--hair)}
+ .sell:last-child{border-bottom:none}
+ .sell .sym{display:inline-flex;flex-direction:column;min-width:6ch}
+ .sell .sym .code{font-size:1.25rem;font-weight:800;letter-spacing:-.02em}
+ .sell .sym .cty{font-size:.58rem;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+ .arrow{color:#bcb3a0}
+ .dests{font-size:1rem;color:var(--ink);font-weight:600}
+ .world3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px 26px;padding:6px 0}
+ .wcol h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);
+   font-weight:800;margin:6px 0 1px}
+ .wsub{font-size:.6rem;color:var(--mut);font-weight:600;text-transform:uppercase;
+   letter-spacing:.03em;margin-bottom:9px;line-height:1.3}
+ .wr{display:flex;align-items:baseline;gap:.3em .5em;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid var(--hair)}
+ .wr:last-child{border-bottom:none}
+ .wr .wc{flex:1 1 100%;font-size:.92rem;font-weight:700;color:var(--ink)}
+ .wr .wv{font-size:1.2rem;color:var(--accent);font-weight:800}
+ .wr .wy{font-size:.7rem;font-weight:700}
+ .wr .wy.up{color:var(--up)} .wr .wy.down{color:var(--down)} .wr .wy.flat{color:var(--mut)}
+ .wr .wk{font-size:.76rem;color:var(--mut);margin-left:auto;font-weight:600}
+ .mr{display:flex;align-items:center;gap:.8em 1.1em;flex-wrap:wrap;padding:16px 2px;border-bottom:1px solid var(--hair)}
+ .mr:last-child{border-bottom:none}
+ .mr .mc{font-size:1.2rem;font-weight:800;color:var(--ink);min-width:8ch}
+ .mr .mv{font-size:1.5rem;color:var(--accent);font-weight:800;min-width:5ch}
+ .mr .mbar{flex:1;min-width:80px;height:8px;background:#e8e1d3;border-radius:5px;overflow:hidden}
+ .mr .mbar i{display:block;height:100%;background:var(--accent);opacity:.5;border-radius:5px}
+ .mr .mbar.exp i{background:repeating-linear-gradient(45deg,#2a9d8f,#2a9d8f 5px,#3fb0a2 5px,#3fb0a2 10px)}
+ .mr .ms{font-size:.82rem;color:var(--mut);font-weight:600;min-width:13ch;text-align:right}
+ .foot{margin-top:50px;font-family:var(--serif);font-size:.82rem;color:var(--mut);line-height:1.75}
+ .foot a{color:var(--accent)}
+ @media(max-width:620px){
+   .world3{grid-template-columns:1fr;gap:2px 0} .wcol{margin-top:10px}
+   h1{font-size:2.1rem} .kv{font-size:1.7rem}
+   .relay{grid-template-columns:repeat(6,1fr)}
+   .tk-l .code{font-size:1.5rem} .tk-r .px{font-size:1.42rem}
+   .bl .blk{min-width:11ch}
+   .strip{flex-direction:column;align-items:center;text-align:center;gap:.5em}
+   .strip .sl{margin:0 0 4px}
+ }
+</style></head><body><div class="wrap">
+<header class="masthead">
+ <div class="kick"><span aria-hidden="true">🍐</span> the UK fresh-pear market</div>
+ <h1>Britain's Pear Board</h1>
+</header>
+<p class="stamp">data through Apr 2026 · latest settled HMRC month · ~12 wks behind today</p>
+<div class="kpis"><div class="kpi"><span class="kl">This month</span><span class="kv">10,369 t</span><span class="ku">£13m landed</span></div><div class="kpi"><span class="kl">Per year</span><span class="kv">98K t</span><span class="ku">£129m imported</span></div><div class="kpi"><span class="kl">UK-grown</span><span class="kv">n/a</span><span class="ku">no DEFRA data</span></div><div class="kpi"><span class="kl">World rank</span><span class="kv">#3</span><span class="ku">blueberry importer</span></div></div>
+
+<section class="sec"><div class="shead"><h2>Who's landing this month</h2>
+<p class="lede">Apr 2026 · by share · landed £/kg, ▲▼ vs last month · y/y volume (material lanes only)</p></div>
+<div class="card"><div class="tk"><div class="tk-l"><span class="code" style="color:#7a8699">NLD</span><span class="sub">Netherlands · 3.6K t · 35% of the month</span></div><div class="tk-r"><span class="px">£1.38</span><span class="chg flat">▬ £0.03</span><span class="chip up">▲ +1% y/y</span></div></div>
+<div class="tk"><div class="tk-l"><span class="code" style="color:#2a9d8f">ZAF</span><span class="sub">South Africa · 3.3K t · 32% of the month</span></div><div class="tk-r"><span class="px">£1.08</span><span class="chg flat">▬ £0.11</span><span class="chip up">▲ +4% y/y</span></div></div>
+<div class="tk"><div class="tk-l"><span class="code" style="color:#c0392b">BEL</span><span class="sub">Belgium · 2.0K t · 19% of the month</span></div><div class="tk-r"><span class="px">£1.12</span><span class="chg flat">▬ £0.02</span><span class="chip up">▲ >+100% y/y</span></div></div>
+<div class="tk"><div class="tk-l"><span class="code" style="color:#4c5fd5">ARG</span><span class="sub">Argentina · 602 t · 6% of the month</span></div><div class="tk-r"><span class="px">£1.18</span><span class="chg flat">▬ £0.14</span><span class="chip up">▲ +19% y/y</span></div></div>
+<div class="tk"><div class="tk-l"><span class="code" style="color:#b1543a">FRA</span><span class="sub">France · 390 t · 4% of the month</span></div><div class="tk-r"><span class="px">£1.31</span><span class="chg flat">▬ £0.09</span></div></div>
+<div class="tk"><div class="tk-l"><span class="code" style="color:#c9a227">PRT</span><span class="sub">Portugal · 309 t · 3% of the month</span></div><div class="tk-r"><span class="px">£0.95</span><span class="chg flat">▬ £0.31</span></div></div>
+<div class="tk"><div class="tk-l"><span class="code" style="color:#9b59b6">CHN</span><span class="sub">China · 37 t · <1% of the month</span></div><div class="tk-r"><span class="small-lane">small lane</span></div></div>
+<div class="tk"><div class="tk-l"><span class="code" style="color:#3a8f6b">TUR</span><span class="sub">Turkey · 30 t · <1% of the month</span></div><div class="tk-r"><span class="small-lane">small lane</span></div></div>
+<div class="tk"><div class="tk-l"><span class="code" style="color:#6b3fa0">CHL</span><span class="sub">Chile · 20 t · <1% of the month</span></div><div class="tk-r"><span class="small-lane">small lane</span></div></div>
+<div class="tk"><div class="tk-l"><span class="code" style="color:#4c5fd5">ESP</span><span class="sub">Spain · 16 t · <1% of the month</span></div><div class="tk-r"><span class="small-lane">small lane</span></div></div>
+<div class="tk"><div class="tk-l"><span class="code" style="color:#5b8a72">GER</span><span class="sub">Germany · 13 t · <1% of the month</span></div><div class="tk-r"><span class="small-lane">small lane</span></div></div>
+<div class="tk"><div class="tk-l"><span class="code" style="color:#b1543a">ITA</span><span class="sub">Italy · 8 t · <1% of the month</span></div><div class="tk-r"><span class="small-lane">small lane</span></div></div></div></section>
+
+<section class="sec"><div class="shead"><h2>The price journey</h2>
+<p class="lede">border to shelf · what a kilo costs at each stage · measured ends, modelled split</p></div>
+<div class="card"><div class="bends"><span>£1.33/kg landed</span></div><div class="bcont">A <b>40-ft reefer (~20 t)</b> lands at ~<b>£27k</b>.</div><p class="note">No supermarket shelf-price feed for pear yet, so the border→shelf build-up isn't shown. Landed is the 12-month all-origin average (volume-weighted).</p></div></section>
+
+<section class="sec"><div class="shead"><h2>In season, landed by origin</h2>
+<p class="lede">the cheaper counter-season prices behind the blend · with value per 20-t reefer</p></div>
+<div class="card"><p class="cap">The per-origin prices that average (volume-weighted) to the <b>£1.33</b> landed figure above — the cheap counter-season origins (Chile) pull the blend below the spring shoulder.</p><div class="strip"><span class="sl">£/kg · per 20-t reefer</span><span class="ic" style="color:#2a9d8f"><b>ZAF</b> £0.97<span class="ctr">£19k</span></span><span class="ic" style="color:#4c5fd5"><b>ARG</b> £1.11<span class="ctr">£22k</span></span><span class="ic" style="color:#c0392b"><b>BEL</b> £1.20<span class="ctr">£24k</span></span><span class="ic" style="color:#7a8699"><b>NLD</b> £1.47<span class="ctr">£29k</span></span></div><details class="exp"><summary>Per-container = <b>~20&#8201;t</b> of fruit per 40-ft reefer<span class="more">how</span></summary><p class="xp">Per-container figures take <b>~20&#8201;t of fruit per 40-ft reefer</b> — ~20 standard (1×1.2&#8201;m) pallets in a single layer (no double-stacking; airflow gaps) at ~1&#8201;t of fruit each. Berries and other light clamshell fruit are <b>volume-bound</b> near this; dense fruit (apples, citrus, stone fruit) is <b>weight-bound</b>, nearer the reefer's ~26&#8201;t payload cap. <span class="src">40-ft HC reefer pallet capacity: ICE Transport · FreightAmigo · RFL Cargo.</span></p></details></div></section>
+
+<section class="sec"><div class="shead"><h2>On the shelf this week</h2>
+<p class="lede">retail price feed not yet configured</p></div>
+<div class="card"><p class="note">No multi-retailer shelf scrape is configured for pear yet — add its Trolley product URLs to light this up.</p></div></section>
+
+<section class="sec"><div class="shead"><h2>The relay</h2>
+<p class="lede">who leads UK supply each month · typical year (5-yr pattern)</p></div>
+<div class="card"><div class="relay"><div class="rc" title="Netherlands" style="border-color:#7a8699"><b>Jan</b><span style="color:#7a8699">NLD</span></div><div class="rc" title="Netherlands" style="border-color:#7a8699"><b>Feb</b><span style="color:#7a8699">NLD</span></div><div class="rc" title="Netherlands" style="border-color:#7a8699"><b>Mar</b><span style="color:#7a8699">NLD</span></div><div class="rc" title="Netherlands" style="border-color:#7a8699"><b>Apr</b><span style="color:#7a8699">NLD</span></div><div class="rc" title="Netherlands" style="border-color:#7a8699"><b>May</b><span style="color:#7a8699">NLD</span></div><div class="rc now" title="Netherlands" style="border-color:#7a8699"><b>Jun</b><span style="color:#7a8699">NLD</span><i>now</i></div><div class="rc" title="Netherlands" style="border-color:#7a8699"><b>Jul</b><span style="color:#7a8699">NLD</span></div><div class="rc" title="Netherlands" style="border-color:#7a8699"><b>Aug</b><span style="color:#7a8699">NLD</span></div><div class="rc" title="Netherlands" style="border-color:#7a8699"><b>Sep</b><span style="color:#7a8699">NLD</span></div><div class="rc" title="Netherlands" style="border-color:#7a8699"><b>Oct</b><span style="color:#7a8699">NLD</span></div><div class="rc" title="Netherlands" style="border-color:#7a8699"><b>Nov</b><span style="color:#7a8699">NLD</span></div><div class="rc" title="Netherlands" style="border-color:#7a8699"><b>Dec</b><span style="color:#7a8699">NLD</span></div></div><div class="relay-key"><b style="color:#7a8699">NLD</b> Netherlands</div></div></section>
+
+<section class="sec"><div class="shead"><h2>Where each origin sends its fruit</h2>
+<p class="lede">2024 · % of their tonnage · includes the UK</p></div>
+<div class="card"><div class="sell"><span class="sym" style="color:#7a8699"><span class="code">NLD</span><span class="cty">Netherlands</span></span><span class="arrow">→</span><span class="dests">GER 22% · UK 10% · BEL 8% · POL 8%</span></div><div class="sell"><span class="sym" style="color:#2a9d8f"><span class="code">ZAF</span><span class="cty">South Africa</span></span><span class="arrow">→</span><span class="dests">NLD 19% · RUS 15% · UAE 10% · IND 8%</span></div><div class="sell"><span class="sym" style="color:#c0392b"><span class="code">BEL</span><span class="cty">Belgium</span></span><span class="arrow">→</span><span class="dests">NLD 22% · ESP 11% · GER 11% · UK 9%</span></div><div class="sell"><span class="sym" style="color:#4c5fd5"><span class="code">ARG</span><span class="cty">Argentina</span></span><span class="arrow">→</span><span class="dests">BRA 43% · RUS 16% · USA 13% · MEX 5%</span></div><div class="sell"><span class="sym" style="color:#6b3fa0"><span class="code">CHL</span><span class="cty">Chile</span></span><span class="arrow">→</span><span class="dests">COL 17% · ITA 16% · ECU 10% · NLD 7%</span></div><div class="sell"><span class="sym" style="color:#4c5fd5"><span class="code">ESP</span><span class="cty">Spain</span></span><span class="arrow">→</span><span class="dests">ITA 18% · GER 9% · BRA 4% · KSA 4%</span></div><div class="note">↩ The UK also <b>re-exports ~0.9 kt/yr</b> of fresh blueberries — mostly IRL 0.6kt, NLD 0.2kt, ZAF 0.0kt.</div></div></section>
+
+<section class="sec"><div class="shead"><h2>The world's pear map</h2><p class="lede">UK is the world's #3 importer · grow → export → import · 2023 · FAOSTAT production, UN Comtrade trade</p></div><div class="card"><div class="world3"><div class="wcol"><h3>Top growers</h3><div class="wsub">production · kt · y/y tonnage</div><div class="wr"><span class="wc">China</span><span class="wv">21089 kt</span><span class="wy up">▲ +6%</span></div><div class="wr"><span class="wc">China</span><span class="wv">20988 kt</span><span class="wy up">▲ +6%</span></div><div class="wr"><span class="wc">Argentina</span><span class="wv">671 kt</span><span class="wy up">▲ +3%</span></div><div class="wr"><span class="wc">TÃ¼rkiye</span><span class="wv">630 kt</span><span class="wy up">▲ +18%</span></div><div class="wr"><span class="wc">South Africa</span><span class="wv">465 kt</span><span class="wy down">▼ -3%</span></div><div class="wr"><span class="wc">United States</span><span class="wv">463 kt</span><span class="wy down">▼ -26%</span></div></div><div class="wcol"><h3>Top exporters</h3><div class="wsub">trade value · $ · y/y value · kt volume</div><div class="wr"><span class="wc">China</span><span class="wv">$536m</span><span class="wy up">▲ +8%</span><span class="wk">479 kt</span></div><div class="wr"><span class="wc">Netherlands</span><span class="wv">$502m</span><span class="wy up">▲ +14%</span><span class="wk">356 kt</span></div><div class="wr"><span class="wc">Belgium</span><span class="wv">$367m</span><span class="wy up">▲ +22%</span><span class="wk">318 kt</span></div><div class="wr"><span class="wc">Argentina</span><span class="wv">$223m</span><span class="wy up">▲ +7%</span><span class="wk">312 kt</span></div><div class="wr"><span class="wc">South Africa</span><span class="wv">$196m</span><span class="wy down">▼ -15%</span><span class="wk">241 kt</span></div><div class="wr"><span class="wc">United States</span><span class="wv">$155m</span><span class="wy up">▲ +4%</span><span class="wk">111 kt</span></div></div><div class="wcol"><h3>Top importers</h3><div class="wsub">trade value · $ · y/y value · kt volume</div><div class="wr"><span class="wc">Germany</span><span class="wv">$278m</span><span class="wy up">▲ +11%</span><span class="wk">169 kt</span></div><div class="wr"><span class="wc">Italy</span><span class="wv">$165m</span><span class="wy up">▲ +22%</span><span class="wk">120 kt</span></div><div class="wr"><span class="wc">United Kingdom</span><span class="wv">$158m</span><span class="wy up">▲ +9%</span><span class="wk">108 kt</span></div><div class="wr"><span class="wc">United States</span><span class="wv">$139m</span><span class="wy up">▲ +1%</span><span class="wk">73 kt</span></div><div class="wr"><span class="wc">France</span><span class="wv">$135m</span><span class="wy up">▲ +5%</span><span class="wk">102 kt</span></div><div class="wr"><span class="wc">Netherlands</span><span class="wv">$127m</span><span class="wy up">▲ +10%</span><span class="wk">91 kt</span></div></div></div></div></section>
+
+<section class="sec"><div class="shead"><h2>Domestic market — who actually eats it</h2><p class="lede">apparent consumption = production + imports − exports · 2023 · de-hubs the re-exporters</p></div><div class="card"><div class="mr"><span class="mc">China</span><span class="mv">20,527 kt</span><span class="mbar"><i style="width:100%"></i></span><span class="ms">102% home-grown</span></div><div class="mr"><span class="mc">TÃ¼rkiye</span><span class="mv">630 kt</span><span class="mbar"><i style="width:100%"></i></span><span class="ms">100% home-grown</span></div><div class="mr"><span class="mc">Italy</span><span class="mv">512 kt</span><span class="mbar"><i style="width:85%"></i></span><span class="ms">85% home-grown</span></div><div class="mr"><span class="mc">United States</span><span class="mv">425 kt</span><span class="mbar exp"><i style="width:100%"></i></span><span class="ms">net exporter · grows 1.1× what it eats</span></div><div class="mr"><span class="mc">Argentina</span><span class="mv">359 kt</span><span class="mbar exp"><i style="width:100%"></i></span><span class="ms">net exporter · grows 1.9× what it eats</span></div><div class="mr"><span class="mc">India</span><span class="mv">274 kt</span><span class="mbar"><i style="width:100%"></i></span><span class="ms">100% home-grown</span></div><div class="mr"><span class="mc">France</span><span class="mv">244 kt</span><span class="mbar"><i style="width:62%"></i></span><span class="ms">62% home-grown</span></div></div></section>
+
+<footer class="foot">As-of dates vary by source: imports/re-exports through Apr 2026 (HMRC OTS, the latest
+settled month, ~6–12 wks behind today); shelf this week (Trolley); world trade/production latest complete
+year (UN Comtrade + FAOSTAT); UK production + wholesale (DEFRA). Auto-updates weekly ·
+<a href="deep.html">full editorial view →</a> · generated 2026-06-25.</footer>
+</div></body></html>

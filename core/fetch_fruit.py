@@ -14,6 +14,7 @@ from __future__ import annotations
 import sys
 
 from deep.store import vintage
+from deep.data import hmrc
 from deep.data.hmrc import (HmrcBlueberryImports, HmrcBlueberryImportValue,
                             HmrcBlueberryReExports)
 from deep.market import comtrade_global, production
@@ -22,9 +23,11 @@ from core.fruit import FRUITS
 
 
 def fetch(fruit) -> None:
-    print(f"== {fruit.name} ({fruit.slug}, HS {fruit.hs6} / CN8 {fruit.cn8}) ==")
+    ids = fruit.commodity_ids or hmrc.discover_cn8(fruit.hs6)
+    cn8 = ", ".join(f"{c:08d}" for c in ids)
+    print(f"== {fruit.name} ({fruit.slug}, HS {fruit.hs6} / CN8 {cn8}) ==")
     for cls in (HmrcBlueberryImports, HmrcBlueberryImportValue, HmrcBlueberryReExports):
-        src = cls(fruit.commodity_id, fruit.slug)
+        src = cls(ids, fruit.slug)
         try:
             df = src.fetch()
             vintage.save(df)

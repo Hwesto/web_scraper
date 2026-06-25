@@ -2,12 +2,14 @@
 
 The board machine is fully HS-parameterised; a fruit is just a config row here.
 `build_all()` loops this registry, builds one page per fruit (docs/<slug>.html)
-plus the atlas hub (docs/index.html). Blueberry's values come from deep.config
-(the original single-fruit block); new fruits are added as Fruit(...) rows.
+plus the atlas hub (docs/index.html). The HS-driven feeds (HMRC imports/value/
+re-exports, Comtrade global trade map, FAOSTAT production, destinations) come for
+free per fruit; the consumer side (Trolley retail, DEFRA wholesale/production) is
+wired only where held, and the board degrades gracefully without it.
 
-Per-fruit data is namespaced: vintage series are `{prefix}_{slug}_{suffix}`
-(e.g. hmrc_cherry_imports) and market caches `{name}_{slug}.csv` — except
-blueberry, which keeps the original un-suffixed paths so nothing migrates.
+Per-fruit data is namespaced: vintage series `{prefix}_{slug}_{suffix}` and market
+caches `{name}_{slug}.csv` — except blueberry, which keeps the original un-suffixed
+paths so nothing migrates.
 """
 from __future__ import annotations
 
@@ -22,17 +24,15 @@ class Fruit:
     name: str                       # "Blueberry" — masthead "Britain's {name} Board"
     emoji: str                      # eyebrow glyph, "" to omit
     hs6: str                        # UN Comtrade HS-6, e.g. "081040"
-    cn8: str                        # HMRC UK CN8, e.g. "08104050"
-    commodity_id: int               # HMRC numeric CommodityId (int of cn8)
     faostat_item: str               # FAOSTAT QCL production item, e.g. "Blueberries"
     supply_origins: dict            # name -> (M49, 3-letter code, colour)
     inseason: list                  # the major suppliers (subset of supply_origins)
+    commodity_ids: tuple | None = None  # HMRC CN8 ids to sum; None -> all CN8 under hs6
     production_overrides: dict = field(default_factory=dict)  # {country: (t, yr, src)}
     gap_note: str = ""              # world-map caveat when overrides exist
     odepa_prefix: str = ""          # Chile ODEPA HS prefix (deep nowcast; blueberry only)
-    defra_production: bool = False  # do we hold UK production for this fruit? (self-sufficiency)
+    defra_production: bool = False  # do we hold UK production for this fruit?
 
-    # Per-fruit data paths — blueberry keeps the original un-suffixed names.
     def cache(self, name: str):
         suffix = "" if self.slug == "blueberry" else f"_{self.slug}"
         return _cfg.DATA_DIR / "market" / f"{name}{suffix}.csv"
@@ -45,35 +45,84 @@ class Fruit:
         return _cfg.REPO_ROOT / "docs" / f"{self.slug}.html"
 
 
+# A shared palette of common fruit-exporting origins — name -> (M49, code, colour).
+# New fruits draw their codes/colours from here; origins not listed fall back to a
+# 3-letter slice + the accent colour. Blueberry keeps its own bespoke set.
+_PAL = ["#4c5fd5", "#e8833a", "#2a9d8f", "#6b3fa0", "#c9a227", "#7a8699", "#b1543a",
+        "#3a8f6b", "#c0392b", "#5b8a72", "#3f7fae", "#9b59b6", "#d68910", "#16a085"]
+_ORIGINS = [
+    ("Spain", 724, "ESP"), ("Morocco", 504, "MAR"), ("South Africa", 710, "ZAF"),
+    ("Chile", 152, "CHL"), ("Peru", 604, "PER"), ("Netherlands", 528, "NLD"),
+    ("Italy", 380, "ITA"), ("Turkey", 792, "TUR"), ("Egypt", 818, "EGY"),
+    ("Costa Rica", 188, "CRI"), ("Colombia", 170, "COL"), ("Brazil", 76, "BRA"),
+    ("Mexico", 484, "MEX"), ("United States", 842, "USA"), ("Argentina", 32, "ARG"),
+    ("Ecuador", 218, "ECU"), ("Dominican Republic", 214, "DOM"), ("Israel", 376, "ISR"),
+    ("Portugal", 620, "PRT"), ("Greece", 300, "GRC"), ("France", 251, "FRA"),
+    ("Poland", 616, "POL"), ("Belgium", 56, "BEL"), ("Germany", 276, "GER"),
+    ("India", 356, "IND"), ("China", 156, "CHN"), ("Kenya", 404, "KEN"),
+    ("Ghana", 288, "GHA"), ("Côte d'Ivoire", 384, "CIV"), ("Cameroon", 120, "CMR"),
+    ("Panama", 591, "PAN"), ("Guatemala", 320, "GTM"), ("Honduras", 340, "HND"),
+    ("New Zealand", 554, "NZL"), ("Pakistan", 586, "PAK"), ("Namibia", 516, "NAM"),
+    ("Tunisia", 788, "TUN"), ("Iran", 364, "IRN"), ("Saudi Arabia", 682, "KSA"),
+    ("Vietnam", 704, "VNM"), ("Thailand", 764, "THA"),
+]
+SHARED = {n: (m, c, _PAL[i % len(_PAL)]) for i, (n, m, c) in enumerate(_ORIGINS)}
+
+
+def _f(slug, name, emoji, hs6, faostat, inseason, **kw):
+    """A new fruit drawing origins from the shared palette (HS-driven feeds only)."""
+    return Fruit(slug=slug, name=name, emoji=emoji, hs6=hs6, faostat_item=faostat,
+                 supply_origins=SHARED, inseason=inseason, **kw)
+
+
 BLUEBERRY = Fruit(
     slug="blueberry", name=_cfg.FRUIT_NAME, emoji=_cfg.FRUIT_EMOJI,
-    hs6=_cfg.HS6, cn8=_cfg.COMMODITY_CN8, commodity_id=_cfg.COMMODITY_ID,
-    faostat_item=_cfg.FAOSTAT_ITEM, supply_origins=_cfg.SUPPLY_ORIGINS,
-    inseason=_cfg.INSEASON_ORIGINS, production_overrides=_cfg.PRODUCTION_OVERRIDES,
-    gap_note=_cfg.PRODUCTION_GAP_NOTE, odepa_prefix=_cfg.ODEPA_HS_PREFIX,
-    defra_production=True,
+    hs6=_cfg.HS6, commodity_ids=(_cfg.COMMODITY_ID,), faostat_item=_cfg.FAOSTAT_ITEM,
+    supply_origins=_cfg.SUPPLY_ORIGINS, inseason=_cfg.INSEASON_ORIGINS,
+    production_overrides=_cfg.PRODUCTION_OVERRIDES, gap_note=_cfg.PRODUCTION_GAP_NOTE,
+    odepa_prefix=_cfg.ODEPA_HS_PREFIX, defra_production=True,
 )
+CHERRY = _f("cherry", "Cherry", "🍒", "080929", "Cherries",  # sweet cherries (080920 obsolete)
+            ["Chile", "Spain", "Turkey", "Greece", "Portugal", "Italy"], commodity_ids=(8092900,))
 
-CHERRY = Fruit(
-    slug="cherry", name="Cherry", emoji="🍒",
-    # Sweet cherries: HS2012+ split 0809 into 080921 (sour) / 080929 (sweet) —
-    # the old 080920 is obsolete. UK CN8 08092900 = fresh sweet cherries.
-    hs6="080929", cn8="08092900", commodity_id=8092900, faostat_item="Cherries",
-    # UK cherry suppliers (Europe in summer, Chile/US counter-/early-season).
-    supply_origins={
-        "Spain":         (724, "ESP", "#c9a227"),
-        "Turkey":        (792, "TUR", "#c0392b"),
-        "Chile":         (152, "CHL", "#6b3fa0"),
-        "Portugal":      (620, "PRT", "#3a8f6b"),
-        "Greece":        (300, "GRC", "#4c5fd5"),
-        "Italy":         (380, "ITA", "#2a9d8f"),
-        "Morocco":       (504, "MAR", "#e8833a"),
-        "United States": (842, "USA", "#5b8a72"),
-        "Netherlands":   (528, "NLD", "#7a8699"),
-        "Argentina":     (32,  "ARG", "#3f7fae"),
-    },
-    inseason=["Chile", "Spain", "Turkey", "Greece", "Portugal", "Italy"],
-    production_overrides={}, gap_note="",   # Turkey is #1 cherry grower and IS in FAOSTAT
-)
+# Top UK fresh-fruit imports — HS6 verified, CN8 auto-discovered (all CN8 under HS6).
+_TOP = [
+    _f("banana", "Banana", "🍌", "080390", "Bananas",
+       ["Colombia", "Costa Rica", "Dominican Republic", "Ecuador", "Cameroon", "Côte d'Ivoire"]),
+    _f("grape", "Grape", "🍇", "080610", "Grapes",
+       ["Spain", "South Africa", "Chile", "Egypt", "Peru", "India"]),
+    _f("apple", "Apple", "🍎", "080810", "Apples",
+       ["France", "South Africa", "Chile", "New Zealand", "Italy", "Netherlands"]),
+    _f("strawberry", "Strawberry", "🍓", "081010", "Strawberries",
+       ["Spain", "Egypt", "Morocco", "Netherlands", "Belgium"]),
+    _f("avocado", "Avocado", "🥑", "080440", "Avocados",
+       ["Peru", "South Africa", "Chile", "Israel", "Spain", "Colombia"]),
+    _f("raspberry", "Raspberry", "🫐", "081020", "Raspberries",
+       ["Spain", "Morocco", "Portugal", "Mexico", "Netherlands"]),
+    _f("mandarin", "Mandarin", "🍊", "080521", "Tangerines, mandarins, clementines",
+       ["Spain", "South Africa", "Morocco", "Peru", "Egypt", "Turkey"]),
+    _f("mango", "Mango", "🥭", "080450", "Mangoes, guavas and mangosteens",
+       ["Brazil", "Peru", "Côte d'Ivoire", "Pakistan", "Israel", "Spain"]),
+    _f("orange", "Orange", "🍊", "080510", "Oranges",
+       ["Spain", "South Africa", "Egypt", "Morocco", "Argentina"]),
+    _f("lemon", "Lemon", "🍋", "080550", "Lemons and limes",
+       ["Spain", "South Africa", "Argentina", "Turkey", "Brazil"]),
+    _f("pear", "Pear", "🍐", "080830", "Pears",
+       ["Netherlands", "South Africa", "Belgium", "Argentina", "Chile", "Spain"]),
+    _f("peach", "Peach", "🍑", "080930", "Peaches and nectarines",
+       ["Spain", "Italy", "Greece", "South Africa", "Chile"]),
+    _f("watermelon", "Watermelon", "🍉", "080711", "Watermelons",
+       ["Spain", "Morocco", "Costa Rica", "Brazil", "Egypt"]),
+    _f("melon", "Melon", "🍈", "080719", "Cantaloupes and other melons",
+       ["Spain", "Brazil", "Costa Rica", "Morocco", "Honduras"]),
+    _f("pineapple", "Pineapple", "🍍", "080430", "Pineapples",
+       ["Costa Rica", "Ghana", "Côte d'Ivoire", "Panama"]),
+    _f("kiwi", "Kiwi", "🥝", "081050", "Kiwi fruit",
+       ["Italy", "New Zealand", "Greece", "Chile", "France"]),
+    _f("plum", "Plum", "🟣", "080940", "Plums and sloes",
+       ["Spain", "South Africa", "Chile", "Namibia"]),
+    _f("date", "Date", "🌴", "080410", "Dates",
+       ["Tunisia", "Israel", "Egypt", "Iran", "Saudi Arabia"]),
+]
 
-FRUITS = {f.slug: f for f in (BLUEBERRY, CHERRY)}
+FRUITS = {f.slug: f for f in (BLUEBERRY, CHERRY, *_TOP)}
