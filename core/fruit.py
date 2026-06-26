@@ -109,7 +109,7 @@ _TOP = [
        defra_rows=("Strawberries",)),
     _f("avocado", "Avocado", "🥑", "080440", "Avocados",
        ["Peru", "South Africa", "Chile", "Israel", "Spain", "Colombia"]),
-    _f("raspberry", "Raspberry", "🫐", "081020", "Raspberries",
+    _f("raspberry", "Raspberry", "🔴", "081020", "Raspberries",
        ["Spain", "Morocco", "Portugal", "Mexico", "Netherlands"], container_t=20,
        defra_rows=("Raspberries",)),
     _f("mandarin", "Mandarin", "🍊", "080521", "Tangerines, mandarins, clementines",

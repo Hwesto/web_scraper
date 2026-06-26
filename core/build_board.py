@@ -547,14 +547,17 @@ def build(fruit=BLUEBERRY) -> str:
                f'title="Border — landed CIF: £{landed:.2f}"></i>'
                f'<i class="seg spread" style="width:{spread/shelf*100:.1f}%" '
                f'title="Border-to-shelf spread: £{spread:.2f}"></i>')
-        # this-month landed — the live seasonal view next to the stable 12-mo average
+        # latest settled landed month — the seasonal view next to the stable 12-mo average.
+        # NOT a "live" spread: HMRC's border month lags the current shelf by weeks, so we
+        # state the figure and flag the lag rather than subtract two non-contemporaneous ends.
         month_line = ""
         if mavg == mavg and abs(mavg - landed) >= 0.15:
-            live = f" — a live spread of {shelf_pfx}£{shelf-mavg:.2f}" if shelf > mavg else ""
-            month_line = f' This month landed alone runs <b>£{mavg:.2f}</b>{live}.'
-        ends_note = ('The border price is HMRC-measured.' if est_g else
-                     'Both ends are measured: HMRC at the border, '
-                     + ('the ONS retail index on the shelf.' if ons_shelf else 'Trolley on the shelf.'))
+            month_line = f' Its latest settled month ({MONTHS[cur.month-1]}) ran <b>£{mavg:.2f}</b>.'
+        basis = ('the border price is HMRC-measured' if est_g else
+                 'both ends are measured (HMRC border, '
+                 + ('ONS index shelf)' if ons_shelf else 'Trolley shelf)'))
+        ends_note = (f'Note {basis}, but they sit <b>weeks apart</b> — HMRC lags ~{lag_wks} wks and '
+                     f'fruit reaches the shelf days after landing, so the border price leads the shelf.')
         gap_full = (f'The spread is not the retailer\'s profit. UK produce departments typically run a '
                     f'<b>~{RETAIL_GROSS_MARGIN*100:.0f}% gross margin</b> (NGA), but fresh fruit loses '
                     f'<b>{FRESH_FRUIT_SHRINK*100:.0f}%+</b> of weight to shrink (USDA ERS, 2016) — soft fruit '

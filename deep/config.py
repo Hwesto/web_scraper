@@ -19,7 +19,8 @@ VINTAGE_DIR.mkdir(parents=True, exist_ok=True)
 # downstream (HMRC, Comtrade, FAOSTAT, the masthead, the in-season strip, the
 # production caveat) reads from here, so a new fruit is one edit, not fifteen.
 FRUIT_NAME = "Blueberry"          # masthead title: "Britain's {FRUIT_NAME} Board"
-FRUIT_EMOJI = "🫐"                # optional eyebrow glyph; set "" to omit
+FRUIT_EMOJI = "🔵"                # blue circle: 🫐 (Emoji 13, 2020) shows tofu on older
+#                                  Windows; a blue dot reads as a blueberry and renders everywhere
 HS6 = "081040"                    # UN Comtrade HS-6 (global trade + production trade)
 # HMRC UK CN8 08104050 = "Fresh Vaccinium macrocarpum & corymbosum" = cultivated
 # blueberry + large cranberry (the commercial blueberry line; 08104010 is the
