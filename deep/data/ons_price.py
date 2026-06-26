@@ -51,17 +51,33 @@ def _series_from_sheet(xls: pd.ExcelFile, sheet: str, item_id) -> pd.Series:
     return s.dropna().astype(float)
 
 
-# Per-fruit ONS retail price: (old item_id with £/kg averageprice, new consumption
-# segment for the post-2025 index extension). ONLY items ONS quotes "per kg" qualify —
-# bananas, small oranges (mandarins), grapes, plums, blueberries. The "each"-priced
-# items (apples, oranges, lemons, avocados, kiwi, melon, pineapple) carry no honest
-# £/kg basis and are deliberately excluded (no fabricated fruit weights). Grapes/plums
-# already have a weekly Trolley feed, so the gap-fillers here are banana + mandarin.
+# Per-fruit ONS retail price: (old item_id with the averageprice series, new
+# consumption segment for the post-2025 index extension, standard whole-fruit weight
+# in grams or None). ONS quotes some items "per kg" (weight=None — use directly) and
+# others "each" (weight set — divide by it to get an ESTIMATED £/kg). The standard
+# weights are a sourced unit conversion, not a measurement: USDA FoodData Central
+# 1-medium-fruit weights (melon/pineapple = typical whole retail), surfaced on the
+# board as an estimate with the weight stated.
 ONS_ITEMS = {
-    "blueberry": (212733, _BERRIES_SEGMENT),       # keeps the original series unchanged
-    "banana":    (212719, "CP0116101"),            # Bananas, fresh
-    "mandarin":  (212725, "CP0116201"),            # Oranges, tangerines & similar citrus
+    "blueberry": (212733, _BERRIES_SEGMENT, None),   # per kg — keeps the original series
+    "banana":    (212719, "CP0116101", None),        # per kg
+    "mandarin":  (212725, "CP0116201", None),        # per kg
+    # --- "each"-priced items: £/kg estimated via a standard whole-fruit weight ---
+    "apple":     (212735, "CP0116301", 180),         # Apples, fresh (whole medium)
+    "orange":    (212709, "CP0116201", 185),         # Oranges & similar citrus (whole navel)
+    "lemon":     (212732, "CP0116299", 110),         # Other citrus (whole lemon)
+    "avocado":   (212710, "CP0116199", 170),         # Other tropical fruits (whole Hass)
+    "kiwi":      (212712, "CP0116501", 85),          # Other fruits n.e.c (whole)
+    "melon":     (212736, "CP0116501", 1000),        # Other fruits n.e.c (whole melon)
+    "pineapple": (212737, "CP0116199", 1100),        # Other tropical fruits (whole)
 }
+
+
+def weight_g(slug: str):
+    """Standard whole-fruit weight (g) used to convert an ONS per-each price to £/kg,
+    or None if ONS already quotes that fruit per kg. Lets the board flag the estimate."""
+    cfg = ONS_ITEMS.get(slug)
+    return cfg[2] if cfg and len(cfg) > 2 else None
 
 
 class OnsRetailPrice(SignalSource):
@@ -74,11 +90,12 @@ class OnsRetailPrice(SignalSource):
     unit = "gbp_per_kg"
 
     def __init__(self, slug: str = "blueberry", item_id: int | None = None,
-                 segment: str | None = None):
+                 segment: str | None = None, weight_g: int | None = None):
         self.slug = slug
         self.series = f"ons_{slug}_retail_price"
-        cfg = ONS_ITEMS.get(slug, (item_id, segment))
+        cfg = ONS_ITEMS.get(slug, (item_id, segment, weight_g))
         self.item_id, self.segment = (item_id or cfg[0]), (segment or cfg[1])
+        self.weight_g = weight_g if weight_g is not None else (cfg[2] if len(cfg) > 2 else None)
 
     def fetch(self, vintage_date: _dt.date | None = None,
               old_xls: pd.ExcelFile | None = None, new_xls: pd.ExcelFile | None = None) -> pd.DataFrame:
@@ -87,6 +104,8 @@ class OnsRetailPrice(SignalSource):
         direct = _series_from_sheet(old_xls, "averageprice", self.item_id)
         if direct.empty:
             return self._tidy([], vintage_date)
+        if self.weight_g:                               # per-each item → estimated £/kg
+            direct = direct / (self.weight_g / 1000.0)  # (proxy rescales off this, stays £/kg)
         proxy = self._proxy_extension(direct, new_xls)
         records = [self._row(d, v, "") for d, v in direct.items()]
         records += [self._row(d, v, f"proxy_{self.segment}") for d, v in proxy.items()]
