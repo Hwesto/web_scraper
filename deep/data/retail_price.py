@@ -96,6 +96,13 @@ BASKETS: dict[str, list[tuple[str, str, str]]] = {
         ("Tesco", "standard", "tesco-king-cherries/ZSP742"),         # 300g
         ("Ocado", "standard", "ocado-cherries/GGQ295"),              # 200g
     ],
+    "plum": [
+        ("Sainsbury's", "standard", "sainsburys-plum-punnet/ISW302"),       # 400g
+        ("Sainsbury's", "standard", "sainsburys-family-plum-punnet/SWD573"), # 1kg
+        ("Tesco", "standard", "tesco-plums/APB031"),                        # 400g
+        ("Tesco", "standard", "tesco-perfectly-ripe-plums/KBX608"),         # 325g
+        ("Morrisons", "standard", "morrisons-yellow-plums-punnet/CAE482"),  # 400g
+    ],
 }
 BASKET = BASKETS["blueberry"]      # back-compat alias
 # Identify honestly with a contact URL (good scraping etiquette); we run from a

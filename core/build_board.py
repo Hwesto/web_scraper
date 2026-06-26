@@ -624,10 +624,14 @@ def build(fruit=BLUEBERRY) -> str:
     if per:
         shelf_lede = (f"{len(per)} of 11 retailers · {n_packs} packs · w/c {shelf_when} · "
                       f"£/kg = pack price ÷ weight, so small punnets read dearer")
-    else:                                             # no retail feed for this fruit yet
-        shelf_rows = (f'<p class="note">No multi-retailer shelf scrape is configured for '
-                      f'{_FRUIT.name.lower()} yet — add its Trolley product URLs to light this up.</p>')
-        shelf_lede = "retail price feed not yet configured"
+    else:                                             # no weight-based retail feed for this fruit
+        fl = _FRUIT.name.lower()
+        shelf_rows = (f'<p class="note">No weekly shelf-price feed for {fl} yet. Much of it sells '
+                      f'<b>loose or by the pack</b> (priced each, or per pack, not per kilo), so there\'s no '
+                      f'like-for-like £/kg to track week to week — the <b>landed</b> figure above is the '
+                      f'reliable border benchmark in the meantime. A monthly retail index (ONS CPI) is the '
+                      f'planned fill for these.</p>')
+        shelf_lede = "sold loose / by the pack — no weekly per-kg shelf feed yet"
     now_m = pd.Timestamp(_dt.date.today()).month
     relay_cells = "".join(
         f'<div class="rc{" now" if m == now_m else ""}" title="{relay[m-1] or "—"}" '
