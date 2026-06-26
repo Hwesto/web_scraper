@@ -942,12 +942,18 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <p class="stamp">data through {month} · latest settled HMRC month · ~{lag_wks} wks behind today</p>
 <div class="kpis">{kpis}</div>
 
+<!-- Act 1 — supply & timing: who's here now, the typical year, the actual trend -->
 <section class="sec"><div class="shead"><h2>Who's landing this month</h2>
 <p class="lede">{month} · by share · landed £/kg, ▲▼ vs last month · y/y volume (material lanes only)</p></div>
 <div class="card">{board}</div></section>
 
+<section class="sec"><div class="shead"><h2>The relay</h2>
+<p class="lede">who leads UK supply each month · typical year (5-yr pattern)</p></div>
+<div class="card"><div class="relay">{relay}</div><div class="relay-key">{relay_legend}</div></div></section>
+
 {history}
 
+<!-- Act 2 — price: what it costs from border to shelf -->
 <section class="sec"><div class="shead"><h2>The price journey</h2>
 <p class="lede">border to shelf · two measured prices and the spread between them</p></div>
 <div class="card">{journey}</div></section>
@@ -960,10 +966,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <p class="lede">{shelf_lede}</p></div>
 <div class="card">{shelf_rows}</div></section>
 
-<section class="sec"><div class="shead"><h2>The relay</h2>
-<p class="lede">who leads UK supply each month · typical year (5-yr pattern)</p></div>
-<div class="card"><div class="relay">{relay}</div><div class="relay-key">{relay_legend}</div></div></section>
-
+<!-- Act 3 — the wider world: where it goes, who grows it, who keeps it -->
 <section class="sec"><div class="shead"><h2>Where each origin sends its fruit</h2>
 <p class="lede">2024 · % of their tonnage · includes the UK</p></div>
 <div class="card">{sells}{rex}</div></section>
