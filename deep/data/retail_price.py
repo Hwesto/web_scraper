@@ -108,7 +108,7 @@ BASKET = BASKETS["blueberry"]      # back-compat alias
 # Identify honestly with a contact URL (good scraping etiquette); we run from a
 # shared CI/datacenter IP, so we do NOT masquerade as a browser.
 _HEADERS = {
-    "User-Agent": "uk-blueberry-nowcast/0.2 (+https://github.com/hwesto/web_scraper; "
+    "User-Agent": "uk-fruit-index/0.2 (+https://github.com/hwesto/fruit_index; "
                   "research, polite, ~weekly)",
     "Accept": "text/html", "Accept-Language": "en-GB,en;q=0.9",
 }
