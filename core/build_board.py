@@ -222,12 +222,15 @@ def _inseason_cif(years=3, frac=0.25, min_t=2000, min_share=INSEASON_MIN_SHARE):
 
 
 def _retail(month):
-    """UK shelf £/kg for the given month — ONS monthly berries proxy (year-round fallback)."""
+    """UK shelf £/kg for the given month — ONS monthly retail proxy (year-round
+    fallback when there's no weekly Trolley feed). Reads the fruit's spliced series
+    (direct item £/kg, then its segment index); per-kg items only. NaN if the fruit
+    has no ONS series (the 'each'-priced fruit have none — no honest £/kg)."""
     r = vintage.latest(_ser("ons", "retail_price")).copy()
-    r["d"] = pd.to_datetime(r["ref_period"])
-    r = r[r["key"] == "proxy_berries_index"].sort_values("d")
     if r.empty:
         return float("nan")
+    r["d"] = pd.to_datetime(r["ref_period"])
+    r = r.sort_values("d")                            # direct + spliced, one continuous series
     at = r[r["d"] <= month]
     return float((at if not at.empty else r).iloc[-1]["value"])
 
@@ -442,6 +445,9 @@ def build(fruit=BLUEBERRY) -> str:
     shelf_lbl = f"wk {pd.Timestamp(shelf_wk).strftime('%-d %b')}" if shelf_wk is not None else "this wk"
     if shelf != shelf:                       # no Trolley data → ONS monthly proxy
         shelf, shelf_lbl = _retail(cur), "ONS proxy"
+    ons_shelf = (shelf_lbl == "ONS proxy") and (shelf == shelf)  # ONS index filled it (finite)
+    shelf_basis = ("the <b>ONS monthly retail index</b>" if ons_shelf
+                   else f"a standard {shelf_pack_g}&#8201;g punnet, {shelf_lbl}")
     when_w, whole = _wholesale()
     rex_kt, rex_top = _reexports()
     wyr, uk_rank, wgro, wexp, wimp = _world()
@@ -491,7 +497,7 @@ def build(fruit=BLUEBERRY) -> str:
                 f'<b>gross margin, not profit</b><span class="more">why</span></summary>'
                 f'<p class="xp">{econ_full}</p></details>')
         cap = (f'<p class="cap"><b>Landed</b> is the 12-month average across all origins (volume-weighted); '
-               f'this month alone runs £{mavg:.2f}. <b>Shelf</b> is a standard {shelf_pack_g}&#8201;g punnet, {shelf_lbl}.</p>')
+               f'this month alone runs £{mavg:.2f}. <b>Shelf</b> is {shelf_basis}.</p>')
         journey = (f'<div class="bbar">{bar}</div>'
                    f'<div class="bends"><span>£{landed:.2f} landed</span>'
                    f'<span>{markup}</span><span>£{shelf:.2f} shelf</span></div>'
@@ -587,7 +593,7 @@ def build(fruit=BLUEBERRY) -> str:
         for c, cons, ss, src in crows:
             star = "†" if (src and src != "DEFRA") else ""
             if ss > 105:                               # produces more than it eats
-                label = f'net exporter · grows {ss/100:.1f}× what it eats'
+                label = f'net exporter · grows {ss/100:.1f}× its home use'
                 bar = '<span class="mbar exp"><i style="width:100%"></i></span>'
             else:
                 label = f'{ss:.0f}% home-grown'
@@ -595,15 +601,21 @@ def build(fruit=BLUEBERRY) -> str:
             mr += (f'<div class="mr"><span class="mc">{c}{star}</span>'
                    f'<span class="mv">{cons:,.0f} kt</span>{bar}'
                    f'<span class="ms">{label}</span></div>')
+        ov_note = ""
         if flagged:
             ov = "; ".join(f'<b>{c}</b> ~{t/1000:.0f} kt, {src}'
                            for c, (t, _yr, src) in _FRUIT.production_overrides.items())
-            foot = (f'<p class="note">† {ov} — sourced industry estimate(s), not in FAOSTAT; '
-                    f'all other production is FAOSTAT (UK: DEFRA).</p>')
-        else:
-            foot = ""
+            ov_note = (f'† {ov} — sourced industry estimate(s), not in FAOSTAT; '
+                       f'all other production is FAOSTAT (UK: DEFRA). ')
+        # Honesty: this is apparent AVAILABILITY, not literal eating — it isn't netted
+        # for spoilage/processing, which is large for perishable fruit (e.g. India keeps
+        # ~all its mango, but a big share is lost or pulped, not eaten fresh).
+        foot = (f'<p class="note">{ov_note}Apparent consumption is what each market keeps '
+                f'<b>available</b> (production + net imports) — not what is literally eaten: it is '
+                f'not netted for the share lost to spoilage or diverted to juice/processing, which '
+                f'is large for perishable fruit.</p>')
         market = (f'<section class="sec"><div class="shead">'
-                  f'<h2>Domestic market — who actually eats it</h2>'
+                  f'<h2>Domestic market — who keeps it home</h2>'
                   f'<p class="lede">apparent consumption = production + imports − exports · {cyr}'
                   f' · de-hubs the re-exporters</p></div>'
                   f'<div class="card">{mr}{foot}</div></section>')
@@ -624,14 +636,20 @@ def build(fruit=BLUEBERRY) -> str:
     if per:
         shelf_lede = (f"{len(per)} of 11 retailers · {n_packs} packs · w/c {shelf_when} · "
                       f"£/kg = pack price ÷ weight, so small punnets read dearer")
-    else:                                             # no weight-based retail feed for this fruit
+    elif ons_shelf:                                   # no weekly Trolley feed, but ONS prices it per kg
         fl = _FRUIT.name.lower()
-        shelf_rows = (f'<p class="note">No weekly shelf-price feed for {fl} yet. Much of it sells '
-                      f'<b>loose or by the pack</b> (priced each, or per pack, not per kilo), so there\'s no '
-                      f'like-for-like £/kg to track week to week — the <b>landed</b> figure above is the '
-                      f'reliable border benchmark in the meantime. A monthly retail index (ONS CPI) is the '
-                      f'planned fill for these.</p>')
-        shelf_lede = "sold loose / by the pack — no weekly per-kg shelf feed yet"
+        shelf_rows = (f'<p class="note">No weekly per-retailer feed for {fl} — it sells mostly '
+                      f'<b>loose or by the each</b>, so there\'s no per-pack price to scrape weekly. '
+                      f'The journey above instead uses the <b>ONS monthly retail index</b> '
+                      f'(£{shelf:.2f}/kg) — the pre-2025 item £/kg spliced forward by its CPI segment.</p>')
+        shelf_lede = "no weekly feed — journey uses the ONS monthly retail index"
+    else:                                             # no honest £/kg from any free source
+        fl = _FRUIT.name.lower()
+        shelf_rows = (f'<p class="note">No £/kg shelf feed for {fl}: it\'s sold <b>by the each</b> '
+                      f'(per fruit, or per pack), and neither Trolley nor ONS quotes it per kilo — converting '
+                      f'would need an assumed fruit weight, which we don\'t fabricate. The <b>landed</b> figure '
+                      f'above is the reliable border benchmark.</p>')
+        shelf_lede = "sold by the each — no honest per-kg shelf feed"
     now_m = pd.Timestamp(_dt.date.today()).month
     relay_cells = "".join(
         f'<div class="rc{" now" if m == now_m else ""}" title="{relay[m-1] or "—"}" '

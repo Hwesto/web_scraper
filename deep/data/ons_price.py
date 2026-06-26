@@ -12,7 +12,7 @@ using ONS over the Jun-Nov-only DEFRA wholesale), we SPLICE:
 
   * direct blueberry GBP/kg through Jan 2025                         key=""
   * Jan-2025 blueberry level carried forward by the all-fresh-berries
-    price index thereafter -- a documented PROXY, not a measurement  key="proxy_berries_index"
+    price index thereafter -- a documented PROXY, not a measurement  key="proxy_<segment>"
 
 The two series share exactly one month (Jan 2025), which is the splice anchor.
 The proxy assumes blueberry retail tracks the fresh-berry category; honest
@@ -51,39 +51,53 @@ def _series_from_sheet(xls: pd.ExcelFile, sheet: str, item_id) -> pd.Series:
     return s.dropna().astype(float)
 
 
-def _blueberry_gbp_per_kg(xls: pd.ExcelFile) -> pd.Series:
-    meta = xls.parse("metadata")
-    match = meta[meta["ITEM_DESC"].str.contains("blueberr", case=False, na=False)]
-    if match.empty:
-        return pd.Series(dtype=float)
-    return _series_from_sheet(xls, "averageprice", match["ITEM_ID"].iloc[0])
+# Per-fruit ONS retail price: (old item_id with £/kg averageprice, new consumption
+# segment for the post-2025 index extension). ONLY items ONS quotes "per kg" qualify —
+# bananas, small oranges (mandarins), grapes, plums, blueberries. The "each"-priced
+# items (apples, oranges, lemons, avocados, kiwi, melon, pineapple) carry no honest
+# £/kg basis and are deliberately excluded (no fabricated fruit weights). Grapes/plums
+# already have a weekly Trolley feed, so the gap-fillers here are banana + mandarin.
+ONS_ITEMS = {
+    "blueberry": (212733, _BERRIES_SEGMENT),       # keeps the original series unchanged
+    "banana":    (212719, "CP0116101"),            # Bananas, fresh
+    "mandarin":  (212725, "CP0116201"),            # Oranges, tangerines & similar citrus
+}
 
 
-class OnsRetailBlueberryPrice(SignalSource):
-    series = "ons_blueberry_retail_price"
+class OnsRetailPrice(SignalSource):
+    """Monthly UK retail £/kg for one fruit from the ONS Shopping Prices tool: the
+    pre-2025 item-level £/kg, spliced forward by its consumption-segment price index
+    (a documented proxy). Series `ons_<slug>_retail_price`; direct months key="",
+    spliced months key="proxy_<segment>". Per-kg items only."""
+
     freq = "M"
     unit = "gbp_per_kg"
 
-    def fetch(self, vintage_date: _dt.date | None = None) -> pd.DataFrame:
-        vintage_date = vintage_date or _dt.date.today()
+    def __init__(self, slug: str = "blueberry", item_id: int | None = None,
+                 segment: str | None = None):
+        self.slug = slug
+        self.series = f"ons_{slug}_retail_price"
+        cfg = ONS_ITEMS.get(slug, (item_id, segment))
+        self.item_id, self.segment = (item_id or cfg[0]), (segment or cfg[1])
 
-        old_xls = pd.ExcelFile(io.BytesIO(self._get(_URL_OLD)))
-        direct = _blueberry_gbp_per_kg(old_xls)
+    def fetch(self, vintage_date: _dt.date | None = None,
+              old_xls: pd.ExcelFile | None = None, new_xls: pd.ExcelFile | None = None) -> pd.DataFrame:
+        vintage_date = vintage_date or _dt.date.today()
+        old_xls = old_xls or pd.ExcelFile(io.BytesIO(self._get(_URL_OLD)))
+        direct = _series_from_sheet(old_xls, "averageprice", self.item_id)
         if direct.empty:
             return self._tidy([], vintage_date)
-
-        proxy = self._proxy_extension(direct)
-
+        proxy = self._proxy_extension(direct, new_xls)
         records = [self._row(d, v, "") for d, v in direct.items()]
-        records += [self._row(d, v, "proxy_berries_index") for d, v in proxy.items()]
+        records += [self._row(d, v, f"proxy_{self.segment}") for d, v in proxy.items()]
         return self._tidy(records, vintage_date)
 
     # -- helpers --
-    def _proxy_extension(self, direct: pd.Series) -> pd.Series:
-        """All-berries index, rescaled to the blueberry level at the shared month."""
+    def _proxy_extension(self, direct: pd.Series, new_xls: pd.ExcelFile | None) -> pd.Series:
+        """Segment price index, rescaled to the item's £/kg level at the shared month."""
         try:
-            new_xls = pd.ExcelFile(io.BytesIO(self._get(_URL_NEW)))
-            idx = _series_from_sheet(new_xls, "chained", _BERRIES_SEGMENT)
+            new_xls = new_xls or pd.ExcelFile(io.BytesIO(self._get(_URL_NEW)))
+            idx = _series_from_sheet(new_xls, "chained", self.segment)
         except Exception:                               # noqa: BLE001 -- degrade, don't fake
             return pd.Series(dtype=float)
         anchor_dates = direct.index.intersection(idx.index)
@@ -104,11 +118,34 @@ class OnsRetailBlueberryPrice(SignalSource):
         return resp.content
 
 
+class OnsRetailBlueberryPrice(OnsRetailPrice):
+    """Back-compat shim for the pipeline/tests — the original blueberry source."""
+
+    def __init__(self):
+        super().__init__("blueberry")
+
+
+def refresh_all(slugs=tuple(ONS_ITEMS)):
+    """Download both ONS files ONCE and write each fruit's spliced £/kg to the vintage
+    store. Returns {slug: n_rows}. Skips a fruit whose item has no £/kg (degrades)."""
+    from ..store import vintage
+    old_xls = pd.ExcelFile(io.BytesIO(OnsRetailPrice._get(_URL_OLD)))
+    try:
+        new_xls = pd.ExcelFile(io.BytesIO(OnsRetailPrice._get(_URL_NEW)))
+    except Exception:                                   # noqa: BLE001 -- direct-only, don't fake
+        new_xls = None
+    out = {}
+    for slug in slugs:
+        df = OnsRetailPrice(slug).fetch(old_xls=old_xls, new_xls=new_xls)
+        if not df.empty:
+            vintage.save(df)
+        out[slug] = len(df)
+    return out
+
+
 if __name__ == "__main__":
-    df = OnsRetailBlueberryPrice().fetch()
-    direct = df[df["key"] == ""]
-    proxy = df[df["key"] == "proxy_berries_index"]
-    print(f"rows: {len(df)}  range: {df['ref_period'].min()}..{df['ref_period'].max()}")
-    print(f"  direct blueberry: {len(direct)} (..{direct['ref_period'].max() if len(direct) else '-'})")
-    print(f"  proxy extension:  {len(proxy)} ({proxy['ref_period'].min() if len(proxy) else '-'}..)")
-    print(df.tail(6).to_string(index=False))
+    import sys
+    slugs = sys.argv[1:] or list(ONS_ITEMS)
+    counts = refresh_all(slugs)
+    for slug, n in counts.items():
+        print(f"ons_{slug}_retail_price: {n} rows")

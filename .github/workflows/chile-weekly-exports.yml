@@ -90,6 +90,9 @@ jobs:
       - name: (monthly) Other fruits — HMRC + Comtrade + FAOSTAT + destinations per HS code
         if: ${{ env.MODE == 'collect' && env.MONTHLY == 'true' }}
         run: python -m core.fetch_fruit || echo "fruit fetch skipped"
+      - name: (monthly) ONS retail price proxy — per-kg fruits (banana, mandarin, …) in one download
+        if: ${{ env.MODE == 'collect' && env.MONTHLY == 'true' }}
+        run: python -m deep.data.ons_price || echo "ons retail skipped"
       - name: (monthly) Deep-only economics — destinations, FOB prices, FX, SAG roster
         if: ${{ env.MODE == 'collect' && env.MONTHLY == 'true' }}
         run: |

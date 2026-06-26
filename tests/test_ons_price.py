@@ -14,9 +14,10 @@ from deep.data.ons_price import OnsRetailBlueberryPrice
 
 def _old_xlsx() -> bytes:
     buf = io.BytesIO()
-    meta = pd.DataFrame({"ITEM_ID": [9001], "ITEM_DESC": ["Blueberries, per kg"]})
+    bb_id = ons_price.ONS_ITEMS["blueberry"][0]          # the real blueberry item id
+    meta = pd.DataFrame({"ITEM_ID": [bb_id], "ITEM_DESC": ["Blueberries, per kg"]})
     cols = pd.to_datetime(["2024-11-01", "2024-12-01", "2025-01-01"])
-    avg = pd.DataFrame([[9001, 12.0, 12.2, 12.46]], columns=["ITEM_ID", *cols])
+    avg = pd.DataFrame([[bb_id, 12.0, 12.2, 12.46]], columns=["ITEM_ID", *cols])
     with pd.ExcelWriter(buf) as w:
         meta.to_excel(w, sheet_name="metadata", index=False)
         avg.to_excel(w, sheet_name="averageprice", index=False)
@@ -49,7 +50,7 @@ def test_splice_extends_and_flags_proxy(monkeypatch):
     _patch(monkeypatch, _new_xlsx())
     df = OnsRetailBlueberryPrice().fetch()
     direct = df[df["key"] == ""]
-    proxy = df[df["key"] == "proxy_berries_index"]
+    proxy = df[df["key"] == f"proxy_{ons_price._BERRIES_SEGMENT}"]
 
     # direct ends at the anchor; proxy picks up strictly after it (no overlap)
     assert direct["ref_period"].max() == "2025-01-01"
