@@ -148,7 +148,7 @@ def _board():
 
     yr_ago = pd.Timestamp(cur) - pd.DateOffset(years=1)
     vc, vp, vy = vol(cur), vol(prev), vol(yr_ago)
-    cc, cp = cif(cur), cif(prev)
+    cc, cy = cif(cur), cif(yr_ago)        # price vs the SAME month a year ago (same season point)
     tot = vc.sum()
     mval = val[val["d"] == cur]["value"].sum()        # £ this month (landed/customs value)
     mavg = mval / (tot * 1000) if tot else float("nan")  # month blended landed £/kg
@@ -158,7 +158,7 @@ def _board():
         if t < 1 or o not in CODE:
             continue
         pkg = cc.get(o, float("nan"))
-        dpr = pkg - cp.get(o, float("nan"))
+        dpr = pkg - cy.get(o, float("nan"))           # £/kg vs same month last year
         dv = (t / vp[o] - 1) * 100 if o in vp.index and vp[o] else float("nan")
         yoy = (t / vy[o] - 1) * 100 if o in vy.index and vy[o] else float("nan")
         rows.append({"origin": o, "code": CODE[o], "t": t, "cif": pkg, "dprice": dpr,
@@ -371,10 +371,11 @@ def _consumption():
     return yr, rows[:7]
 
 
-def _delta_chip(val, unit, cls_set=("up", "down", "flat")):
-    """A coloured ▲/▼/▬ chip with a value, neutral when essentially flat."""
+def _delta_chip(val, unit, cls_set=("up", "down", "flat"), flat_below=0.5):
+    """A coloured ▲/▼/▬ chip with a value, neutral when essentially flat. `flat_below`
+    is the dead-band: 0.5 suits a % move; pass a price-relative band for a £/kg delta."""
     up, down, flat = cls_set
-    cls = flat if abs(val) < 0.5 else (up if val > 0 else down)
+    cls = flat if abs(val) < flat_below else (up if val > 0 else down)
     arr = "▬" if cls == flat else ("▲" if val > 0 else "▼")
     return cls, arr
 
@@ -384,21 +385,23 @@ def _ticker_html(r) -> str:
     tt = f"{r['t']/1000:.1f}K t" if r["t"] >= 1000 else f"{r['t']:.0f} t"
     shr = f'{r["share"]:.0f}%' if r["share"] >= 1 else "<1%"
     sub = f'{r["origin"]} · {tt} · {shr} of the month'
-    # right side: @£/kg + ▲▼ only when the lane carries enough volume to trust it
+    # right side: @£/kg + the £/kg change vs the SAME month a year ago (only on a
+    # material lane, and only when last year's price for this origin exists).
     if r["share"] >= PRICE_FLOOR_SHARE and r["cif"] == r["cif"]:
-        cls, arr = _delta_chip(r["dprice"], "")
-        right = (f'<span class="px">£{r["cif"]:.2f}</span>'
-                 f'<span class="chg {cls}">{arr} £{abs(r["dprice"]):.2f}</span>')
+        right = f'<span class="px">£{r["cif"]:.2f}</span>'
+        if r["dprice"] == r["dprice"]:
+            cls, arr = _delta_chip(r["dprice"], "", flat_below=max(0.04, r["cif"] * 0.04))
+            right += f'<span class="chg {cls}">{arr} £{abs(r["dprice"]):.2f}</span>'
     else:
         right = '<span class="small-lane">small lane</span>'
-    # y/y volume chip: only on a material base; cap tiny-base blow-ups
+    # volume vs a year ago: only on a material base; cap tiny-base blow-ups
     yo = ""
     if r["yoy"] == r["yoy"] and r["share"] >= YOY_MIN_SHARE and r["t"] >= YOY_MIN_T:
         y = r["yoy"]
         cls, arr = _delta_chip(y, "")
         lbl = ("±0%" if cls == "flat" else ">+100%" if y >= 100
                else "<-100%" if y <= -100 else f'{"+" if y >= 0 else ""}{y:.0f}%')
-        yo = f'<span class="chip {cls}">{arr} {lbl} y/y</span>'
+        yo = f'<span class="chip {cls}">{arr} {lbl} vol</span>'
     return (f'<div class="tk">'
             f'<div class="tk-l"><span class="code" style="color:{col}">{r["code"]}</span>'
             f'<span class="sub">{sub}</span></div>'
@@ -947,7 +950,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 
 <!-- Act 1 — supply & timing: who's here now, the typical year, the actual trend -->
 <section class="sec"><div class="shead"><h2>Who's landing this month</h2>
-<p class="lede">{month} · by share · landed £/kg, ▲▼ vs last month · y/y volume (material lanes only)</p></div>
+<p class="lede">{month} · by share · landed £/kg, with the £/kg &amp; volume change vs the same month a year ago (material lanes only)</p></div>
 <div class="card">{board}</div></section>
 
 <section class="sec"><div class="shead"><h2>The relay</h2>
