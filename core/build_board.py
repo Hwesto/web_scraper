@@ -85,31 +85,6 @@ RETAIL_NET_MARGIN = 0.017     # food-retail net profit margin — FMI, Food Reta
 CONTAINER_TONNES = 20
 
 
-def _cost_buildup(landed, shelf):
-    """Decompose a measured shelf £/kg into border cost + UK import/distribution +
-    retailer gross margin, using the NGA produce-margin benchmark. The two ends are
-    MEASURED (HMRC landed, Trolley shelf); the split is modelled. Returns
-    [(label, £/kg, pct_of_shelf, source, css)] or None, plus a loss-leader flag.
-    """
-    if not (landed == landed and shelf == shelf and shelf > 0 and landed > 0):
-        return None, False
-    into_store = shelf * (1 - RETAIL_GROSS_MARGIN)     # retailer buy-in implied by GM
-    importer = into_store - landed                     # residual: import + distribution
-    retail = shelf - into_store                        # = shelf × GM
-    # Squeeze: the border→shelf spread can't even cover landed + a benchmark retail
-    # margin, so the retailer is selling near break-even (the loss-leader case).
-    loss_leader = importer < 0
-    if loss_leader:
-        importer, retail = 0.0, shelf - landed
-    segs = [
-        ("Border — landed CIF", landed, landed / shelf * 100, "HMRC · measured", "border"),
-        ("UK import & distribution", importer, importer / shelf * 100, "implied remainder", "dist"),
-        ("Retailer gross margin", retail, retail / shelf * 100,
-         f"NGA {RETAIL_GROSS_MARGIN*100:.1f}%", "retail"),
-    ]
-    return segs, loss_leader
-
-
 def _dcode(name: str) -> str:
     code = DEST_CODE.get(name) or CODE.get(name)
     if code:
@@ -465,13 +440,6 @@ def build(fruit=BLUEBERRY) -> str:
     # sub-1% origins is all "small lane" filler and just pads the list. Blueberry's
     # 5 lanes are unaffected; banana's ~15 trims to the 8 that carry the month.
     board = "\n".join(_ticker_html(r) for r in rows[:RELAY_MAX_LANES])
-    # The price journey — a cost build-up of the measured shelf £/kg: the all-origin
-    # LANDED import CIF (12-mo volume-weighted) and the supermarket SHELF (pack-
-    # normalised) are MEASURED; the split between them (UK import/distribution vs
-    # retailer gross margin) is MODELLED off the NGA produce-margin benchmark.
-    # DEFRA wholesale stays an aside (British-season home-grown spot, not a step).
-    markup = (f'+{(shelf/landed - 1)*100:.0f}%'
-              if (landed == landed and landed > 0 and shelf == shelf) else '')
     # DEFRA British-season wholesale — a caveat aside, not a journey step.
     whole_note = ""
     if whole == whole and when_w is not None:
@@ -480,41 +448,47 @@ def build(fruit=BLUEBERRY) -> str:
                       f'<b>£{whole:.2f}/kg</b> ({pd.Timestamp(when_w).strftime("%b %Y")}) — premium '
                       f'loose fruit sold spot, a different product/season to imported retail, so it '
                       f'sits above both prices.</div>')
-    # Card 1 — the cost build-up (border → shelf). Landed = 12-mo all-origin
-    # volume-weighted average; the heavy economics fold into a drop-down.
-    segs, loss_leader = _cost_buildup(landed, shelf)
-    if segs:
-        bar = "".join(f'<i class="seg {css}" style="width:{pct:.1f}%" '
-                      f'title="{lbl}: £{v:.2f} ({pct:.0f}%)"></i>'
-                      for lbl, v, pct, src, css in segs)
-        legend = "".join(
-            f'<div class="bl"><span class="dot {css}"></span>'
-            f'<span class="blk">{lbl}</span><span class="blv">£{v:.2f}</span>'
-            f'<span class="blp">{pct:.0f}%</span><span class="bls">{src}</span></div>'
-            for lbl, v, pct, src, css in segs)
-        fl = _FRUIT.name.lower()
-        ll = (f' At this blend the spread barely covers a normal retail margin — '
-              f'consistent with {fl} sold near break-even.' if loss_leader else '')
-        econ_full = (f'That ~{RETAIL_GROSS_MARGIN*100:.0f}% retail slice is gross, not profit: fresh fruit '
-                     f'loses <b>{FRESH_FRUIT_SHRINK*100:.0f}%+</b> by weight to shrink (USDA ERS, 2016) — soft '
-                     f'fruit more — so the initial markup is set ~40–50% to net it down; food-retail <b>net</b> '
-                     f'margin is only ~<b>{RETAIL_NET_MARGIN*100:.1f}%</b> (FMI, 2024), and fresh produce is often '
-                     f'run as a deliberate <b>loss-leader</b> in peak season (Richards &amp; Hamilton, 2006).{ll} '
-                     + ('Border is measured; shelf is an estimate (ONS ÷ a standard fruit weight); the split is modelled.'
-                        if est_g else 'Border &amp; shelf are measured; the split is modelled.'))
-        econ = (f'<details class="exp"><summary>The retailer\'s ~{RETAIL_GROSS_MARGIN*100:.0f}% slice is '
-                f'<b>gross margin, not profit</b><span class="more">why</span></summary>'
-                f'<p class="xp">{econ_full}</p></details>')
-        cap = (f'<p class="cap"><b>Landed</b> is the 12-month average across all origins (volume-weighted); '
-               f'this month alone runs £{mavg:.2f}. <b>Shelf</b> is {shelf_basis}.</p>')
+    # Card 1 — border → shelf. We MEASURE both ends (HMRC landed, Trolley/ONS shelf),
+    # so the SPREAD between them is real; we deliberately do NOT split that spread into
+    # importer/distributor/retailer (free data can't), so it's shown as one band with the
+    # typical UK produce economics folded into a drop-down as context, not a fruit-level
+    # finding. "Show both": stable 12-mo landed up top, this-month landed alongside.
+    if landed == landed and landed > 0 and shelf == shelf and shelf > 0:
+        spread = shelf - landed
+        mult = shelf / landed
+        bar = (f'<i class="seg border" style="width:{landed/shelf*100:.1f}%" '
+               f'title="Border — landed CIF: £{landed:.2f}"></i>'
+               f'<i class="seg spread" style="width:{spread/shelf*100:.1f}%" '
+               f'title="Border-to-shelf spread: £{spread:.2f}"></i>')
+        # this-month landed — the live seasonal view next to the stable 12-mo average
+        month_line = ""
+        if mavg == mavg and abs(mavg - landed) >= 0.15:
+            live = f" — a live spread of {shelf_pfx}£{shelf-mavg:.2f}" if shelf > mavg else ""
+            month_line = f' This month landed alone runs <b>£{mavg:.2f}</b>{live}.'
+        ends_note = ('Border is measured (HMRC); shelf is an <b>estimate</b> — the ONS retail index ÷ a '
+                     'standard fruit weight.' if est_g else
+                     'Both ends are measured: HMRC at the border, '
+                     + ('the ONS retail index on the shelf.' if ons_shelf else 'Trolley on the shelf.'))
+        gap_full = (f'The spread is not the retailer\'s profit. UK produce departments typically run a '
+                    f'<b>~{RETAIL_GROSS_MARGIN*100:.0f}% gross margin</b> (NGA), but fresh fruit loses '
+                    f'<b>{FRESH_FRUIT_SHRINK*100:.0f}%+</b> of weight to shrink (USDA ERS, 2016) — soft fruit '
+                    f'more — and net food-retail margin is only ~<b>{RETAIL_NET_MARGIN*100:.1f}%</b> (FMI, 2024); '
+                    f'in peak season fresh produce is often run as a deliberate <b>loss-leader</b> (Richards &amp; '
+                    f'Hamilton, 2006). The rest is importer &amp; distributor margin, ripening and freight. '
+                    f'These are <b>typical UK produce figures</b>, not a measured split of this fruit\'s price.')
+        gap = (f'<details class="exp"><summary>What\'s inside the {shelf_pfx}£{spread:.2f} spread'
+               f'<span class="more">the economics</span></summary><p class="xp">{gap_full}</p></details>')
+        cap = (f'<p class="cap"><b>Landed</b> is the 12-month all-origin average (volume-weighted).{month_line} '
+               f'<b>Shelf</b> is {shelf_basis}. {ends_note}</p>')
         journey = (f'<div class="bbar">{bar}</div>'
                    f'<div class="bends"><span>£{landed:.2f} landed</span>'
-                   f'<span>{markup}</span><span>{shelf_pfx}£{shelf:.2f} shelf</span></div>'
+                   f'<span>spread {shelf_pfx}£{spread:.2f} · {mult:.1f}×</span>'
+                   f'<span>{shelf_pfx}£{shelf:.2f} shelf</span></div>'
                    f'{cap}'
-                   f'<div class="bcont">A <b>40-ft reefer (~{ct} t)</b> lands at '
-                   f'~<b>£{landed*ct:.0f}k</b> and rings up at '
-                   f'{"" if shelf_pfx else "~"}<b>{shelf_pfx}£{shelf*ct:.0f}k</b> on shelf.</div>'
-                   f'<div class="blegend">{legend}</div>{econ}{whole_note}')
+                   f'<div class="bcont">A <b>40-ft reefer (~{ct} t)</b>: <b>£{landed*ct:.0f}k</b> at the border '
+                   f'→ {shelf_pfx}<b>£{shelf*ct:.0f}k</b> on shelf — a {shelf_pfx}<b>£{spread*ct:.0f}k</b> '
+                   f'spread to cover everything in between.</div>'
+                   f'{gap}{whole_note}')
     elif landed == landed:                            # have landed, no shelf feed yet
         journey = (f'<div class="bends"><span>£{landed:.2f}/kg landed</span></div>'
                    f'<div class="bcont">A <b>40-ft reefer (~{ct} t)</b> lands at '
@@ -770,6 +744,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .bbar{{display:flex;height:40px;border-radius:11px;overflow:hidden;margin-top:10px}}
  .bbar .seg{{height:100%}}
  .seg.border,.dot.border{{background:#5a3fb0}}
+ .seg.spread,.dot.spread{{background:repeating-linear-gradient(45deg,#e8833a,#e8833a 8px,#ef9554 8px,#ef9554 16px)}}
  .seg.dist,.dot.dist{{background:#b9a7e0}}
  .seg.retail,.dot.retail{{background:#e8833a}}
  .bends{{display:flex;justify-content:space-between;align-items:baseline;margin-top:11px;
@@ -877,7 +852,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <div class="card">{board}</div></section>
 
 <section class="sec"><div class="shead"><h2>The price journey</h2>
-<p class="lede">border to shelf · what a kilo costs at each stage · measured ends, modelled split</p></div>
+<p class="lede">border to shelf · two measured prices and the spread between them</p></div>
 <div class="card">{journey}</div></section>
 
 <section class="sec"><div class="shead"><h2>In season, landed by origin</h2>
