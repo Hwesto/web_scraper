@@ -73,6 +73,9 @@ jobs:
       - name: Ingest weekly vintages — HMRC + re-exports, DEFRA, ONS, Trolley retail
         if: ${{ env.MODE == 'collect' }}
         run: python -m deep.pipeline ingest || echo "vintage ingest skipped"
+      - name: Atlas wholesale — DEFRA per-fruit £/kg (apple, pear, plum, cherry, …) in one download
+        if: ${{ env.MODE == 'collect' }}
+        run: python -m deep.data.defra_price || echo "defra wholesale skipped"
 
       # ---- MONTHLY (first week) or manual — annual + deep-only sources ----
       - name: (monthly) Chile weekly export history — deep nowcast

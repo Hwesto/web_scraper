@@ -41,38 +41,74 @@ def _discover_csv_url() -> str:
     raise RuntimeError("No CSV link found on DEFRA price page")
 
 
-class DefraBlueberryPrice(SignalSource):
-    """Wholesale blueberry price (GBP/kg) from DEFRA, at its native cadence."""
+# DEFRA wholesale CSV item names per atlas fruit — UK-grown, British-season £/kg
+# (New Covent Garden). A different product from the imported mainstream: for premium
+# British soft fruit it can sit near/above retail, for top/stone fruit it's a clean
+# mid-point; either way the board shows it as a parallel reference, not a journey step.
+DEFRA_ITEMS = {
+    "blueberry": "blueberries", "apple": "apples", "pear": "pears", "plum": "plums",
+    "cherry": "cherries", "strawberry": "strawberries", "raspberry": "raspberries",
+}
 
-    series = "defra_blueberry_price"
+
+class DefraPrice(SignalSource):
+    """Wholesale UK £/kg for one fruit from the DEFRA weekly CSV — the British-season
+    home-grown spot price. Multiple varieties (apples) are averaged to one price per
+    date; non-kg units are dropped. Series `defra_<slug>_price`."""
+
     freq = "W"            # nominal; real cadence is weekly->fortnightly, gaps in winter
     unit = "gbp_per_kg"
 
-    def fetch(self, vintage_date: _dt.date | None = None) -> pd.DataFrame:
+    def __init__(self, slug: str = "blueberry", item: str | None = None):
+        self.slug = slug
+        self.series = f"defra_{slug}_price"
+        self.item = item or DEFRA_ITEMS.get(slug, slug)
+
+    def fetch(self, vintage_date: _dt.date | None = None,
+              frame: "pd.DataFrame | None" = None) -> pd.DataFrame:
         vintage_date = vintage_date or _dt.date.today()
-        csv_url = _discover_csv_url()
-        resp = requests.get(csv_url, headers=_HEADERS, timeout=40)
-        resp.raise_for_status()
-
-        frame = pd.read_csv(io.StringIO(resp.text))
-        blue = frame[frame["item"].str.contains("blueberr", case=False, na=False)].copy()
-
+        if frame is None:
+            resp = requests.get(_discover_csv_url(), headers=_HEADERS, timeout=40)
+            resp.raise_for_status()
+            frame = pd.read_csv(io.StringIO(resp.text))
+        sub = frame[(frame["item"] == self.item) & (frame.get("unit", "kg") == "kg")].copy()
+        if sub.empty:
+            return self._tidy([], vintage_date)
+        sub["d"] = pd.to_datetime(sub["date"])
+        by_date = sub.groupby("d")["price"].mean()      # mean across varieties → one £/kg/date
         records = [
-            {
-                "series": self.series,
-                "ref_period": pd.to_datetime(row["date"]).date().isoformat(),
-                "freq": self.freq,
-                "key": "",
-                "value": float(row["price"]),
-                "unit": self.unit,
-            }
-            for _, row in blue.iterrows()
+            {"series": self.series, "ref_period": d.date().isoformat(), "freq": self.freq,
+             "key": "", "value": float(p), "unit": self.unit}
+            for d, p in by_date.items()
         ]
         return self._tidy(records, vintage_date)
 
 
+class DefraBlueberryPrice(DefraPrice):
+    """Back-compat shim for the pipeline/tests — the original blueberry source."""
+
+    def __init__(self):
+        super().__init__("blueberry")
+
+
+def refresh_all(slugs=tuple(DEFRA_ITEMS)):
+    """Download the DEFRA CSV ONCE and write each fruit's wholesale £/kg to the vintage
+    store. Returns {slug: n_rows}."""
+    from ..store import vintage
+    resp = requests.get(_discover_csv_url(), headers=_HEADERS, timeout=40)
+    resp.raise_for_status()
+    frame = pd.read_csv(io.StringIO(resp.text))
+    out = {}
+    for slug in slugs:
+        df = DefraPrice(slug).fetch(frame=frame)
+        if not df.empty:
+            vintage.save(df)
+        out[slug] = len(df)
+    return out
+
+
 if __name__ == "__main__":
-    df = DefraBlueberryPrice().fetch()
-    print(f"rows: {len(df)}")
-    print(f"period range: {df['ref_period'].min()} .. {df['ref_period'].max()}")
-    print(df.sort_values("ref_period").tail(8).to_string(index=False))
+    import sys
+    slugs = sys.argv[1:] or list(DEFRA_ITEMS)
+    for slug, n in refresh_all(slugs).items():
+        print(f"defra_{slug}_price: {n} rows")

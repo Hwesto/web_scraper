@@ -443,11 +443,19 @@ def build(fruit=BLUEBERRY) -> str:
     # DEFRA British-season wholesale — a caveat aside, not a journey step.
     whole_note = ""
     if whole == whole and when_w is not None:
-        whole_note = (f'<div class="aside"><span class="tag">not a journey step</span> '
-                      f'UK-grown, British-season <b>wholesale</b> (DEFRA · New Covent Garden) is '
-                      f'<b>£{whole:.2f}/kg</b> ({pd.Timestamp(when_w).strftime("%b %Y")}) — premium '
-                      f'loose fruit sold spot, a different product/season to imported retail, so it '
-                      f'sits above both prices.</div>')
+        when = pd.Timestamp(when_w).strftime("%b %Y")
+        if shelf == shelf and whole > shelf:
+            pos = "sits <b>above</b> the imported shelf — British fruit is the premium product here"
+        elif shelf == shelf and whole >= landed:
+            pos = "sits <b>between</b> the imported border and shelf prices"
+        elif landed == landed and whole < landed:
+            pos = "runs <b>below</b> even the imported border price"
+        else:
+            pos = "is the British-season home-grown benchmark"
+        whole_note = (f'<div class="aside"><span class="tag">British-grown · not a journey step</span> '
+                      f'UK-grown, in-season <b>wholesale</b> (DEFRA · New Covent Garden) is '
+                      f'<b>£{whole:.2f}/kg</b> ({when}) — a different product/season from the imported '
+                      f'mainstream, so it {pos}.</div>')
     # Card 1 — border → shelf. We MEASURE both ends (HMRC landed, Trolley/ONS shelf),
     # so the SPREAD between them is real; we deliberately do NOT split that spread into
     # importer/distributor/retailer (free data can't), so it's shown as one band with the
@@ -465,8 +473,7 @@ def build(fruit=BLUEBERRY) -> str:
         if mavg == mavg and abs(mavg - landed) >= 0.15:
             live = f" — a live spread of {shelf_pfx}£{shelf-mavg:.2f}" if shelf > mavg else ""
             month_line = f' This month landed alone runs <b>£{mavg:.2f}</b>{live}.'
-        ends_note = ('Border is measured (HMRC); shelf is an <b>estimate</b> — the ONS retail index ÷ a '
-                     'standard fruit weight.' if est_g else
+        ends_note = ('The border price is HMRC-measured.' if est_g else
                      'Both ends are measured: HMRC at the border, '
                      + ('the ONS retail index on the shelf.' if ons_shelf else 'Trolley on the shelf.'))
         gap_full = (f'The spread is not the retailer\'s profit. UK produce departments typically run a '
@@ -495,7 +502,8 @@ def build(fruit=BLUEBERRY) -> str:
                    f'~<b>£{landed*ct:.0f}k</b>.</div>'
                    f'<p class="note">No supermarket shelf-price feed for '
                    f'{_FRUIT.name.lower()} yet, so the border→shelf build-up isn\'t shown. '
-                   f'Landed is the 12-month all-origin average (volume-weighted).</p>')
+                   f'Landed is the 12-month all-origin average (volume-weighted).</p>'
+                   f'{whole_note}')
     else:
         journey = '<p class="note">Insufficient price data.</p>'
     # Card 2 — the per-origin in-season prices that compose the blend, + per-container.
