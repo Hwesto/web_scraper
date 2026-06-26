@@ -1004,9 +1004,15 @@ _HUB = """<!doctype html><html lang="en"><head><meta charset="utf-8">
    transition:transform .12s ease,box-shadow .12s ease}}
  .fcard:hover{{transform:translateY(-2px);box-shadow:0 2px 4px rgba(36,31,26,.06),0 22px 44px -20px rgba(36,31,26,.34)}}
  .femoji{{font-size:2rem;line-height:1}}
- .fname{{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}}
+ .fname{{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;display:flex;
+   align-items:baseline;justify-content:space-between;gap:.5em}}
+ .ftrend{{font-size:.8rem;font-weight:700;flex:none}}
+ .ftrend.up{{color:#1a7f37}} .ftrend.down{{color:#c0392b}} .ftrend.flat{{color:var(--mut)}}
  .fstat{{font-size:.84rem;color:var(--mut);font-weight:500;line-height:1.5}}
+ .fstat.fsub{{font-size:.8rem}}
  .fstat b{{color:var(--accent);font-weight:700}}
+ .hsum{{font-size:.92rem;color:var(--ink);font-weight:500;margin:-18px 0 30px;line-height:1.5}}
+ .hsum b{{color:var(--accent);font-weight:800}}
  .foot{{margin-top:50px;font-size:.8rem;color:var(--mut);font-weight:500;line-height:1.7}}
  .foot a{{color:var(--accent)}}
 </style></head><body><div class="wrap">
@@ -1014,10 +1020,26 @@ _HUB = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <h1>Britain's Fruit Boards</h1>
 <p class="sub">At-a-glance monthly boards for the UK fresh-fruit trade — who supplies Britain,
 when, at what landed price, and where each sits in the world. One page per HS code.</p>
+<p class="hsum">{summary}</p>
 <div class="grid">{items}</div>
 <div class="foot">{n} fruit{plural} · built from free data (HMRC · UN Comtrade · FAOSTAT · DEFRA · Trolley) ·
 auto-updates weekly · generated {generated}.</div>
 </div></body></html>"""
+
+
+def _yoy_imports():
+    """Trailing-12-month import volume vs the prior 12 months, % — a 'is the UK buying
+    more?' signal for the hub. NaN if under two settled years of history."""
+    v = vintage.latest(_ser("hmrc", "imports"))
+    if v.empty:
+        return float("nan")
+    v = v.copy(); v["d"] = pd.to_datetime(v["ref_period"])
+    today = pd.Timestamp(_dt.date.today())
+    m = v[(today - v["d"]).dt.days >= 70].groupby("d")["value"].sum().sort_index()
+    if len(m) < 24:
+        return float("nan")
+    prev = m.iloc[-24:-12].sum()
+    return (m.iloc[-12:].sum() / prev - 1) * 100 if prev else float("nan")
 
 
 def _hub_card(fruit):
@@ -1026,7 +1048,8 @@ def _hub_card(fruit):
     cur, prev, rows, tot, mavg, mval = _board()
     top = rows[0]["origin"] if rows else "—"
     return {"slug": fruit.slug, "name": fruit.name, "emoji": fruit.emoji,
-            "imports_kt": s["imports_kt"], "landed": s["avg"], "top": top}
+            "imports_kt": s["imports_kt"], "value_gbp_m": s["imports_gbp_m"],
+            "landed": s["avg"], "top": top, "yoy": _yoy_imports()}
 
 
 def build_all():
@@ -1044,16 +1067,33 @@ def build_all():
     return cards
 
 
+def _money_gbp_m(m):
+    """£m -> compact '£1.0bn' / '£550m'."""
+    return f"£{m/1000:.1f}bn" if m >= 1000 else f"£{m:.0f}m"
+
+
 def build_hub(cards):
+    cards = sorted(cards, key=lambda c: -c["imports_kt"])   # ranked league table, biggest first
+    def _trend(yoy):
+        if yoy != yoy:
+            return ""
+        cls = "up" if yoy >= 3 else "down" if yoy <= -3 else "flat"
+        arr = "▲" if cls == "up" else "▼" if cls == "down" else "▬"
+        return f'<span class="ftrend {cls}">{arr} {abs(yoy):.0f}%</span>'
     items = "".join(
         f'<a class="fcard" href="{c["slug"]}.html">'
         f'<span class="femoji" aria-hidden="true">{c["emoji"]}</span>'
-        f'<span class="fname">{c["name"]}</span>'
-        f'<span class="fstat"><b>{c["imports_kt"]:.0f}K t</b> imports/yr · '
-        f'top {c["top"]} · landed <b>£{c["landed"]:.2f}</b>/kg</span></a>'
+        f'<span class="fname">{c["name"]}{_trend(c["yoy"])}</span>'
+        f'<span class="fstat"><b>{c["imports_kt"]:.0f}K t</b> · <b>{_money_gbp_m(c["value_gbp_m"])}</b> a year</span>'
+        f'<span class="fstat fsub">top {c["top"]} · landed <b>£{c["landed"]:.2f}</b>/kg</span></a>'
         for c in cards)
+    tot_kt = sum(c["imports_kt"] for c in cards)
+    tot_v = sum(c["value_gbp_m"] for c in cards)
+    summary = (f'<b>{len(cards)}</b> fruit{"" if len(cards)==1 else "s"} · '
+               f'<b>{tot_kt/1000:.1f} Mt</b> · <b>{_money_gbp_m(tot_v)}</b> landed a year · '
+               f'biggest by volume first, with the year-on-year trend')
     html = _HUB.format(items=items, n=len(cards), plural="" if len(cards) == 1 else "s",
-                       generated=_dt.date.today().isoformat())
+                       summary=summary, generated=_dt.date.today().isoformat())
     out = REPO_ROOT / "docs" / "index.html"
     out.write_text(html, encoding="utf-8")
     print(f"built docs/index.html (atlas hub, {len(cards)} fruits)")
