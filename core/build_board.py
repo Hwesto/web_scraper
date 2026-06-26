@@ -676,8 +676,8 @@ def build(fruit=BLUEBERRY) -> str:
     # Headline KPI cards — the summary stats, each its own card so they read distinct
     kpi = [("This month", f"{tot:,.0f} t", f"£{mval/1e6:.0f}m landed"),
            ("Per year", f"{s['imports_kt']:.0f}K t", f"£{s['imports_gbp_m']:.0f}m imported"),
-           ("UK-grown", f"{s['ss']:.1f}%" if _FRUIT.defra_production else "n/a",
-            "of all supply" if _FRUIT.defra_production else "no DEFRA data")]
+           ("UK-grown", f"{s['ss']:.1f}%" if _FRUIT.defra_production else "~0%",
+            "of all supply" if _FRUIT.defra_production else "all imported")]
     if uk_rank:
         kpi.append(("World rank", f"#{uk_rank}", f"{_FRUIT.name.lower()} importer"))
     kpis = "".join(f'<div class="kpi"><span class="kl">{l}</span>'
