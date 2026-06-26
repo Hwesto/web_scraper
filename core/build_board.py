@@ -711,6 +711,9 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  body{{margin:0;color:var(--ink);background:var(--bg);font-family:var(--sans);line-height:1.45;
    -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}}
  .wrap{{max-width:760px;margin:0 auto;padding:46px 20px 100px}}
+ .back{{display:inline-block;margin-bottom:18px;font-size:.78rem;font-weight:600;
+   letter-spacing:.02em;color:var(--mut);text-decoration:none}}
+ .back:hover{{color:var(--accent)}}
  .masthead{{margin-bottom:2px}}
  .kick{{text-transform:uppercase;letter-spacing:.16em;font-size:.7rem;color:var(--accent);font-weight:700}}
  h1{{font-size:2.5rem;line-height:1.04;margin:.16em 0 0;letter-spacing:-.025em;font-weight:800;color:var(--ink)}}
@@ -846,6 +849,7 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
    .strip .sl{{margin:0 0 4px}}
  }}
 </style></head><body><div class="wrap">
+<a class="back" href="index.html">← All fruit boards</a>
 <header class="masthead">
  <div class="kick">{emoji_html}the UK fresh-{commodity_lc} market</div>
  <h1>Britain's {commodity} Board</h1>
