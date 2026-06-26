@@ -410,6 +410,68 @@ def _money(usd):
     return f"${usd/1e9:.1f}bn" if usd >= 1e9 else f"${usd/1e6:.0f}m"
 
 
+def _history(months=36):
+    """Monthly import history for the trend chart: [(date, kt, gbp_kg_smoothed)] over the
+    last `months` SETTLED months. Volume is the true monthly tonnage; the landed £/kg line
+    is 3-month smoothed so off-season low-volume unit-value spikes don't read as errors."""
+    v = vintage.latest(_ser("hmrc", "imports")); val = vintage.latest(_ser("hmrc", "import_value"))
+    if v.empty or val.empty:
+        return []
+    v = v.copy(); v["d"] = pd.to_datetime(v["ref_period"])
+    val = val.copy(); val["d"] = pd.to_datetime(val["ref_period"])
+    df = pd.DataFrame({"t": v.groupby("d")["value"].sum(),
+                       "gbp": val.groupby("d")["value"].sum()}).dropna()
+    df = df[df["t"] > 0].sort_index()
+    df["kt"] = df["t"] / 1000
+    df["sm"] = (df["gbp"] / (df["t"] * 1000)).rolling(3, min_periods=1).mean()
+    today = pd.Timestamp(_dt.date.today())
+    df = df[(today - df.index).days >= 70]            # settled months only (no partial tail)
+    df = df.tail(months)
+    return [(d, float(r.kt), float(r.sm)) for d, r in df.iterrows()]
+
+
+def _history_svg(hist):
+    """A static dual-series chart: faint monthly import-volume bars + a landed-£/kg line
+    (3-mo avg). Inline SVG so the page stays JS-free. '' if too little history."""
+    if len(hist) < 6:
+        return ""
+    W, H, pl, pr, pt, pb = 680, 250, 12, 40, 16, 26
+    pw, ph = W - pl - pr, H - pt - pb
+    n = len(hist)
+    kts = [h[1] for h in hist]; prc = [h[2] for h in hist]
+    vmax = max(kts) * 1.12 or 1
+    pmin, pmax = min(prc), max(prc)
+    rng = (pmax - pmin) or 1
+    pmin -= rng * 0.12; pmax += rng * 0.12; rng = pmax - pmin
+    step = pw / n
+    xc = lambda i: pl + (i + 0.5) * step
+    py = lambda p: pt + ph * (1 - (p - pmin) / rng)
+    bw = step * 0.62
+    bars = "".join(
+        f'<rect x="{xc(i)-bw/2:.1f}" y="{pt+ph-(ph*kt/vmax):.1f}" width="{bw:.1f}" '
+        f'height="{ph*kt/vmax:.1f}" rx="1.5" class="hbar"/>'
+        for i, kt in enumerate(kts))
+    line = "".join(f'{"M" if i==0 else "L"}{xc(i):.1f},{py(p):.1f}' for i, p in enumerate(prc))
+    # year ticks at each January (and the first point)
+    ticks = ""
+    seen = set()
+    for i, (d, _, _) in enumerate(hist):
+        if d.year not in seen and (d.month <= 2 or i == 0):
+            seen.add(d.year)
+            ticks += (f'<line x1="{xc(i):.1f}" y1="{pt}" x2="{xc(i):.1f}" y2="{pt+ph}" class="hgrid"/>'
+                      f'<text x="{xc(i):.1f}" y="{H-8}" class="hyr">{d.year}</text>')
+    # latest price marker + label, and the peak-volume label
+    lp = prc[-1]
+    pk = kts.index(max(kts))
+    dot = f'<circle cx="{xc(n-1):.1f}" cy="{py(lp):.1f}" r="3.3" class="hdot"/>'
+    plab = f'<text x="{W-pr+4}" y="{py(lp)+4:.1f}" class="hpl">£{lp:.2f}</text>'
+    vlab = (f'<text x="{xc(pk):.1f}" y="{pt+ph-(ph*kts[pk]/vmax)-4:.1f}" class="hvl">'
+            f'{kts[pk]:.0f}kt</text>')
+    return (f'<svg viewBox="0 0 {W} {H}" class="hist" '
+            f'role="img" aria-label="monthly import volume and landed price, last 3 years">'
+            f'{ticks}{bars}{vlab}<path d="{line}" class="hline"/>{dot}{plab}</svg>')
+
+
 def build(fruit=BLUEBERRY) -> str:
     _set_fruit(fruit)
     cur, prev, rows, tot, mavg, mval = _board()
@@ -440,6 +502,23 @@ def build(fruit=BLUEBERRY) -> str:
     # sub-1% origins is all "small lane" filler and just pads the list. Blueberry's
     # 5 lanes are unaffected; banana's ~15 trims to the 8 that carry the month.
     board = "\n".join(_ticker_html(r) for r in rows[:RELAY_MAX_LANES])
+    # The last three years — monthly import volume (bars) + landed £/kg (line). The
+    # importer's view: seasonal buying window, price trend, and the counter-season premium.
+    hist = _history()
+    hsvg = _history_svg(hist)
+    history = ""
+    if hsvg:
+        h0, hn = hist[0][0], hist[-1][0]
+        plo, phi = min(h[2] for h in hist), max(h[2] for h in hist)
+        history = (f'<section class="sec"><div class="shead"><h2>The last three years</h2>'
+                   f'<p class="lede">monthly UK imports · volume (bars) &amp; landed £/kg, 3-mo avg (line) · '
+                   f'{h0.strftime("%b %Y")}–{hn.strftime("%b %Y")} · HMRC</p></div>'
+                   f'<div class="card">{hsvg}'
+                   f'<p class="cap">Landed price has run <b>£{plo:.2f}–£{phi:.2f}/kg</b> over the window '
+                   f'(the line is scaled to that band). Where it climbs, landing runs dear — the '
+                   f'counter-season window when off-season importers earn their premium; the bars are '
+                   f'the UK\'s monthly buy.</p>'
+                   f'</div></section>')
     # DEFRA British-season wholesale — a caveat aside, not a journey step.
     whole_note = ""
     if whole == whole and when_w is not None:
@@ -688,7 +767,7 @@ def build(fruit=BLUEBERRY) -> str:
                         commodity=_FRUIT.name, commodity_lc=_FRUIT.name.lower(), emoji_html=emoji_html,
                         kpis=kpis, shelf_rows=shelf_rows, shelf_lede=shelf_lede, journey=journey,
                         inseason=inseason, rex=rex, world=world,
-                        market=market, board=board, relay=relay_cells,
+                        market=market, board=board, relay=relay_cells, history=history,
                         relay_legend=relay_legend, sells=sells, container_t=ct,
                         generated=_dt.date.today().isoformat())
     fruit.out.parent.mkdir(parents=True, exist_ok=True)
@@ -798,6 +877,14 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
  .exp[open] summary .more::after{{content:" ⌃"}}
  .xp{{font-family:var(--serif);font-size:.96rem;color:#3a342b;line-height:1.65;margin:11px 0 2px}}
  .xp b{{color:var(--accent);font-weight:700}}
+ .hist{{width:100%;height:auto;display:block;margin:4px 0 2px;overflow:visible}}
+ .hist .hbar{{fill:#d3c8ef}}
+ .hist .hline{{fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round}}
+ .hist .hgrid{{stroke:var(--hair);stroke-width:1}}
+ .hist .hyr{{fill:var(--mut);font-size:13px;font-weight:600;text-anchor:middle}}
+ .hist .hdot{{fill:var(--accent)}}
+ .hist .hpl{{fill:var(--accent);font-size:15px;font-weight:800}}
+ .hist .hvl{{fill:#9b8fb0;font-size:12px;font-weight:700;text-anchor:middle}}
  .relay{{display:grid;grid-template-columns:repeat(12,1fr);grid-auto-rows:1fr;gap:7px;padding:8px 0}}
  .rc{{border:1px solid var(--hair);border-radius:11px;padding:11px 2px;text-align:center;background:#fff;
    display:flex;flex-direction:column;justify-content:center}}
@@ -858,6 +945,8 @@ _PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <section class="sec"><div class="shead"><h2>Who's landing this month</h2>
 <p class="lede">{month} · by share · landed £/kg, ▲▼ vs last month · y/y volume (material lanes only)</p></div>
 <div class="card">{board}</div></section>
+
+{history}
 
 <section class="sec"><div class="shead"><h2>The price journey</h2>
 <p class="lede">border to shelf · two measured prices and the spread between them</p></div>
